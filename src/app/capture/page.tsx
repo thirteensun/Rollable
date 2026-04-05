@@ -133,7 +133,7 @@ export default function CapturePage() {
         deal_id = newDeal?.id
 
         if (deal_id && contact_id) {
-          await supabase.from('deal_contacts').insert({ deal_id, contact_id }).onConflict('deal_id,contact_id').ignore()
+          await supabase.from('deal_contacts').upsert({ deal_id, contact_id }, { onConflict: 'deal_id,contact_id' })
         }
       }
 
