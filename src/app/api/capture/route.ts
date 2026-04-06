@@ -9,31 +9,46 @@ The image could be:
 - A screenshot of a WhatsApp or iMessage conversation
 - An email screenshot
 - A business card
+- A conference or event listing
 - Any sales-related document or photo
 
 Extract the following information and return ONLY valid JSON (no markdown, no backticks, just raw JSON):
 
 {
-  "summary": "A friendly, plain-English summary of what happened, written as if explaining to a colleague. 1-2 sentences max.",
+  "summary": "A friendly, plain-English summary of what happened or what was found, written as if explaining to a colleague. 1-2 sentences max.",
   "event_type": "meeting|call|email|whatsapp|note|card_scan|other",
   "contact_name": "Full name of the PRIMARY contact (or null if not found)",
-  "contact_names": ["array of ALL contact names found, even if multiple people mentioned"],
-  "company_name": "Company name (or null if not found)",
+  "contacts": [
+    {
+      "full_name": "Full name of each person found",
+      "role": "Their job title or position (or null if not found)",
+      "company_name": "Their company name (or null if not found)",
+      "email": "Their email address (or null if not found)",
+      "phone": "Their phone number (or null if not found)"
+    }
+  ],
+  "company_name": "Primary company name (or null if not found)",
   "deal_name": "A short deal name like 'TechCorp Enterprise' (or null if no deal context)",
-  "deal_value": 50000,
+  "deal_value": null,
   "follow_up_date": "ISO date string for follow-up if mentioned, like '2026-04-10' (or null)",
   "notes": "Any additional important details like requirements, objections, next steps",
   "creates": [
-    {"label": "Contact — [name]", "type": "contact"},
+    {"label": "Contact — [name] · [role] at [company]", "type": "contact"},
     {"label": "Deal — [name]", "type": "deal"},
     {"label": "Task — Follow-up [date]", "type": "task"},
     {"label": "Note — [brief description]", "type": "note"}
   ]
 }
 
-Only include items in "creates" that are actually relevant from the image.
-If you cannot read the image or it has no sales-relevant content, return:
-{"summary": "I couldn't extract any sales information from this image.", "event_type": "other", "creates": []}
+Rules:
+- Always populate the "contacts" array with every person found, including their role and company
+- For business cards, extract all details: name, role, company, email, phone
+- For meeting notes or chat screenshots, extract the person you spoke with
+- For conference/event listings, extract all speakers with their roles and organizations
+- Only include items in "creates" that are actually relevant from the image
+- deal_value should be a number (e.g. 50000) or null, never a string
+- If you cannot read the image or it has no relevant content, return:
+{"summary": "I couldn't extract any useful information from this image.", "event_type": "other", "contacts": [], "creates": []}
 `
 
 export async function POST(request: NextRequest) {
@@ -61,7 +76,7 @@ export async function POST(request: NextRequest) {
         }],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 1000,
+          maxOutputTokens: 1500,
         }
       })
     })
@@ -75,7 +90,6 @@ export async function POST(request: NextRequest) {
     const data = await response.json()
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
 
-    // Clean up response — remove any markdown formatting
     const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
 
     try {
@@ -86,6 +100,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         summary: "I processed your image but couldn't extract structured data. Please try again.",
         event_type: 'other',
+        contacts: [],
         creates: []
       })
     }

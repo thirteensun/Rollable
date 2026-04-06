@@ -7,10 +7,18 @@ import BottomNav from '@/components/layout/BottomNav'
 
 type Step = 'choose' | 'processing' | 'confirm'
 
+interface ContactData {
+  full_name: string
+  role?: string
+  company_name?: string
+  email?: string
+  phone?: string
+}
+
 interface AIResult {
   summary: string
   contact_name?: string
-  contact_names?: string[]
+  contacts?: ContactData[]
   company_name?: string
   deal_name?: string
   deal_value?: number
@@ -93,27 +101,63 @@ export default function CapturePage() {
         }
       }
 
-      // 2. Create or find contacts (support multiple)
+      // 2. Create or find contacts (support multiple with full details)
       let contact_id = null
-      const allContactNames = aiResult.contact_names?.length
-        ? aiResult.contact_names
-        : aiResult.contact_name ? [aiResult.contact_name] : []
+      const allContacts: ContactData[] = aiResult.contacts?.length
+        ? aiResult.contacts
+        : aiResult.contact_name ? [{ full_name: aiResult.contact_name }] : []
 
-      for (const name of allContactNames) {
+      for (const contactData of allContacts) {
+        // Find or create company per contact if they have one
+        let contactCompanyId = company_id
+        if (contactData.company_name && contactData.company_name !== aiResult.company_name) {
+          const { data: existingCo } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('user_id', user.id)
+            .ilike('name', contactData.company_name)
+            .maybeSingle()
+
+          if (existingCo) {
+            contactCompanyId = existingCo.id
+          } else {
+            const { data: newCo } = await supabase
+              .from('companies')
+              .insert({ user_id: user.id, name: contactData.company_name })
+              .select('id')
+              .maybeSingle()
+            contactCompanyId = newCo?.id
+          }
+        }
+
         const { data: existing } = await supabase
           .from('contacts')
           .select('id')
           .eq('user_id', user.id)
-          .ilike('full_name', name)
+          .ilike('full_name', contactData.full_name)
           .maybeSingle()
 
         if (existing) {
           if (!contact_id) contact_id = existing.id
-          await supabase.from('contacts').update({ last_contacted_at: new Date().toISOString(), company_id: company_id || undefined }).eq('id', existing.id)
+          await supabase.from('contacts').update({
+            last_contacted_at: new Date().toISOString(),
+            company_id: contactCompanyId || undefined,
+            role: contactData.role || undefined,
+            email: contactData.email || undefined,
+            phone: contactData.phone || undefined,
+          }).eq('id', existing.id)
         } else {
           const { data: newContact } = await supabase
             .from('contacts')
-            .insert({ user_id: user.id, full_name: name, company_id, last_contacted_at: new Date().toISOString() })
+            .insert({
+              user_id: user.id,
+              full_name: contactData.full_name,
+              company_id: contactCompanyId,
+              role: contactData.role || null,
+              email: contactData.email || null,
+              phone: contactData.phone || null,
+              last_contacted_at: new Date().toISOString(),
+            })
             .select('id')
             .maybeSingle()
           if (!contact_id) contact_id = newContact?.id
