@@ -30,54 +30,45 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
 
-  const isPublic = path.startsWith('/login') || path.startsWith('/auth')
+  const isAuthRoute = path.startsWith('/login') || path.startsWith('/auth')
   const isOnboarding = path.startsWith('/onboarding')
 
-  // Not logged in → login
-  if (!user && !isPublic && !isOnboarding) {
+  // ── Rule 1: Not logged in ──────────────────────────────
+  // Always send to login first. Never to onboarding.
+  if (!user) {
+    if (isAuthRoute || isOnboarding) return response // allow login + auth callback
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Not logged in + on onboarding → login
-  if (!user && isOnboarding) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
+  // ── From here: user IS logged in ──────────────────────
 
-  // Logged in + on login → home
-  if (user && isPublic) {
+  // Rule 2: Logged in + on login page → go home (middleware will check org there)
+  if (isAuthRoute) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // Logged in + not on onboarding → check org
-  if (user && !isOnboarding && !isPublic) {
-    const { data: membership } = await supabase
-      .from('organisation_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .limit(1)
-      .maybeSingle()
+  // Rule 3: Check org membership for all protected routes
+  const { data: membership } = await supabase
+    .from('organisation_members')
+    .select('org_id')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .limit(1)
+    .maybeSingle()
 
-    if (!membership) {
-      return NextResponse.redirect(new URL('/onboarding', request.url))
-    }
+  const hasOrg = !!membership
+
+  // Rule 4: Has org + on onboarding → go home
+  if (hasOrg && isOnboarding) {
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // Logged in + on onboarding + already has org → home
-  if (user && isOnboarding) {
-    const { data: membership } = await supabase
-      .from('organisation_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .limit(1)
-      .maybeSingle()
-
-    if (membership) {
-      return NextResponse.redirect(new URL('/', request.url))
-    }
+  // Rule 5: No org + not on onboarding → go to onboarding
+  if (!hasOrg && !isOnboarding) {
+    return NextResponse.redirect(new URL('/onboarding', request.url))
   }
 
+  // Rule 6: Everything else is fine — let through
   return response
 }
 
