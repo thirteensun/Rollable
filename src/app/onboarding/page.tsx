@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 
 type Step = 'choose' | 'create' | 'join'
@@ -10,6 +10,26 @@ export default function OnboardingPage() {
   const [orgName, setOrgName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // On mount — if user already has an org, redirect home immediately
+  useEffect(() => {
+    const check = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: membership } = await supabase
+        .from('organisation_members')
+        .select('org_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle()
+      if (membership) {
+        window.location.href = '/'
+      }
+    }
+    check()
+  })
 
   const slugify = (text: string) =>
     text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -23,6 +43,20 @@ export default function OnboardingPage() {
     const supabase = createClient()
 
     try {
+      // Check if user already has an active org — if so, just go home
+      const { data: existing } = await supabase
+        .from('organisation_members')
+        .select('org_id')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id || '')
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle()
+
+      if (existing) {
+        window.location.href = '/'
+        return
+      }
+
       const slug = slugify(orgName) + '-' + Math.random().toString(36).slice(2, 6)
       const { error: fnError } = await supabase.rpc('create_organisation', {
         org_name: orgName.trim(),
