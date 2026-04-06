@@ -27,6 +27,8 @@ interface Props {
   initials: string
   tasks: Task[]
   events: Event[]
+  orgName: string | null
+  userRole: string
 }
 
 function getTaskUrgency(task: Task): string {
@@ -57,9 +59,26 @@ function getInitials(name: string): string {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
-const avatarColors = ['#E6F1FB:#185FA5', '#E1F5EE:#0F6E56', '#FAEEDA:#854F0B', '#EEEDFE:#534AB7', '#FCEBEB:#A32D2D']
+const avatarColors = [
+  { bg: '#E6F1FB', color: '#185FA5' },
+  { bg: '#E1F5EE', color: '#0F6E56' },
+  { bg: '#FAEEDA', color: '#854F0B' },
+  { bg: '#EEEDFE', color: '#534AB7' },
+  { bg: '#FCEBEB', color: '#A32D2D' },
+]
 
-export default function HomeClient({ name, initials, tasks, events }: Props) {
+const eventTypeLabel: Record<string, string> = {
+  meeting: 'Meeting logged',
+  call: 'Call logged',
+  email: 'Email captured',
+  whatsapp: 'WhatsApp captured',
+  note: 'Note added',
+  card_scan: 'Business card scanned',
+  voice_memo: 'Voice memo logged',
+  other: 'Activity logged',
+}
+
+export default function HomeClient({ name, initials, tasks, events, orgName, userRole }: Props) {
   const router = useRouter()
 
   const handleSignOut = async () => {
@@ -88,6 +107,18 @@ export default function HomeClient({ name, initials, tasks, events }: Props) {
           <p style={{ margin: '4px 0 0', fontSize: '26px', fontWeight: 500, color: '#1a1a18' }}>
             {greeting()}, {name.split(' ')[0]}
           </p>
+          {orgName && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }}>{orgName}</p>
+              <span style={{
+                fontSize: '10px', color: '#9b9890',
+                background: 'rgba(0,0,0,0.06)', borderRadius: '4px',
+                padding: '1px 6px', textTransform: 'capitalize',
+              }}>
+                {userRole}
+              </span>
+            </div>
+          )}
         </div>
         <button onClick={handleSignOut} title="Sign out" style={{
           width: '38px', height: '38px', borderRadius: '50%',
@@ -184,23 +215,10 @@ export default function HomeClient({ name, initials, tasks, events }: Props) {
               const contactName = event.contacts?.full_name || null
               const companyName = event.companies?.name || null
               const dealName = event.deals?.name || null
-              const colors = avatarColors[i % avatarColors.length].split(':')
+              const palette = avatarColors[i % avatarColors.length]
               const displayName = contactName || companyName || 'Activity'
+              const label = eventTypeLabel[event.type] || 'Activity logged'
 
-              const eventTypeLabel: Record<string, string> = {
-                meeting: 'Meeting logged',
-                call: 'Call logged',
-                email: 'Email captured',
-                whatsapp: 'WhatsApp captured',
-                note: 'Note added',
-                card_scan: 'Business card scanned',
-                voice_memo: 'Voice memo logged',
-                other: 'Activity logged',
-              }
-
-              const typeLabel = eventTypeLabel[event.type] || 'Activity logged'
-
-              // Build what was created from this event
               const created = []
               if (contactName) created.push(`Contact — ${contactName}`)
               if (dealName) created.push(`Deal — ${dealName}`)
@@ -214,19 +232,18 @@ export default function HomeClient({ name, initials, tasks, events }: Props) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                     <div style={{
                       width: '28px', height: '28px', borderRadius: '8px',
-                      background: colors[0], display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: '10px', fontWeight: 500, color: colors[1],
-                      flexShrink: 0,
+                      background: palette.bg, display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: '10px', fontWeight: 500,
+                      color: palette.color, flexShrink: 0,
                     }}>
                       {getInitials(displayName)}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18' }}>{typeLabel}</p>
+                      <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18' }}>{label}</p>
                       <p style={{ margin: 0, fontSize: '11px', color: '#9b9890' }}>{timeAgo(event.created_at)}</p>
                     </div>
                   </div>
 
-                  {/* What was created */}
                   {created.length > 0 && (
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
                       {created.map((item, j) => (
@@ -241,7 +258,6 @@ export default function HomeClient({ name, initials, tasks, events }: Props) {
                     </div>
                   )}
 
-                  {/* AI summary */}
                   {event.summary && (
                     <p style={{ margin: 0, fontSize: '13px', color: '#9b9890', lineHeight: 1.5 }}>
                       {event.summary}
