@@ -2,7 +2,6 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
 import BottomNav from '@/components/layout/BottomNav'
 
 type Step = 'choose' | 'processing' | 'confirm'
@@ -73,161 +72,21 @@ export default function CapturePage() {
   const handleSave = async () => {
     if (!aiResult) return
     setSaving(true)
-
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push('/login'); return }
-
-    // Get user's org
-    const { data: membership } = await supabase
-      .from('organisation_members')
-      .select('org_id')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .maybeSingle()
-    const org_id = membership?.org_id || null
-
     try {
-      // 1. Create or find company
-      let company_id = null
-      if (aiResult.company_name) {
-        const { data: existing } = await supabase
-          .from('companies')
-          .select('id')
-          .eq('user_id', user.id)
-          .ilike('name', aiResult.company_name)
-          .maybeSingle()
-
-        if (existing) {
-          company_id = existing.id
-        } else {
-          const { data: newCompany } = await supabase
-            .from('companies')
-            .insert({ user_id: user.id, name: aiResult.company_name, org_id })
-            .select('id')
-            .maybeSingle()
-          company_id = newCompany?.id
-        }
-      }
-
-      // 2. Create or find contacts (support multiple with full details)
-      let contact_id = null
-      const allContacts: ContactData[] = aiResult.contacts?.length
-        ? aiResult.contacts
-        : aiResult.contact_name ? [{ full_name: aiResult.contact_name }] : []
-
-      for (const contactData of allContacts) {
-        // Find or create company per contact if they have one
-        let contactCompanyId = company_id
-        if (contactData.company_name && contactData.company_name !== aiResult.company_name) {
-          const { data: existingCo } = await supabase
-            .from('companies')
-            .select('id')
-            .eq('user_id', user.id)
-            .ilike('name', contactData.company_name)
-            .maybeSingle()
-
-          if (existingCo) {
-            contactCompanyId = existingCo.id
-          } else {
-            const { data: newCo } = await supabase
-              .from('companies')
-              .insert({ user_id: user.id, name: contactData.company_name, org_id })
-              .select('id')
-              .maybeSingle()
-            contactCompanyId = newCo?.id
-          }
-        }
-
-        const { data: existing } = await supabase
-          .from('contacts')
-          .select('id')
-          .eq('user_id', user.id)
-          .ilike('full_name', contactData.full_name)
-          .maybeSingle()
-
-        if (existing) {
-          if (!contact_id) contact_id = existing.id
-          await supabase.from('contacts').update({
-            last_contacted_at: new Date().toISOString(),
-            company_id: contactCompanyId || undefined,
-            role: contactData.role || undefined,
-            email: contactData.email || undefined,
-            phone: contactData.phone || undefined,
-          }).eq('id', existing.id)
-        } else {
-          const { data: newContact } = await supabase
-            .from('contacts')
-            .insert({
-              user_id: user.id,
-              full_name: contactData.full_name,
-              company_id: contactCompanyId,
-              role: contactData.role || null,
-              email: contactData.email || null,
-              phone: contactData.phone || null,
-              last_contacted_at: new Date().toISOString(),
-              org_id,
-            })
-            .select('id')
-            .maybeSingle()
-          if (!contact_id) contact_id = newContact?.id
-        }
-      }
-
-      // 3. Create or find deal
-      let deal_id = null
-      if (aiResult.deal_name) {
-        const { data: newDeal } = await supabase
-          .from('deals')
-          .insert({
-            user_id: user.id,
-            company_id,
-            name: aiResult.deal_name,
-            value: aiResult.deal_value || null,
-            stage: 'lead',
-            last_activity_at: new Date().toISOString(),
-            org_id,
-          })
-          .select('id')
-          .maybeSingle()
-        deal_id = newDeal?.id
-
-        if (deal_id && contact_id) {
-          await supabase.from('deal_contacts').upsert({ deal_id, contact_id }, { onConflict: 'deal_id,contact_id' })
-        }
-      }
-
-      // 4. Log the event
-      await supabase.from('events').insert({
-        user_id: user.id,
-        deal_id,
-        contact_id,
-        company_id,
-        org_id,
-        type: aiResult.event_type || 'meeting',
-        summary: aiResult.summary,
-        ai_confidence: 0.9,
-        metadata: { raw_ai_result: aiResult },
+      const response = await fetch('/api/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aiResult }),
       })
-
-      // 5. Create follow-up task if AI suggested one
-      if (aiResult.follow_up_date) {
-        await supabase.from('tasks').insert({
-          user_id: user.id,
-          deal_id,
-          contact_id,
-          org_id,
-          title: `Follow up with ${aiResult.contact_name || aiResult.company_name || 'contact'}`,
-          due_date: new Date(aiResult.follow_up_date).toISOString(),
-          ai_generated: true,
-        })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Save failed')
       }
-
       router.push('/')
       router.refresh()
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      alert('Failed to save. Please try again.')
+      alert(err.message || 'Failed to save. Please try again.')
       setSaving(false)
     }
   }
