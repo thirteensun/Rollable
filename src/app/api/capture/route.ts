@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent'
 
 const SYSTEM_PROMPT = `You are an AI assistant for a sales CRM. Analyze this image and extract structured sales information.
 
