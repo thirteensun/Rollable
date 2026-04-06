@@ -10,6 +10,7 @@ type Step = 'choose' | 'processing' | 'confirm'
 interface AIResult {
   summary: string
   contact_name?: string
+  contact_names?: string[]
   company_name?: string
   deal_name?: string
   deal_value?: number
@@ -92,26 +93,30 @@ export default function CapturePage() {
         }
       }
 
-      // 2. Create or find contact
+      // 2. Create or find contacts (support multiple)
       let contact_id = null
-      if (aiResult.contact_name) {
+      const allContactNames = aiResult.contact_names?.length
+        ? aiResult.contact_names
+        : aiResult.contact_name ? [aiResult.contact_name] : []
+
+      for (const name of allContactNames) {
         const { data: existing } = await supabase
           .from('contacts')
           .select('id')
           .eq('user_id', user.id)
-          .ilike('full_name', aiResult.contact_name)
+          .ilike('full_name', name)
           .maybeSingle()
 
         if (existing) {
-          contact_id = existing.id
-          await supabase.from('contacts').update({ last_contacted_at: new Date().toISOString(), company_id: company_id || undefined }).eq('id', contact_id)
+          if (!contact_id) contact_id = existing.id
+          await supabase.from('contacts').update({ last_contacted_at: new Date().toISOString(), company_id: company_id || undefined }).eq('id', existing.id)
         } else {
           const { data: newContact } = await supabase
             .from('contacts')
-            .insert({ user_id: user.id, full_name: aiResult.contact_name, company_id, last_contacted_at: new Date().toISOString() })
+            .insert({ user_id: user.id, full_name: name, company_id, last_contacted_at: new Date().toISOString() })
             .select('id')
             .maybeSingle()
-          contact_id = newContact?.id
+          if (!contact_id) contact_id = newContact?.id
         }
       }
 

@@ -16,7 +16,8 @@ Extract the following information and return ONLY valid JSON (no markdown, no ba
 {
   "summary": "A friendly, plain-English summary of what happened, written as if explaining to a colleague. 1-2 sentences max.",
   "event_type": "meeting|call|email|whatsapp|note|card_scan|other",
-  "contact_name": "Full name of the person (or null if not found)",
+  "contact_name": "Full name of the PRIMARY contact (or null if not found)",
+  "contact_names": ["array of ALL contact names found, even if multiple people mentioned"],
   "company_name": "Company name (or null if not found)",
   "deal_name": "A short deal name like 'TechCorp Enterprise' (or null if no deal context)",
   "deal_value": 50000,
