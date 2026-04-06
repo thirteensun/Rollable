@@ -14,6 +14,18 @@ export default async function HomePage() {
     .eq('id', user.id)
     .single()
 
+  // Get org name
+  const { data: orgMembership } = await supabase
+    .from('organisation_members')
+    .select('org_id, role, organisations(name)')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .limit(1)
+    .maybeSingle()
+
+  const orgName = (orgMembership?.organisations as any)?.name || null
+  const userRole = orgMembership?.role || 'rep'
+
   const today = new Date()
   today.setHours(23, 59, 59, 999)
 
@@ -36,5 +48,5 @@ export default async function HomePage() {
   const name = profile?.full_name || user.email?.split('@')[0] || 'there'
   const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
 
-  return <HomeClient name={name} initials={initials} tasks={tasks || []} events={events || []} />
+  return <HomeClient name={name} initials={initials} tasks={tasks || []} events={events || []} orgName={orgName} userRole={userRole} />
 }
