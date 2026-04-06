@@ -115,9 +115,14 @@ export default function HomeClient({ name, initials, tasks, events }: Props) {
 
       {/* Today's focus */}
       <div style={{ padding: '0 24px 20px' }}>
-        <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-          Today's focus
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            Today's focus
+          </p>
+          <a href="/planning" style={{ fontSize: '13px', color: '#9b9890', textDecoration: 'none' }}>
+            See all
+          </a>
+        </div>
 
         {tasks.length === 0 ? (
           <div style={{
