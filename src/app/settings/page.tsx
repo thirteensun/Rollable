@@ -25,12 +25,18 @@ export default async function SettingsPage() {
   const role = membership?.role || 'rep'
 
   // Get team members (all roles can see this)
-  const { data: members } = await supabase
+  const { data: membersRaw } = await supabase
     .from('organisation_members')
     .select('role, status, invited_email, user_id, users(full_name, email)')
     .eq('org_id', org?.id)
     .eq('status', 'active')
     .order('created_at', { ascending: true })
+
+  // Normalize users field — Supabase returns array or object depending on relationship
+  const members = (membersRaw || []).map((m: any) => ({
+    ...m,
+    users: Array.isArray(m.users) ? m.users[0] || null : m.users,
+  }))
 
   // Get subscription
   const { data: subscription } = await supabase
