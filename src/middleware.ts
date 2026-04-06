@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
@@ -33,22 +34,24 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = path.startsWith('/login') || path.startsWith('/auth')
   const isOnboarding = path.startsWith('/onboarding')
 
-  // ── Rule 1: Not logged in ──────────────────────────────
-  // Always send to login first. Never to onboarding.
+  // Rule 1: Not logged in → always go to login first
   if (!user) {
-    if (isAuthRoute || isOnboarding) return response // allow login + auth callback
+    if (isAuthRoute || isOnboarding) return response
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // ── From here: user IS logged in ──────────────────────
-
-  // Rule 2: Logged in + on login page → go home (middleware will check org there)
+  // Rule 2: Logged in + on login → go home
   if (isAuthRoute) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  // Rule 3: Check org membership for all protected routes
-  const { data: membership } = await supabase
+  // Rule 3: Check org membership using service role (bypasses RLS)
+  const adminSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { data: membership } = await adminSupabase
     .from('organisation_members')
     .select('org_id')
     .eq('user_id', user.id)
@@ -68,7 +71,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/onboarding', request.url))
   }
 
-  // Rule 6: Everything else is fine — let through
   return response
 }
 
