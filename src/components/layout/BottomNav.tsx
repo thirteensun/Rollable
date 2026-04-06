@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 export default function BottomNav() {
   const pathname = usePathname()
 
+  const isHome = pathname === '/'
   const isPlanning = pathname === '/planning'
   const isTracking = pathname === '/tracking'
 
@@ -28,6 +29,25 @@ export default function BottomNav() {
         zIndex: 50,
       }}
     >
+      {/* Home */}
+      <Link href="/" style={{ textDecoration: 'none' }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '4px',
+          opacity: isHome ? 1 : 0.35,
+          paddingBottom: '2px',
+          transition: 'opacity 0.2s ease',
+        }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M9 21V12h6v9" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span style={{ fontSize: '10px', color: '#1a1a18', fontWeight: isHome ? 500 : 400 }}>Home</span>
+        </div>
+      </Link>
+
       {/* Planning */}
       <Link href="/planning" style={{ textDecoration: 'none' }}>
         <div style={{
@@ -59,7 +79,6 @@ export default function BottomNav() {
           marginTop: '-32px',
           position: 'relative',
         }}>
-          {/* Pulse rings */}
           <div style={{
             position: 'absolute',
             width: '64px',
@@ -76,8 +95,6 @@ export default function BottomNav() {
             background: '#1a1a18',
             opacity: 0.08,
           }} className="capture-ring-2" />
-
-          {/* Button */}
           <div style={{
             width: '64px',
             height: '64px',
