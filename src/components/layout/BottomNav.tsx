@@ -81,10 +81,7 @@ export default function BottomNav() {
               <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </div>
-          <span style={{
-            fontSize: '11px', fontWeight: 500, color: '#1a1a18',
-            position: 'relative', zIndex: 1,
-          }}>Capture</span>
+
         </div>
       </Link>
 
