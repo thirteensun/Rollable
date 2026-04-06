@@ -78,6 +78,15 @@ export default function CapturePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
+    // Get user's org
+    const { data: membership } = await supabase
+      .from('organisation_members')
+      .select('org_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    const org_id = membership?.org_id || null
+
     try {
       // 1. Create or find company
       let company_id = null
@@ -94,7 +103,7 @@ export default function CapturePage() {
         } else {
           const { data: newCompany } = await supabase
             .from('companies')
-            .insert({ user_id: user.id, name: aiResult.company_name })
+            .insert({ user_id: user.id, name: aiResult.company_name, org_id })
             .select('id')
             .maybeSingle()
           company_id = newCompany?.id
@@ -123,7 +132,7 @@ export default function CapturePage() {
           } else {
             const { data: newCo } = await supabase
               .from('companies')
-              .insert({ user_id: user.id, name: contactData.company_name })
+              .insert({ user_id: user.id, name: contactData.company_name, org_id })
               .select('id')
               .maybeSingle()
             contactCompanyId = newCo?.id
@@ -157,6 +166,7 @@ export default function CapturePage() {
               email: contactData.email || null,
               phone: contactData.phone || null,
               last_contacted_at: new Date().toISOString(),
+              org_id,
             })
             .select('id')
             .maybeSingle()
@@ -176,6 +186,7 @@ export default function CapturePage() {
             value: aiResult.deal_value || null,
             stage: 'lead',
             last_activity_at: new Date().toISOString(),
+            org_id,
           })
           .select('id')
           .maybeSingle()
@@ -192,6 +203,7 @@ export default function CapturePage() {
         deal_id,
         contact_id,
         company_id,
+        org_id,
         type: aiResult.event_type || 'meeting',
         summary: aiResult.summary,
         ai_confidence: 0.9,
@@ -204,6 +216,7 @@ export default function CapturePage() {
           user_id: user.id,
           deal_id,
           contact_id,
+          org_id,
           title: `Follow up with ${aiResult.contact_name || aiResult.company_name || 'contact'}`,
           due_date: new Date(aiResult.follow_up_date).toISOString(),
           ai_generated: true,
