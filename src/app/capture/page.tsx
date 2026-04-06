@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
 import BottomNav from '@/components/layout/BottomNav'
 
 type Step = 'choose' | 'processing' | 'confirm'
@@ -72,16 +73,158 @@ export default function CapturePage() {
   const handleSave = async () => {
     if (!aiResult) return
     setSaving(true)
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { router.push('/login'); return }
+
+    // Get org_id
+    const { data: membership } = await supabase
+      .from('organisation_members')
+      .select('org_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle()
+    const org_id = membership?.org_id || null
+
     try {
-      const response = await fetch('/api/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aiResult }),
-      })
-      if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.error || 'Save failed')
+      // 1. Create or find company
+      let company_id = null
+      if (aiResult.company_name) {
+        const { data: existing } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('user_id', user.id)
+          .ilike('name', aiResult.company_name)
+          .maybeSingle()
+
+        if (existing) {
+          company_id = existing.id
+        } else {
+          const { data: newCompany } = await supabase
+            .from('companies')
+            .insert({ user_id: user.id, name: aiResult.company_name, org_id })
+            .select('id')
+            .maybeSingle()
+          company_id = newCompany?.id
+        }
       }
+
+      // 2. Create or find contacts (multiple supported)
+      let contact_id = null
+      const allContacts: ContactData[] = aiResult.contacts?.length
+        ? aiResult.contacts
+        : aiResult.contact_name ? [{ full_name: aiResult.contact_name }] : []
+
+      for (const contactData of allContacts) {
+        // Per-contact company
+        let contactCompanyId = company_id
+        if (contactData.company_name && contactData.company_name !== aiResult.company_name) {
+          const { data: existingCo } = await supabase
+            .from('companies')
+            .select('id')
+            .eq('user_id', user.id)
+            .ilike('name', contactData.company_name)
+            .maybeSingle()
+
+          if (existingCo) {
+            contactCompanyId = existingCo.id
+          } else {
+            const { data: newCo } = await supabase
+              .from('companies')
+              .insert({ user_id: user.id, name: contactData.company_name, org_id })
+              .select('id')
+              .maybeSingle()
+            contactCompanyId = newCo?.id
+          }
+        }
+
+        const { data: existing } = await supabase
+          .from('contacts')
+          .select('id')
+          .eq('user_id', user.id)
+          .ilike('full_name', contactData.full_name)
+          .maybeSingle()
+
+        if (existing) {
+          if (!contact_id) contact_id = existing.id
+          await supabase.from('contacts').update({
+            last_contacted_at: new Date().toISOString(),
+            company_id: contactCompanyId || undefined,
+            role: contactData.role || undefined,
+            email: contactData.email || undefined,
+            phone: contactData.phone || undefined,
+          }).eq('id', existing.id)
+        } else {
+          const { data: newContact } = await supabase
+            .from('contacts')
+            .insert({
+              user_id: user.id,
+              full_name: contactData.full_name,
+              company_id: contactCompanyId,
+              role: contactData.role || null,
+              email: contactData.email || null,
+              phone: contactData.phone || null,
+              last_contacted_at: new Date().toISOString(),
+              org_id,
+            })
+            .select('id')
+            .maybeSingle()
+          if (!contact_id) contact_id = newContact?.id
+        }
+      }
+
+      // 3. Create deal
+      let deal_id = null
+      if (aiResult.deal_name) {
+        const { data: newDeal } = await supabase
+          .from('deals')
+          .insert({
+            user_id: user.id,
+            company_id,
+            name: aiResult.deal_name,
+            value: aiResult.deal_value || null,
+            stage: 'lead',
+            last_activity_at: new Date().toISOString(),
+            org_id,
+          })
+          .select('id')
+          .maybeSingle()
+        deal_id = newDeal?.id
+
+        if (deal_id && contact_id) {
+          await supabase.from('deal_contacts')
+            .upsert({ deal_id, contact_id }, { onConflict: 'deal_id,contact_id' })
+        }
+      }
+
+      // 4. Log event
+      await supabase.from('events').insert({
+        user_id: user.id,
+        deal_id,
+        contact_id,
+        company_id,
+        org_id,
+        type: aiResult.event_type || 'meeting',
+        summary: aiResult.summary,
+        ai_confidence: 0.9,
+        metadata: { raw_ai_result: aiResult },
+      })
+
+      // 5. Create follow-up task
+      if (aiResult.follow_up_date) {
+        await supabase.from('tasks').insert({
+          user_id: user.id,
+          deal_id,
+          contact_id,
+          org_id,
+          title: `Follow up with ${aiResult.contact_name || aiResult.company_name || 'contact'}`,
+          due_date: new Date(aiResult.follow_up_date).toISOString(),
+          ai_generated: true,
+        })
+      }
+
       router.push('/')
       router.refresh()
     } catch (err: any) {
@@ -169,20 +312,29 @@ export default function CapturePage() {
             Or pick from library
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
-            {[
-              { label: 'Screenshot' }, { label: 'Email' },
-              { label: 'Chat thread' }, { label: 'Business card' },
-            ].map((item) => (
-              <button key={item.label} onClick={() => fileInputRef.current?.click()} style={{
+            {['Screenshot', 'Email', 'Chat thread', 'Business card'].map((item) => (
+              <button key={item} onClick={() => fileInputRef.current?.click()} style={{
                 background: 'white', borderRadius: '14px',
                 border: '0.5px solid rgba(0,0,0,0.07)', padding: '14px',
                 display: 'flex', alignItems: 'center', gap: '10px',
-                cursor: 'pointer', width: '100%', fontSize: '13px', color: '#1a1a18',
-                fontFamily: 'inherit',
+                cursor: 'pointer', width: '100%', fontSize: '13px',
+                color: '#1a1a18', fontFamily: 'inherit',
               }}>
-                {item.label}
+                {item}
               </button>
             ))}
+          </div>
+
+          <div style={{
+            background: 'white', borderRadius: '14px',
+            border: '0.5px solid rgba(0,0,0,0.07)',
+            padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="#9b9890" strokeWidth="1.4" strokeLinecap="round" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#9b9890" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+            <span style={{ fontSize: '14px', color: '#9b9890' }}>Or type a quick note...</span>
           </div>
         </div>
       )}
@@ -220,22 +372,24 @@ export default function CapturePage() {
             </div>
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-              I'll create or update
-            </p>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {aiResult.creates.map((item, i) => (
-                <div key={i} style={{
-                  background: pillColors[item.type].bg,
-                  borderRadius: '20px', padding: '6px 12px',
-                  fontSize: '13px', color: pillColors[item.type].color, fontWeight: 500,
-                }}>
-                  {item.label}
-                </div>
-              ))}
+          {aiResult.creates.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                I'll create or update
+              </p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {aiResult.creates.map((item, i) => (
+                  <div key={i} style={{
+                    background: pillColors[item.type].bg,
+                    borderRadius: '20px', padding: '6px 12px',
+                    fontSize: '13px', color: pillColors[item.type].color, fontWeight: 500,
+                  }}>
+                    {item.label}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
             <button onClick={() => setStep('choose')} style={{
@@ -248,7 +402,8 @@ export default function CapturePage() {
             <button onClick={handleSave} disabled={saving} style={{
               flex: 2, background: saving ? '#6b6960' : '#1a1a18', border: 'none',
               borderRadius: '22px', padding: '15px', fontSize: '15px',
-              color: 'white', fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+              color: 'white', fontWeight: 500,
+              cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
             }}>
               {saving ? 'Saving...' : 'Looks good, save it'}
             </button>
