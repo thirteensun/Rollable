@@ -137,16 +137,35 @@ export default function OnboardingPage() {
 
             {/* Three value props */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '32px' }}>
-              {[
-                { icon: '📸', text: 'Snap a photo or screenshot — AI logs everything' },
-                { icon: '🎯', text: 'Your day, intelligently planned every morning' },
-                { icon: '📊', text: 'Pipeline that updates itself, zero data entry' },
-              ].map((item, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '16px' }}>{item.icon}</span>
-                  <p style={{ margin: 0, fontSize: '14px', color: '#6b6960', lineHeight: 1.4 }}>{item.text}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: 'white', border: '0.5px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="5" width="18" height="15" rx="2" stroke="#1a1a18" strokeWidth="1.5"/>
+                    <circle cx="12" cy="12" r="3" stroke="#1a1a18" strokeWidth="1.5"/>
+                    <circle cx="17.5" cy="7.5" r="1" fill="#1a1a18"/>
+                  </svg>
                 </div>
-              ))}
+                <p style={{ margin: 0, fontSize: '14px', color: '#6b6960', lineHeight: 1.4 }}>Snap a photo or screenshot — AI logs everything</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: 'white', border: '0.5px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <rect x="3" y="3" width="8" height="8" rx="2" stroke="#1a1a18" strokeWidth="1.5"/>
+                    <rect x="13" y="3" width="8" height="8" rx="2" stroke="#1a1a18" strokeWidth="1.5"/>
+                    <rect x="3" y="13" width="8" height="8" rx="2" stroke="#1a1a18" strokeWidth="1.5"/>
+                    <rect x="13" y="13" width="8" height="8" rx="2" stroke="#1a1a18" strokeWidth="1.5"/>
+                  </svg>
+                </div>
+                <p style={{ margin: 0, fontSize: '14px', color: '#6b6960', lineHeight: 1.4 }}>Your day, intelligently planned every morning</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: 'white', border: '0.5px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 12h18M3 6h18M3 18h18" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <p style={{ margin: 0, fontSize: '14px', color: '#6b6960', lineHeight: 1.4 }}>Pipeline that updates itself, zero data entry</p>
+              </div>
             </div>
           </div>
         )}
