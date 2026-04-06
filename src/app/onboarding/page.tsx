@@ -1,16 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
 type Step = 'choose' | 'create' | 'join'
 
 export default function OnboardingPage() {
-  const router = useRouter()
   const [step, setStep] = useState<Step>('choose')
   const [orgName, setOrgName] = useState('')
-  const [inviteCode, setInviteCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -27,15 +24,16 @@ export default function OnboardingPage() {
 
     try {
       const slug = slugify(orgName) + '-' + Math.random().toString(36).slice(2, 6)
-      const { data, error: fnError } = await supabase.rpc('create_organisation', {
+      const { error: fnError } = await supabase.rpc('create_organisation', {
         org_name: orgName.trim(),
         org_slug: slug,
       })
 
       if (fnError) throw fnError
 
-      router.push('/')
-      router.refresh()
+      await supabase.auth.refreshSession()
+      await new Promise(r => setTimeout(r, 500))
+      window.location.href = '/'
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.')
       setLoading(false)
@@ -51,25 +49,31 @@ export default function OnboardingPage() {
       justifyContent: 'space-between',
       padding: '64px 24px 48px',
     }}>
-      {/* Logo */}
+
+      {/* Top section */}
       <div>
+        {/* Logo mark */}
         <div style={{
           width: '48px', height: '48px', borderRadius: '14px',
           background: '#1a1a18', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', marginBottom: '32px',
+          justifyContent: 'center', marginBottom: '40px',
         }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </div>
 
+        {/* Step: Choose */}
         {step === 'choose' && (
           <div className="animate-fade-in-up">
-            <h1 style={{ margin: '0 0 8px', fontSize: '26px', fontWeight: 500, color: '#1a1a18' }}>
-              Welcome aboard.
+            <p style={{ margin: '0 0 8px', fontSize: '13px', color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 500 }}>
+              One last thing
+            </p>
+            <h1 style={{ margin: '0 0 12px', fontSize: '30px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.15 }}>
+              Liberate your<br />sales team.
             </h1>
-            <p style={{ margin: '0 0 32px', fontSize: '15px', color: '#9b9890', lineHeight: 1.5 }}>
-              Set up your workspace to get started.
+            <p style={{ margin: '0 0 40px', fontSize: '16px', color: '#9b9890', lineHeight: 1.6 }}>
+              Set up your workspace and let AI handle the rest — no forms, no friction, just results.
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -83,7 +87,7 @@ export default function OnboardingPage() {
                   background: 'rgba(255,255,255,0.1)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                     <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
                   </svg>
                 </div>
@@ -91,12 +95,12 @@ export default function OnboardingPage() {
                   <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: 'white' }}>
                     Create a new workspace
                   </p>
-                  <p style={{ margin: '3px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>
+                  <p style={{ margin: '3px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.45)' }}>
                     For your company or team
                   </p>
                 </div>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M6 4l4 4-4 4" stroke="rgba(255,255,255,0.4)" strokeWidth="1.3" strokeLinecap="round" />
+                  <path d="M6 4l4 4-4 4" stroke="rgba(255,255,255,0.35)" strokeWidth="1.3" strokeLinecap="round" />
                 </svg>
               </button>
 
@@ -111,7 +115,7 @@ export default function OnboardingPage() {
                   background: '#f5f4f0',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" />
                     <circle cx="9" cy="7" r="4" stroke="#1a1a18" strokeWidth="1.5" />
                     <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" />
@@ -126,19 +130,34 @@ export default function OnboardingPage() {
                   </p>
                 </div>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M6 4l4 4-4 4" stroke="#9b9890" strokeWidth="1.3" strokeLinecap="round" />
+                  <path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.3" strokeLinecap="round" />
                 </svg>
               </button>
+            </div>
+
+            {/* Three value props */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '32px' }}>
+              {[
+                { icon: '📸', text: 'Snap a photo or screenshot — AI logs everything' },
+                { icon: '🎯', text: 'Your day, intelligently planned every morning' },
+                { icon: '📊', text: 'Pipeline that updates itself, zero data entry' },
+              ].map((item, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '16px' }}>{item.icon}</span>
+                  <p style={{ margin: 0, fontSize: '14px', color: '#6b6960', lineHeight: 1.4 }}>{item.text}</p>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
+        {/* Step: Create */}
         {step === 'create' && (
           <div className="animate-fade-in-up">
             <button onClick={() => setStep('choose')} style={{
               background: 'none', border: 'none', cursor: 'pointer',
               fontSize: '14px', color: '#9b9890', padding: 0,
-              marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '6px',
+              marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '6px',
               fontFamily: 'inherit',
             }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -147,11 +166,14 @@ export default function OnboardingPage() {
               Back
             </button>
 
-            <h1 style={{ margin: '0 0 8px', fontSize: '24px', fontWeight: 500, color: '#1a1a18' }}>
-              Name your workspace
+            <p style={{ margin: '0 0 8px', fontSize: '13px', color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 500 }}>
+              Almost there
+            </p>
+            <h1 style={{ margin: '0 0 8px', fontSize: '28px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.2 }}>
+              Name your<br />workspace
             </h1>
-            <p style={{ margin: '0 0 28px', fontSize: '15px', color: '#9b9890' }}>
-              This is usually your company name.
+            <p style={{ margin: '0 0 32px', fontSize: '15px', color: '#9b9890', lineHeight: 1.5 }}>
+              This is usually your company name. You can always change it later.
             </p>
 
             <form onSubmit={handleCreateOrg} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -167,7 +189,7 @@ export default function OnboardingPage() {
                   required
                   autoFocus
                   style={{
-                    width: '100%', padding: '14px 16px',
+                    width: '100%', padding: '15px 16px',
                     fontSize: '16px', color: '#1a1a18',
                     background: 'white', border: '0.5px solid rgba(0,0,0,0.12)',
                     borderRadius: '14px', outline: 'none',
@@ -176,10 +198,24 @@ export default function OnboardingPage() {
                 />
               </div>
 
-              {orgName && (
-                <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }}>
-                  You'll be the admin of this workspace.
-                </p>
+              {orgName.trim() && (
+                <div style={{
+                  background: 'white', borderRadius: '12px',
+                  border: '0.5px solid rgba(0,0,0,0.07)',
+                  padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '10px',
+                }}>
+                  <div style={{
+                    width: '28px', height: '28px', borderRadius: '8px',
+                    background: '#1a1a18', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', fontSize: '11px', fontWeight: 500, color: 'white', flexShrink: 0,
+                  }}>
+                    {orgName.trim()[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18' }}>{orgName.trim()}</p>
+                    <p style={{ margin: 0, fontSize: '11px', color: '#9b9890' }}>You · Admin · Free plan</p>
+                  </div>
+                </div>
               )}
 
               {error && (
@@ -192,25 +228,28 @@ export default function OnboardingPage() {
                 style={{
                   width: '100%', padding: '16px',
                   fontSize: '16px', fontWeight: 500,
-                  color: 'white', background: loading ? '#6b6960' : '#1a1a18',
+                  color: 'white',
+                  background: loading || !orgName.trim() ? '#9b9890' : '#1a1a18',
                   border: 'none', borderRadius: '22px',
-                  cursor: loading ? 'not-allowed' : 'pointer',
+                  cursor: loading || !orgName.trim() ? 'not-allowed' : 'pointer',
                   fontFamily: 'inherit',
                   marginTop: '8px',
+                  transition: 'background 0.2s ease',
                 }}
               >
-                {loading ? 'Creating...' : 'Create workspace'}
+                {loading ? 'Setting up your workspace...' : 'Create workspace'}
               </button>
             </form>
           </div>
         )}
 
+        {/* Step: Join */}
         {step === 'join' && (
           <div className="animate-fade-in-up">
             <button onClick={() => setStep('choose')} style={{
               background: 'none', border: 'none', cursor: 'pointer',
               fontSize: '14px', color: '#9b9890', padding: 0,
-              marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '6px',
+              marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '6px',
               fontFamily: 'inherit',
             }}>
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -219,20 +258,26 @@ export default function OnboardingPage() {
               Back
             </button>
 
-            <h1 style={{ margin: '0 0 8px', fontSize: '24px', fontWeight: 500, color: '#1a1a18' }}>
+            <p style={{ margin: '0 0 8px', fontSize: '13px', color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 500 }}>
               Join your team
+            </p>
+            <h1 style={{ margin: '0 0 8px', fontSize: '28px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.2 }}>
+              Your team is<br />waiting for you.
             </h1>
-            <p style={{ margin: '0 0 28px', fontSize: '15px', color: '#9b9890', lineHeight: 1.5 }}>
-              Ask your admin to send you an invite link. It will take you straight in.
+            <p style={{ margin: '0 0 32px', fontSize: '15px', color: '#9b9890', lineHeight: 1.5 }}>
+              Ask your admin to send you an invite link — it'll bring you straight in.
             </p>
 
             <div style={{
               background: 'white', borderRadius: '16px',
               border: '0.5px solid rgba(0,0,0,0.07)',
-              padding: '20px', textAlign: 'center',
+              padding: '20px',
             }}>
-              <p style={{ margin: 0, fontSize: '14px', color: '#9b9890', lineHeight: 1.6 }}>
-                Invite links coming soon. For now, ask your admin to add your email directly from their workspace settings.
+              <p style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>
+                No invite yet?
+              </p>
+              <p style={{ margin: 0, fontSize: '13px', color: '#9b9890', lineHeight: 1.6 }}>
+                Ask your admin to add your email from their workspace settings. You'll get a magic link to join instantly.
               </p>
             </div>
           </div>
