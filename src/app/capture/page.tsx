@@ -78,7 +78,7 @@ export default function CapturePage() {
           .select('id')
           .eq('user_id', user.id)
           .ilike('name', aiResult.company_name)
-          .single()
+          .maybeSingle()
 
         if (existing) {
           company_id = existing.id
@@ -87,7 +87,7 @@ export default function CapturePage() {
             .from('companies')
             .insert({ user_id: user.id, name: aiResult.company_name })
             .select('id')
-            .single()
+            .maybeSingle()
           company_id = newCompany?.id
         }
       }
@@ -100,7 +100,7 @@ export default function CapturePage() {
           .select('id')
           .eq('user_id', user.id)
           .ilike('full_name', aiResult.contact_name)
-          .single()
+          .maybeSingle()
 
         if (existing) {
           contact_id = existing.id
@@ -110,7 +110,7 @@ export default function CapturePage() {
             .from('contacts')
             .insert({ user_id: user.id, full_name: aiResult.contact_name, company_id, last_contacted_at: new Date().toISOString() })
             .select('id')
-            .single()
+            .maybeSingle()
           contact_id = newContact?.id
         }
       }
@@ -129,7 +129,7 @@ export default function CapturePage() {
             last_activity_at: new Date().toISOString(),
           })
           .select('id')
-          .single()
+          .maybeSingle()
         deal_id = newDeal?.id
 
         if (deal_id && contact_id) {
