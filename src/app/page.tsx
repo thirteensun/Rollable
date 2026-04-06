@@ -28,7 +28,7 @@ export default async function HomePage() {
 
   const { data: events } = await supabase
     .from('events')
-    .select('*, contacts(full_name), deals(name)')
+    .select('*, contacts(full_name), deals(name), companies(name)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(5)

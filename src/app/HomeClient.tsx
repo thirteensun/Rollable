@@ -19,6 +19,7 @@ interface Event {
   created_at: string
   contacts: { full_name: string } | null
   deals: { name: string } | null
+  companies: { name: string } | null
 }
 
 interface Props {
@@ -180,27 +181,72 @@ export default function HomeClient({ name, initials, tasks, events }: Props) {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {events.map((event, i) => {
-              const contactName = event.contacts?.full_name || 'Unknown'
+              const contactName = event.contacts?.full_name || null
+              const companyName = event.companies?.name || null
+              const dealName = event.deals?.name || null
               const colors = avatarColors[i % avatarColors.length].split(':')
+              const displayName = contactName || companyName || 'Activity'
+
+              const eventTypeLabel: Record<string, string> = {
+                meeting: 'Meeting logged',
+                call: 'Call logged',
+                email: 'Email captured',
+                whatsapp: 'WhatsApp captured',
+                note: 'Note added',
+                card_scan: 'Business card scanned',
+                voice_memo: 'Voice memo logged',
+                other: 'Activity logged',
+              }
+
+              const typeLabel = eventTypeLabel[event.type] || 'Activity logged'
+
+              // Build what was created from this event
+              const created = []
+              if (contactName) created.push(`Contact — ${contactName}`)
+              if (dealName) created.push(`Deal — ${dealName}`)
+              if (companyName && !contactName) created.push(`Company — ${companyName}`)
+
               return (
                 <div key={event.id} style={{
                   background: 'white', borderRadius: '14px',
                   border: '0.5px solid rgba(0,0,0,0.07)', padding: '13px 14px',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                     <div style={{
-                      width: '26px', height: '26px', borderRadius: '50%',
+                      width: '28px', height: '28px', borderRadius: '8px',
                       background: colors[0], display: 'flex', alignItems: 'center',
                       justifyContent: 'center', fontSize: '10px', fontWeight: 500, color: colors[1],
+                      flexShrink: 0,
                     }}>
-                      {getInitials(contactName)}
+                      {getInitials(displayName)}
                     </div>
-                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18' }}>{contactName}</p>
-                    <p style={{ margin: '0 0 0 auto', fontSize: '11px', color: '#9b9890' }}>{timeAgo(event.created_at)}</p>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18' }}>{typeLabel}</p>
+                      <p style={{ margin: 0, fontSize: '11px', color: '#9b9890' }}>{timeAgo(event.created_at)}</p>
+                    </div>
                   </div>
-                  <p style={{ margin: 0, fontSize: '13px', color: '#6b6960', lineHeight: 1.5 }}>
-                    {event.summary || `${event.type} logged`}
-                  </p>
+
+                  {/* What was created */}
+                  {created.length > 0 && (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                      {created.map((item, j) => (
+                        <span key={j} style={{
+                          fontSize: '11px', color: '#6b6960',
+                          background: '#f5f4f0', borderRadius: '6px',
+                          padding: '3px 8px',
+                        }}>
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* AI summary */}
+                  {event.summary && (
+                    <p style={{ margin: 0, fontSize: '13px', color: '#9b9890', lineHeight: 1.5 }}>
+                      {event.summary}
+                    </p>
+                  )}
                 </div>
               )
             })}
