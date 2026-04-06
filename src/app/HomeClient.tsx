@@ -1,7 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
 import BottomNav from '@/components/layout/BottomNav'
 
 interface Task {
@@ -79,14 +77,8 @@ const eventTypeLabel: Record<string, string> = {
 }
 
 export default function HomeClient({ name, initials, tasks, events, orgName, userRole }: Props) {
-  const router = useRouter()
 
-  const handleSignOut = async () => {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
+
 
   const greeting = () => {
     const hour = new Date().getHours()
@@ -120,14 +112,16 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
             </div>
           )}
         </div>
-        <button onClick={handleSignOut} title="Sign out" style={{
-          width: '38px', height: '38px', borderRadius: '50%',
-          background: '#1a1a18', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', fontSize: '13px', fontWeight: 500,
-          color: '#f5f4f0', border: 'none', cursor: 'pointer',
-        }}>
-          {initials}
-        </button>
+        <a href="/settings" style={{ textDecoration: 'none' }}>
+          <div style={{
+            width: '38px', height: '38px', borderRadius: '50%',
+            background: '#1a1a18', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontSize: '13px', fontWeight: 500,
+            color: '#f5f4f0', cursor: 'pointer',
+          }}>
+            {initials}
+          </div>
+        </a>
       </div>
 
       {/* Search */}
