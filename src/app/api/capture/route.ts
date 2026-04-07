@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-export const config = {
-  api: { bodyParser: { sizeLimit: '10mb' } },
-}
+export const maxDuration = 30
+export const dynamic = 'force-dynamic'
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent'
 
