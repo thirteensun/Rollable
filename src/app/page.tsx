@@ -31,16 +31,10 @@ export default async function HomePage() {
 
   const userRole = orgMembership?.role || 'rep'
 
-  console.log('DEBUG membership:', JSON.stringify(orgMembership))
-  console.log('DEBUG user.id:', user.id)
-
   // Get org name directly
-  const { data: orgData, error: orgError } = orgMembership?.org_id
+  const { data: orgData } = orgMembership?.org_id
     ? await admin.from('organisations').select('name').eq('id', orgMembership.org_id).single()
-    : { data: null, error: null }
-
-  console.log('DEBUG orgData:', JSON.stringify(orgData))
-  console.log('DEBUG orgError:', JSON.stringify(orgError))
+    : { data: null }
 
   const orgName = orgData?.name || null
 
