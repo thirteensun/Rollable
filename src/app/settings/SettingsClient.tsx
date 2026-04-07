@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import BottomNav from '@/components/layout/BottomNav'
 
 interface Member {
   role: string
@@ -91,7 +90,7 @@ export default function SettingsClient({ name, email, initials, role, orgName, o
   }
 
   return (
-    <main style={{ minHeight: '100dvh', background: '#f5f4f0', paddingBottom: '90px' }}>
+    <main style={{ background: '#f5f4f0', paddingBottom: '90px' }}>
 
       {/* Header */}
       <div style={{ padding: '56px 24px 24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -286,7 +285,6 @@ export default function SettingsClient({ name, email, initials, role, orgName, o
         SDM Prototype 001
       </p>
 
-      <BottomNav />
     </main>
   )
 }

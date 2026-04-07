@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import BottomNav from '@/components/layout/BottomNav'
 
 type Mode = 'choose' | 'image_processing' | 'image_confirm' | 'assistant'
 
@@ -218,7 +217,7 @@ export default function CapturePage() {
   }
 
   return (
-    <main style={{ minHeight: '100dvh', background: '#f5f4f0', paddingBottom: '100px', display: 'flex', flexDirection: 'column' }}>
+    <main style={{ background: '#f5f4f0', paddingBottom: '90px', display: 'flex', flexDirection: 'column' }}>
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }}
         onChange={e => { if (e.target.files?.[0]) handleImageSelect(e.target.files[0]) }} />
 
@@ -558,7 +557,6 @@ export default function CapturePage() {
         </div>
       )}
 
-      <BottomNav />
     </main>
   )
 }

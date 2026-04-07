@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import BottomNav from '@/components/layout/BottomNav'
 
 interface Task {
   id: string
@@ -270,7 +269,6 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
         )}
       </div>
 
-      <BottomNav />
     </main>
   )
 }

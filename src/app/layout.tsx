@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import ProgressBar from '@/components/layout/ProgressBar'
+import BottomNav from '@/components/layout/BottomNav'
 
 export const metadata: Metadata = {
   title: 'SDM — Sales Development Manager',
@@ -33,7 +34,10 @@ export default function RootLayout({
       <body>
         <div className="app-shell">
           <ProgressBar />
-          {children}
+          <div className="page-content">
+            {children}
+          </div>
+          <BottomNav />
         </div>
       </body>
     </html>

@@ -1,6 +1,5 @@
 'use client'
 
-import BottomNav from '@/components/layout/BottomNav'
 
 interface Deal {
   id: string
@@ -65,7 +64,7 @@ export default function TrackingClient({ deals }: { deals: Deal[] }) {
   const fmt = (v: number) => v >= 1000 ? `€${(v / 1000).toFixed(0)}k` : `€${v}`
 
   return (
-    <main style={{ minHeight: '100dvh', background: '#f5f4f0', paddingBottom: '90px' }}>
+    <main style={{ background: '#f5f4f0', paddingBottom: '90px' }}>
       <div style={{ padding: '56px 24px 16px' }}>
         <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }}>
           {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
@@ -157,7 +156,6 @@ export default function TrackingClient({ deals }: { deals: Deal[] }) {
         )}
       </div>
 
-      <BottomNav />
     </main>
   )
 }
