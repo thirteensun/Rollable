@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import ProgressBar from '@/components/layout/ProgressBar'
 
 export const metadata: Metadata = {
   title: 'SDM — Sales Development Manager',
@@ -31,6 +32,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <div className="app-shell">
+          <ProgressBar />
           {children}
         </div>
       </body>

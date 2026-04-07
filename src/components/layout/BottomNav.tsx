@@ -2,12 +2,19 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 
 export default function BottomNav() {
   const pathname = usePathname()
+  const [tapped, setTapped] = useState<string | null>(null)
 
   const isHome = pathname === '/' || pathname === '/planning'
   const isTracking = pathname === '/tracking'
+
+  const handleTap = (name: string) => {
+    setTapped(name)
+    setTimeout(() => setTapped(null), 300)
+  }
 
   return (
     <nav style={{
@@ -27,15 +34,12 @@ export default function BottomNav() {
       zIndex: 50,
     }}>
       {/* Home */}
-      <Link href="/" style={{ textDecoration: 'none' }}>
+      <Link href="/" style={{ textDecoration: 'none' }} onClick={() => handleTap('home')}>
         <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '4px',
-          opacity: isHome ? 1 : 0.35,
-          paddingBottom: '2px',
-          transition: 'opacity 0.2s ease',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+          opacity: isHome ? 1 : 0.35, paddingBottom: '2px',
+          transform: tapped === 'home' ? 'scale(0.88)' : 'scale(1)',
+          transition: 'opacity 0.2s ease, transform 0.15s ease',
         }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" stroke="#1a1a18" strokeWidth="1.5" strokeLinejoin="round"/>
@@ -46,55 +50,41 @@ export default function BottomNav() {
       </Link>
 
       {/* Capture button */}
-      <Link href="/capture" style={{ textDecoration: 'none' }}>
+      <Link href="/capture" style={{ textDecoration: 'none' }} onClick={() => handleTap('capture')}>
         <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '6px',
-          marginTop: '-32px',
-          position: 'relative',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+          marginTop: '-32px', position: 'relative',
+          transform: tapped === 'capture' ? 'scale(0.92)' : 'scale(1)',
+          transition: 'transform 0.15s ease',
         }}>
           <div style={{
-            position: 'absolute',
-            width: '64px', height: '64px',
-            borderRadius: '50%',
-            background: '#1a1a18',
-            opacity: 0.15,
+            position: 'absolute', width: '64px', height: '64px',
+            borderRadius: '50%', background: '#1a1a18', opacity: 0.15,
           }} className="capture-ring-1" />
           <div style={{
-            position: 'absolute',
-            width: '64px', height: '64px',
-            borderRadius: '50%',
-            background: '#1a1a18',
-            opacity: 0.08,
+            position: 'absolute', width: '64px', height: '64px',
+            borderRadius: '50%', background: '#1a1a18', opacity: 0.08,
           }} className="capture-ring-2" />
           <div style={{
-            width: '64px', height: '64px',
-            borderRadius: '50%',
-            background: '#1a1a18',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            position: 'relative', zIndex: 1,
+            width: '64px', height: '64px', borderRadius: '50%',
+            background: '#1a1a18', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', position: 'relative', zIndex: 1,
             boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
           }} className="capture-btn">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
               <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </div>
-
         </div>
       </Link>
 
       {/* Tracking */}
-      <Link href="/tracking" style={{ textDecoration: 'none' }}>
+      <Link href="/tracking" style={{ textDecoration: 'none' }} onClick={() => handleTap('tracking')}>
         <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '4px',
-          opacity: isTracking ? 1 : 0.35,
-          paddingBottom: '2px',
-          transition: 'opacity 0.2s ease',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+          opacity: isTracking ? 1 : 0.35, paddingBottom: '2px',
+          transform: tapped === 'tracking' ? 'scale(0.88)' : 'scale(1)',
+          transition: 'opacity 0.2s ease, transform 0.15s ease',
         }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path d="M3 12h18M3 6h18M3 18h18" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" />
