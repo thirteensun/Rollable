@@ -14,17 +14,23 @@ export default async function HomePage() {
     .eq('id', user.id)
     .single()
 
-  // Get org name
+  // Get org membership
   const { data: orgMembership } = await supabase
     .from('organisation_members')
-    .select('org_id, role, organisations(name)')
+    .select('org_id, role')
     .eq('user_id', user.id)
     .eq('status', 'active')
     .limit(1)
     .maybeSingle()
 
-  const orgName = (orgMembership?.organisations as any)?.name || null
   const userRole = orgMembership?.role || 'rep'
+
+  // Get org name directly
+  const { data: orgData } = orgMembership?.org_id
+    ? await supabase.from('organisations').select('name').eq('id', orgMembership.org_id).single()
+    : { data: null }
+
+  const orgName = orgData?.name || null
 
   const today = new Date()
   today.setHours(23, 59, 59, 999)

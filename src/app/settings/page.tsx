@@ -7,43 +7,49 @@ export default async function SettingsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Get user profile
   const { data: profile } = await supabase
     .from('users')
     .select('*')
     .eq('id', user.id)
     .single()
 
+  // Get membership separately — avoids join issues
   const { data: membership } = await supabase
     .from('organisation_members')
-    .select('role, org_id, organisations(id, name, slug)')
+    .select('role, org_id')
     .eq('user_id', user.id)
     .eq('status', 'active')
     .limit(1)
     .maybeSingle()
 
-  const org = (membership?.organisations as any)
   const role = membership?.role || 'rep'
+  const orgId = membership?.org_id || null
 
-  // Get team members (all roles can see this)
-  const { data: membersRaw } = await supabase
-    .from('organisation_members')
-    .select('role, status, invited_email, user_id, users(full_name, email)')
-    .eq('org_id', org?.id)
-    .eq('status', 'active')
-    .order('created_at', { ascending: true })
+  // Get org directly by ID
+  const { data: org } = orgId
+    ? await supabase.from('organisations').select('id, name, slug').eq('id', orgId).single()
+    : { data: null }
 
-  // Normalize users field — Supabase returns array or object depending on relationship
+  // Get team members
+  const { data: membersRaw } = orgId
+    ? await supabase
+        .from('organisation_members')
+        .select('role, status, invited_email, user_id, users(full_name, email)')
+        .eq('org_id', orgId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: true })
+    : { data: [] }
+
   const members = (membersRaw || []).map((m: any) => ({
     ...m,
     users: Array.isArray(m.users) ? m.users[0] || null : m.users,
   }))
 
   // Get subscription
-  const { data: subscription } = await supabase
-    .from('subscriptions')
-    .select('plan, seats, status')
-    .eq('org_id', org?.id)
-    .maybeSingle()
+  const { data: subscription } = orgId
+    ? await supabase.from('subscriptions').select('plan, seats, status').eq('org_id', orgId).maybeSingle()
+    : { data: null }
 
   const name = profile?.full_name || user.email?.split('@')[0] || 'You'
   const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
@@ -56,7 +62,7 @@ export default async function SettingsPage() {
       role={role}
       orgName={org?.name || ''}
       orgId={org?.id || ''}
-      members={members || []}
+      members={members}
       plan={subscription?.plan || 'free'}
       seats={subscription?.seats || 1}
     />
