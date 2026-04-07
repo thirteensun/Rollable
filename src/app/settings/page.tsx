@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import SettingsClient from './SettingsClient'
 
@@ -7,15 +8,19 @@ export default async function SettingsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Get user profile
-  const { data: profile } = await supabase
+  // Use service role for all reads — bypasses RLS reliably
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { data: profile } = await admin
     .from('users')
     .select('*')
     .eq('id', user.id)
     .single()
 
-  // Get membership separately — avoids join issues
-  const { data: membership } = await supabase
+  const { data: membership } = await admin
     .from('organisation_members')
     .select('role, org_id')
     .eq('user_id', user.id)
@@ -26,14 +31,12 @@ export default async function SettingsPage() {
   const role = membership?.role || 'rep'
   const orgId = membership?.org_id || null
 
-  // Get org directly by ID
   const { data: org } = orgId
-    ? await supabase.from('organisations').select('id, name, slug').eq('id', orgId).single()
+    ? await admin.from('organisations').select('id, name, slug').eq('id', orgId).single()
     : { data: null }
 
-  // Get team members
   const { data: membersRaw } = orgId
-    ? await supabase
+    ? await admin
         .from('organisation_members')
         .select('role, status, invited_email, user_id, users(full_name, email)')
         .eq('org_id', orgId)
@@ -46,9 +49,8 @@ export default async function SettingsPage() {
     users: Array.isArray(m.users) ? m.users[0] || null : m.users,
   }))
 
-  // Get subscription
   const { data: subscription } = orgId
-    ? await supabase.from('subscriptions').select('plan, seats, status').eq('org_id', orgId).maybeSingle()
+    ? await admin.from('subscriptions').select('plan, seats, status').eq('org_id', orgId).maybeSingle()
     : { data: null }
 
   const name = profile?.full_name || user.email?.split('@')[0] || 'You'
