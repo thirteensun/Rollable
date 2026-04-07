@@ -24,15 +24,16 @@ export default function BottomNav() {
       transform: 'translateX(-50%)',
       width: '100%',
       maxWidth: '390px',
-      background: '#f5f4f0',
-      borderTop: '0.5px solid rgba(0,0,0,0.07)',
+      background: 'rgba(245, 244, 240, 0.97)',
+      borderTop: '0.5px solid rgba(0,0,0,0.08)',
       display: 'flex',
       justifyContent: 'space-around',
       alignItems: 'flex-end',
       paddingTop: '12px',
       paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
-      zIndex: 100,
-      boxShadow: '0 -1px 0 rgba(0,0,0,0.06)',
+      zIndex: 9998,
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
     }}>
       {/* Home */}
       <Link href="/" style={{ textDecoration: 'none' }} onClick={() => handleTap('home')}>
