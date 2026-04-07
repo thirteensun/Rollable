@@ -88,6 +88,7 @@ export default function CapturePage() {
       if (!response.ok) throw new Error('AI processing failed')
       const result = await response.json()
       setAiResult(result)
+      setSelectedCreates(new Set(result.creates.map((_: any, i: number) => i)))
       setMode('image_confirm')
     } catch {
       setMode('choose')
