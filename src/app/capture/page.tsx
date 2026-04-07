@@ -36,7 +36,7 @@ export default function CapturePage() {
   const [mode, setMode] = useState<Mode>('choose')
   const [aiResult, setAiResult] = useState<AIResult | null>(null)
   const [saving, setSaving] = useState(false)
-  const [selectedCreates, setSelectedCreates] = useState<Set<number>>(new Set())
+  const [selectedCreates, setSelectedCreates] = useState<number[]>([])
   const [messages, setMessages] = useState<Message[]>([])
   const [inputText, setInputText] = useState('')
   const [isThinking, setIsThinking] = useState(false)
@@ -88,7 +88,7 @@ export default function CapturePage() {
       if (!response.ok) throw new Error('AI processing failed')
       const result = await response.json()
       setAiResult(result)
-      setSelectedCreates(new Set(result.creates.map((_: any, i: number) => i)))
+      setSelectedCreates(result.creates.map((_: any, i: number) => i))
       setMode('image_confirm')
     } catch {
       setMode('choose')
@@ -101,7 +101,7 @@ export default function CapturePage() {
     setSaving(true)
 
     // Filter to only selected items
-    const selectedItems = aiResult.creates.filter((_, i) => selectedCreates.has(i))
+    const selectedItems = aiResult.creates.filter((_, i) => selectedCreates.includes(i))
     const shouldCreateContact = selectedItems.some(c => c.type === 'contact')
     const shouldCreateDeal = selectedItems.some(c => c.type === 'deal')
     const shouldCreateTask = selectedItems.some(c => c.type === 'task')
@@ -358,15 +358,12 @@ export default function CapturePage() {
               <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>I'll create or update</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {aiResult.creates.map((item, i) => {
-                  const selected = selectedCreates.has(i)
+                  const selected = selectedCreates.includes(i)
                   return (
                     <button key={i} onClick={() => {
-                      setSelectedCreates(prev => {
-                        const next = new Set(prev)
-                        if (next.has(i)) next.delete(i)
-                        else next.add(i)
-                        return next
-                      })
+                      setSelectedCreates(prev =>
+                        prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
+                      )
                     }} style={{
                       display: 'flex', alignItems: 'center', gap: '12px',
                       background: selected ? pillColors[item.type].bg : '#f5f4f0',
