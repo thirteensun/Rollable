@@ -3,6 +3,7 @@ import './globals.css'
 import ProgressBar from '@/components/layout/ProgressBar'
 import BottomNav from '@/components/layout/BottomNav'
 
+
 export const metadata: Metadata = {
   title: 'SDM — Sales Development Manager',
   description: 'Liberate sales and marketing through effortless AI.',
@@ -30,6 +31,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
           <BottomNav />
         </div>
-      </body    </html>
+      </body>    </html>
   )
 }
