@@ -7,31 +7,31 @@ import { useState } from 'react'
 export default function BottomNav() {
   const pathname = usePathname()
   const [tapped, setTapped] = useState<string | null>(null)
-
   const isHome = pathname === '/' || pathname === '/planning'
   const isTracking = pathname === '/tracking'
+  const hideNav = pathname === '/login' || pathname === '/onboarding' || pathname.startsWith('/auth')
 
   const handleTap = (name: string) => {
     setTapped(name)
     setTimeout(() => setTapped(null), 300)
   }
 
+  if (hideNav) return null
+
   return (
     <nav style={{
-      position: 'relative',
       width: '100%',
-      background: 'rgba(245, 244, 240, 0.97)',
-      borderTop: '0.5px solid rgba(0,0,0,0.08)',
+      background: 'rgba(245, 244, 240, 0.95)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      borderTop: '0.5px solid rgba(0,0,0,0.07)',
       display: 'flex',
       justifyContent: 'space-around',
       alignItems: 'flex-end',
       paddingTop: '12px',
       paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
-      zIndex: 9998,
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
+      flexShrink: 0,
     }}>
-      {/* Home */}
       <Link href="/" style={{ textDecoration: 'none' }} onClick={() => handleTap('home')}>
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
@@ -47,7 +47,6 @@ export default function BottomNav() {
         </div>
       </Link>
 
-      {/* Capture button */}
       <Link href="/capture" style={{ textDecoration: 'none' }} onClick={() => handleTap('capture')}>
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
@@ -55,19 +54,12 @@ export default function BottomNav() {
           transform: tapped === 'capture' ? 'scale(0.92)' : 'scale(1)',
           transition: 'transform 0.15s ease',
         }}>
+          <div style={{ position: 'absolute', width: '64px', height: '64px', borderRadius: '50%', background: '#1a1a18', opacity: 0.15 }} className="capture-ring-1" />
+          <div style={{ position: 'absolute', width: '64px', height: '64px', borderRadius: '50%', background: '#1a1a18', opacity: 0.08 }} className="capture-ring-2" />
           <div style={{
-            position: 'absolute', width: '64px', height: '64px',
-            borderRadius: '50%', background: '#1a1a18', opacity: 0.15,
-          }} className="capture-ring-1" />
-          <div style={{
-            position: 'absolute', width: '64px', height: '64px',
-            borderRadius: '50%', background: '#1a1a18', opacity: 0.08,
-          }} className="capture-ring-2" />
-          <div style={{
-            width: '64px', height: '64px', borderRadius: '50%',
-            background: '#1a1a18', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', position: 'relative', zIndex: 1,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+            width: '64px', height: '64px', borderRadius: '50%', background: '#1a1a18',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            position: 'relative', zIndex: 1, boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
           }} className="capture-btn">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
               <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
@@ -76,7 +68,6 @@ export default function BottomNav() {
         </div>
       </Link>
 
-      {/* Tracking */}
       <Link href="/tracking" style={{ textDecoration: 'none' }} onClick={() => handleTap('tracking')}>
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',

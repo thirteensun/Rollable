@@ -7,13 +7,8 @@ export const metadata: Metadata = {
   title: 'SDM — Sales Development Manager',
   description: 'Liberate sales and marketing through effortless AI.',
   manifest: '/manifest.json',
-  appleWebApp: {
-    statusBarStyle: 'default',
-    title: 'SDM',
-  },
-  other: {
-    'mobile-web-app-capable': 'yes',
-  },
+  appleWebApp: { statusBarStyle: 'default', title: 'SDM' },
+  other: { 'mobile-web-app-capable': 'yes' },
 }
 
 export const viewport: Viewport = {
@@ -24,11 +19,7 @@ export const viewport: Viewport = {
   themeColor: '#f5f4f0',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
@@ -39,7 +30,6 @@ export default function RootLayout({
           </div>
           <BottomNav />
         </div>
-      </body>
-    </html>
+      </body    </html>
   )
 }
