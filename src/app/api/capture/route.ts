@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const config = {
+  api: { bodyParser: { sizeLimit: '10mb' } },
+}
+
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent'
 
 const SYSTEM_PROMPT = `You are an AI assistant for a sales CRM. Analyze this image and extract structured sales information.

@@ -50,23 +50,44 @@ export default function CapturePage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isThinking])
 
+  const compressImage = (file: File): Promise<{ base64: string; mimeType: string }> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const canvas = document.createElement('canvas')
+        const MAX = 1280
+        let { width, height } = img
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round(height * MAX / width); width = MAX }
+          else { width = Math.round(width * MAX / height); height = MAX }
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, width, height)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+        resolve({ base64: dataUrl.split(',')[1], mimeType: 'image/jpeg' })
+      }
+      img.onerror = reject
+      img.src = url
+    })
+  }
+
   const handleImageSelect = async (file: File) => {
     setMode('image_processing')
     try {
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        const base64 = (e.target?.result as string).split(',')[1]
-        const response = await fetch('/api/capture', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: base64, mimeType: file.type }),
-        })
-        if (!response.ok) throw new Error('AI processing failed')
-        const result = await response.json()
-        setAiResult(result)
-        setMode('image_confirm')
-      }
-      reader.readAsDataURL(file)
+      const { base64, mimeType } = await compressImage(file)
+      const response = await fetch('/api/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, mimeType }),
+      })
+      if (!response.ok) throw new Error('AI processing failed')
+      const result = await response.json()
+      setAiResult(result)
+      setMode('image_confirm')
     } catch {
       setMode('choose')
       alert('Something went wrong. Please try again.')
