@@ -206,7 +206,7 @@ export default function CapturePage() {
 
   return (
     <main style={{ minHeight: '100dvh', background: '#f5f4f0', paddingBottom: '100px', display: 'flex', flexDirection: 'column' }}>
-      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+      <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }}
         onChange={e => { if (e.target.files?.[0]) handleImageSelect(e.target.files[0]) }} />
 
       {/* Header */}
