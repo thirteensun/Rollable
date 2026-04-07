@@ -36,6 +36,7 @@ export default function CapturePage() {
   const [mode, setMode] = useState<Mode>('choose')
   const [aiResult, setAiResult] = useState<AIResult | null>(null)
   const [saving, setSaving] = useState(false)
+  const [selectedCreates, setSelectedCreates] = useState<Set<number>>(new Set())
   const [messages, setMessages] = useState<Message[]>([])
   const [inputText, setInputText] = useState('')
   const [isThinking, setIsThinking] = useState(false)
@@ -97,6 +98,12 @@ export default function CapturePage() {
   const handleImageSave = async () => {
     if (!aiResult) return
     setSaving(true)
+
+    // Filter to only selected items
+    const selectedItems = aiResult.creates.filter((_, i) => selectedCreates.has(i))
+    const shouldCreateContact = selectedItems.some(c => c.type === 'contact')
+    const shouldCreateDeal = selectedItems.some(c => c.type === 'deal')
+    const shouldCreateTask = selectedItems.some(c => c.type === 'task')
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
@@ -118,7 +125,9 @@ export default function CapturePage() {
       }
 
       let contact_id = null
-      const allContacts = aiResult.contacts?.length ? aiResult.contacts : aiResult.contact_name ? [{ full_name: aiResult.contact_name }] : []
+      const allContacts = shouldCreateContact
+        ? (aiResult.contacts?.length ? aiResult.contacts : aiResult.contact_name ? [{ full_name: aiResult.contact_name }] : [])
+        : []
       for (const c of allContacts) {
         let cCompanyId = company_id
         if (c.company_name && c.company_name !== aiResult.company_name) {
@@ -139,7 +148,7 @@ export default function CapturePage() {
       }
 
       let deal_id = null
-      if (aiResult.deal_name) {
+      if (shouldCreateDeal && aiResult.deal_name) {
         const { data: newDeal } = await supabase.from('deals').insert({ user_id: user.id, company_id, name: aiResult.deal_name, value: aiResult.deal_value || null, stage: 'lead', last_activity_at: new Date().toISOString(), org_id }).select('id').maybeSingle()
         deal_id = newDeal?.id
         if (deal_id && contact_id) await supabase.from('deal_contacts').upsert({ deal_id, contact_id }, { onConflict: 'deal_id,contact_id' })
@@ -147,7 +156,7 @@ export default function CapturePage() {
 
       await supabase.from('events').insert({ user_id: user.id, deal_id, contact_id, company_id, org_id, type: aiResult.event_type || 'meeting', summary: aiResult.summary, ai_confidence: 0.9, metadata: { raw_ai_result: aiResult } })
 
-      if (aiResult.follow_up_date) {
+      if (shouldCreateTask && aiResult.follow_up_date) {
         await supabase.from('tasks').insert({ user_id: user.id, deal_id, contact_id, org_id, title: `Follow up with ${aiResult.contact_name || aiResult.company_name || 'contact'}`, due_date: new Date(aiResult.follow_up_date).toISOString(), ai_generated: true })
       }
 
@@ -346,12 +355,48 @@ export default function CapturePage() {
           {aiResult.creates.length > 0 && (
             <div style={{ marginBottom: '16px' }}>
               <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>I'll create or update</p>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {aiResult.creates.map((item, i) => (
-                  <div key={i} style={{ background: pillColors[item.type].bg, borderRadius: '20px', padding: '6px 12px', fontSize: '13px', color: pillColors[item.type].color, fontWeight: 500 }}>
-                    {item.label}
-                  </div>
-                ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {aiResult.creates.map((item, i) => {
+                  const selected = selectedCreates.has(i)
+                  return (
+                    <button key={i} onClick={() => {
+                      setSelectedCreates(prev => {
+                        const next = new Set(prev)
+                        if (next.has(i)) next.delete(i)
+                        else next.add(i)
+                        return next
+                      })
+                    }} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      background: selected ? pillColors[item.type].bg : '#f5f4f0',
+                      border: selected ? `1px solid ${pillColors[item.type].color}20` : '1px solid rgba(0,0,0,0.08)',
+                      borderRadius: '14px', padding: '11px 14px',
+                      cursor: 'pointer', textAlign: 'left', width: '100%',
+                      transition: 'all 0.15s ease',
+                    }}>
+                      <div style={{
+                        width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0,
+                        background: selected ? pillColors[item.type].color : 'white',
+                        border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.15s ease',
+                      }}>
+                        {selected && (
+                          <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                            <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <span style={{
+                        fontSize: '14px', fontWeight: 500,
+                        color: selected ? pillColors[item.type].color : '#9b9890',
+                        transition: 'color 0.15s ease',
+                      }}>
+                        {item.label}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
