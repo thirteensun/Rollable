@@ -31,7 +31,8 @@ export default function BottomNav() {
       alignItems: 'flex-end',
       paddingTop: '12px',
       paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
-      zIndex: 50,
+      zIndex: 100,
+      boxShadow: '0 -1px 0 rgba(0,0,0,0.06)',
     }}>
       {/* Home */}
       <Link href="/" style={{ textDecoration: 'none' }} onClick={() => handleTap('home')}>

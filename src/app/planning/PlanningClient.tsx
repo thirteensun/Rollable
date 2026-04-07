@@ -94,7 +94,7 @@ export default function PlanningClient({ overdue, today, thisWeek, noDueDate }: 
   const total = overdueList.length + todayList.length + weekList.length + noDueDateList.length
 
   return (
-    <main style={{ minHeight: '100dvh', background: '#f5f4f0', paddingBottom: '100px' }}>
+    <main style={{ minHeight: '100dvh', background: '#f5f4f0', paddingBottom: '120px' }}>
       <div style={{ padding: '56px 24px 20px' }}>
         <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }}>
           {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}

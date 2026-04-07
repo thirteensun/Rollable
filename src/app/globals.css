@@ -140,3 +140,10 @@ body {
 .app-shell > * {
   animation: page-enter 0.25s ease both;
 }
+
+/* Ensure bottom nav always visible */
+nav[style*="position: fixed"] {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(245, 244, 240, 0.95) !important;
+}
