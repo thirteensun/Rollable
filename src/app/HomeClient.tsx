@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import BottomNav from '@/components/layout/BottomNav'
 
 interface Task {
@@ -117,7 +118,7 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
             </div>
           )}
         </div>
-        <a href="/settings" style={{ textDecoration: 'none' }}>
+        <Link href="/settings" style={{ textDecoration: 'none' }}>
           <div style={{
             width: '38px', height: '38px', borderRadius: '50%',
             background: '#1a1a18', display: 'flex', alignItems: 'center',
@@ -126,7 +127,7 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
           }}>
             {initials}
           </div>
-        </a>
+        </Link>
       </div>
 
       {/* Search */}
@@ -150,9 +151,9 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
           <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
             Today's focus
           </p>
-          <a href="/planning" style={{ fontSize: '13px', color: '#9b9890', textDecoration: 'none' }}>
+          <Link href="/planning" style={{ fontSize: '13px', color: '#9b9890', textDecoration: 'none' }}>
             See all
-          </a>
+          </Link>
         </div>
 
         {tasks.length === 0 ? (
