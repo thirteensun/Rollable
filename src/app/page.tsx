@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import HomeClient from './HomeClient'
 
@@ -8,14 +9,19 @@ export default async function HomePage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { data: profile } = await admin
     .from('users')
     .select('*')
     .eq('id', user.id)
     .single()
 
   // Get org membership
-  const { data: orgMembership } = await supabase
+  const { data: orgMembership } = await admin
     .from('organisation_members')
     .select('org_id, role')
     .eq('user_id', user.id)
@@ -25,17 +31,23 @@ export default async function HomePage() {
 
   const userRole = orgMembership?.role || 'rep'
 
+  console.log('DEBUG membership:', JSON.stringify(orgMembership))
+  console.log('DEBUG user.id:', user.id)
+
   // Get org name directly
-  const { data: orgData } = orgMembership?.org_id
-    ? await supabase.from('organisations').select('name').eq('id', orgMembership.org_id).single()
-    : { data: null }
+  const { data: orgData, error: orgError } = orgMembership?.org_id
+    ? await admin.from('organisations').select('name').eq('id', orgMembership.org_id).single()
+    : { data: null, error: null }
+
+  console.log('DEBUG orgData:', JSON.stringify(orgData))
+  console.log('DEBUG orgError:', JSON.stringify(orgError))
 
   const orgName = orgData?.name || null
 
   const today = new Date()
   today.setHours(23, 59, 59, 999)
 
-  const { data: tasks } = await supabase
+  const { data: tasks } = await admin
     .from('tasks')
     .select('*, contacts(full_name), deals(name)')
     .eq('user_id', user.id)
@@ -44,7 +56,7 @@ export default async function HomePage() {
     .order('due_date', { ascending: true })
     .limit(5)
 
-  const { data: events } = await supabase
+  const { data: events } = await admin
     .from('events')
     .select('*, contacts(full_name), deals(name), companies(name)')
     .eq('user_id', user.id)
