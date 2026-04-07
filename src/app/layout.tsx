@@ -6,9 +6,11 @@ export const metadata: Metadata = {
   description: 'Liberate sales and marketing through effortless AI.',
   manifest: '/manifest.json',
   appleWebApp: {
-    capable: true,
     statusBarStyle: 'default',
     title: 'SDM',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
   },
 }
 
