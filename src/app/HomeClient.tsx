@@ -81,10 +81,15 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
 
 
   const greeting = () => {
-    const hour = new Date().getHours()
-    if (hour < 12) return 'Good morning'
-    if (hour < 17) return 'Good afternoon'
-    return 'Good evening'
+    const messages = [
+      'Tap Capture and sell with total freedom.',
+      'Your AI is ready. Go close something.',
+      'Snap, speak, screenshot — AI handles the rest.',
+      'No forms. No friction. Just results.',
+      'Liberate your sales day.',
+    ]
+    const day = new Date().getDay()
+    return messages[day % messages.length]
   }
 
   return (
@@ -96,8 +101,8 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
           <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }}>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
           </p>
-          <p style={{ margin: '4px 0 0', fontSize: '26px', fontWeight: 500, color: '#1a1a18' }}>
-            {greeting()}, {name.split(' ')[0]}
+          <p style={{ margin: '4px 0 0', fontSize: '22px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.3 }}>
+            {greeting()}
           </p>
           {orgName && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
