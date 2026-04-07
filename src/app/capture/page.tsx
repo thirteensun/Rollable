@@ -36,6 +36,9 @@ export default function CapturePage() {
   const [mode, setMode] = useState<Mode>('choose')
   const [aiResult, setAiResult] = useState<AIResult | null>(null)
   const [saving, setSaving] = useState(false)
+  const [processingStep, setProcessingStep] = useState(0)
+  const [displayedSummary, setDisplayedSummary] = useState('')
+  const [visibleCreates, setVisibleCreates] = useState(0)
   const [selectedCreates, setSelectedCreates] = useState<number[]>([])
   const [messages, setMessages] = useState<Message[]>([])
   const [inputText, setInputText] = useState('')
@@ -325,19 +328,49 @@ export default function CapturePage() {
 
       {/* Image processing */}
       {mode === 'image_processing' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '20px', padding: '24px' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '28px', padding: '24px' }}>
           <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#1a1a18', display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="capture-btn">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </div>
-          <div style={{ textAlign: 'center' }}>
-            <p style={{ margin: 0, fontSize: '17px', fontWeight: 500, color: '#1a1a18' }}>AI is reading this...</p>
-            <p style={{ margin: '6px 0 0', fontSize: '14px', color: '#9b9890' }}>Extracting people, companies and deals</p>
-          </div>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {[0, 1, 2].map(i => (
-              <div key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1a1a18', animation: `breathe 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '280px' }}>
+            {[
+              'Analysing image...',
+              'Identifying people and companies...',
+              'Extracting contact details...',
+              'Building your CRM update...',
+              'Almost done...',
+            ].map((step, i) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                opacity: processingStep >= i ? 1 : 0.2,
+                transition: 'opacity 0.4s ease',
+              }}>
+                <div style={{
+                  width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
+                  background: processingStep > i ? '#1D9E75' : processingStep === i ? '#1a1a18' : 'rgba(0,0,0,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background 0.3s ease',
+                }}>
+                  {processingStep > i ? (
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  ) : processingStep === i ? (
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'white', animation: 'breathe 1s ease-in-out infinite' }} />
+                  ) : null}
+                </div>
+                <p style={{
+                  margin: 0, fontSize: '14px',
+                  color: processingStep > i ? '#1D9E75' : processingStep === i ? '#1a1a18' : '#9b9890',
+                  fontWeight: processingStep === i ? 500 : 400,
+                  transition: 'color 0.3s ease',
+                }}>
+                  {step}
+                </p>
+              </div>
             ))}
           </div>
         </div>
@@ -346,63 +379,95 @@ export default function CapturePage() {
       {/* Image confirm */}
       {mode === 'image_confirm' && aiResult && (
         <div style={{ padding: '0 24px', flex: 1 }} className="animate-slide-up">
-          <div style={{ background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px', marginBottom: '16px' }}>
+
+          {/* AI summary card with typewriter */}
+          <div style={{
+            background: 'white', borderRadius: '18px',
+            border: '0.5px solid rgba(0,0,0,0.07)',
+            padding: '16px 18px', marginBottom: '16px',
+          }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1D9E75' }} />
               <span style={{ fontSize: '12px', fontWeight: 500, color: '#1D9E75' }}>AI processed</span>
             </div>
-            <p style={{ margin: 0, fontSize: '15px', color: '#1a1a18', lineHeight: 1.6 }}>{aiResult.summary}</p>
+            <p style={{ margin: 0, fontSize: '15px', color: '#1a1a18', lineHeight: 1.6, minHeight: '24px' }}>
+              {displayedSummary}
+              {displayedSummary.length < (aiResult.summary?.length || 0) && (
+                <span style={{ display: 'inline-block', width: '2px', height: '16px', background: '#1a1a18', marginLeft: '2px', verticalAlign: 'middle', animation: 'breathe 0.8s ease-in-out infinite' }} />
+              )}
+            </p>
           </div>
+
+          {/* Creates — staggered appearance */}
           {aiResult.creates.length > 0 && (
             <div style={{ marginBottom: '16px' }}>
-              <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>I'll create or update</p>
+              <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                I'll create or update
+              </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {aiResult.creates.map((item, i) => {
                   const selected = selectedCreates.includes(i)
+                  const visible = i < visibleCreates
                   return (
-                    <button key={i} onClick={() => {
-                      setSelectedCreates(prev =>
-                        prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
-                      )
-                    }} style={{
-                      display: 'flex', alignItems: 'center', gap: '12px',
-                      background: selected ? pillColors[item.type].bg : '#f5f4f0',
-                      border: selected ? `1px solid ${pillColors[item.type].color}20` : '1px solid rgba(0,0,0,0.08)',
-                      borderRadius: '14px', padding: '11px 14px',
-                      cursor: 'pointer', textAlign: 'left', width: '100%',
-                      transition: 'all 0.15s ease',
+                    <div key={i} style={{
+                      opacity: visible ? 1 : 0,
+                      transform: visible ? 'translateY(0)' : 'translateY(12px)',
+                      transition: 'opacity 0.3s ease, transform 0.3s ease',
                     }}>
-                      <div style={{
-                        width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0,
-                        background: selected ? pillColors[item.type].color : 'white',
-                        border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      <button onClick={() => {
+                        setSelectedCreates(prev =>
+                          prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
+                        )
+                      }} style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        background: selected ? pillColors[item.type].bg : '#f5f4f0',
+                        border: selected ? `1px solid ${pillColors[item.type].color}20` : '1px solid rgba(0,0,0,0.08)',
+                        borderRadius: '14px', padding: '11px 14px',
+                        cursor: 'pointer', textAlign: 'left', width: '100%',
                         transition: 'all 0.15s ease',
                       }}>
-                        {selected && (
-                          <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        )}
-                      </div>
-                      <span style={{
-                        fontSize: '14px', fontWeight: 500,
-                        color: selected ? pillColors[item.type].color : '#9b9890',
-                        transition: 'color 0.15s ease',
-                      }}>
-                        {item.label}
-                      </span>
-                    </button>
+                        <div style={{
+                          width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0,
+                          background: selected ? pillColors[item.type].color : 'white',
+                          border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 0.15s ease',
+                        }}>
+                          {selected && (
+                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                              <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                        </div>
+                        <span style={{
+                          fontSize: '14px', fontWeight: 500,
+                          color: selected ? pillColors[item.type].color : '#9b9890',
+                          transition: 'color 0.15s ease',
+                        }}>
+                          {item.label}
+                        </span>
+                      </button>
+                    </div>
                   )
                 })}
               </div>
             </div>
           )}
+
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-            <button onClick={() => setMode('choose')} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: '22px', padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={() => setMode('choose')} style={{
+              flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)',
+              borderRadius: '22px', padding: '15px', fontSize: '15px',
+              color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+            }}>
               Discard
             </button>
-            <button onClick={handleImageSave} disabled={saving} style={{ flex: 2, background: saving ? '#6b6960' : '#1a1a18', border: 'none', borderRadius: '22px', padding: '15px', fontSize: '15px', color: 'white', fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={handleImageSave} disabled={saving} style={{
+              flex: 2, background: saving ? '#6b6960' : '#1a1a18', border: 'none',
+              borderRadius: '22px', padding: '15px', fontSize: '15px',
+              color: 'white', fontWeight: 500,
+              cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+            }}>
               {saving ? 'Saving...' : 'Looks good, save it'}
             </button>
           </div>
