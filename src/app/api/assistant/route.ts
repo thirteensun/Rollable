@@ -6,6 +6,26 @@ import Anthropic from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+async function getLatestSonnetModel(): Promise<string> {
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/models', {
+      headers: {
+        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'anthropic-version': '2023-06-01',
+      },
+    })
+    const data = await response.json()
+    const sonnetModels = data.data
+      .map((m: any) => m.id)
+      .filter((id: string) => id.includes('claude-sonnet'))
+      .sort()
+      .reverse()
+    return sonnetModels[0] || 'claude-sonnet-4-6'
+  } catch {
+    return 'claude-sonnet-4-6'
+  }
+}
+
 const tools: Anthropic.Tool[] = [
   {
     name: 'add_contact',
@@ -279,8 +299,10 @@ When users ask you to:
 Always use tools to take real action — never just describe what you would do.
 After using a tool, summarise what you did in 1-2 sentences.`
 
+    const model = await getLatestSonnetModel()
+
     let response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model,
       max_tokens: 1024,
       system: systemPrompt,
       tools,
@@ -303,7 +325,7 @@ After using a tool, summarise what you did in 1-2 sentences.`
       assistantMessages.push({ role: 'user', content: toolResults })
 
       response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model,
         max_tokens: 1024,
         system: systemPrompt,
         tools,
