@@ -48,7 +48,8 @@ export default function CapturePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
-  const transcriptRef = useRef('')  // ← fix: ref to track latest transcript
+  const transcriptRef = useRef('')
+  const isListeningRef = useRef(false)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -177,7 +178,7 @@ export default function CapturePage() {
     setMessages(prev => [...prev, userMsg])
     setInputText('')
     setTranscript('')
-    transcriptRef.current = ''  // ← reset ref when sending
+    transcriptRef.current = ''
     setIsThinking(true)
 
     try {
@@ -196,31 +197,81 @@ export default function CapturePage() {
     }
   }
 
-  const startVoice = () => {
+  const startVoice = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault() // prevent touch → click double-fire on mobile
+    if (isListeningRef.current) return
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) { alert('Voice not supported. Try Chrome or Safari.'); return }
+
+    transcriptRef.current = ''
+    setTranscript('')
+
     const recognition = new SpeechRecognition()
-    recognition.continuous = false
+    recognition.continuous = true       // don't auto-stop on silence
     recognition.interimResults = true
     recognition.lang = 'en-US'
     recognitionRef.current = recognition
-    recognition.onstart = () => { setIsListening(true); setMode('assistant') }
+
+    recognition.onstart = () => {
+      isListeningRef.current = true
+      setIsListening(true)
+      setMode('assistant')
+    }
+
     recognition.onresult = (e: any) => {
       const text = Array.from(e.results).map((r: any) => r[0].transcript).join('')
       setTranscript(text)
-      transcriptRef.current = text  // ← keep ref in sync with latest transcript
+      transcriptRef.current = text
     }
-    recognition.onend = () => { setIsListening(false) }
-    recognition.onerror = () => setIsListening(false)
+
+    recognition.onerror = () => {
+      isListeningRef.current = false
+      setIsListening(false)
+    }
+
+    recognition.onend = () => {
+      isListeningRef.current = false
+      setIsListening(false)
+    }
+
     recognition.start()
   }
 
-  const stopVoice = () => {
+  const stopVoice = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault()
+    if (!isListeningRef.current) return
     recognitionRef.current?.stop()
+    isListeningRef.current = false
     setIsListening(false)
-    if (transcriptRef.current) {        // ← read from ref, not stale state
-      sendMessage(transcriptRef.current)
+    if (transcriptRef.current.trim()) {
+      sendMessage(transcriptRef.current.trim())
     }
+  }
+
+  const startVoiceFromChoose = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) { alert('Voice not supported. Try Chrome or Safari.'); return }
+    setMode('assistant')
+    // small delay to let mode switch render before starting
+    setTimeout(() => {
+      transcriptRef.current = ''
+      setTranscript('')
+      const recognition = new SpeechRecognition()
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.lang = 'en-US'
+      recognitionRef.current = recognition
+      recognition.onstart = () => { isListeningRef.current = true; setIsListening(true) }
+      recognition.onresult = (e: any) => {
+        const text = Array.from(e.results).map((r: any) => r[0].transcript).join('')
+        setTranscript(text)
+        transcriptRef.current = text
+      }
+      recognition.onerror = () => { isListeningRef.current = false; setIsListening(false) }
+      recognition.onend = () => { isListeningRef.current = false; setIsListening(false) }
+      recognition.start()
+    }, 100)
   }
 
   return (
@@ -231,7 +282,7 @@ export default function CapturePage() {
       {/* Header */}
       <div style={{ padding: '56px 24px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         {mode !== 'choose' && (
-          <button onClick={() => { setMode('choose'); setMessages([]); setTranscript(''); transcriptRef.current = '' }} style={{
+          <button onClick={() => { setMode('choose'); setMessages([]); setTranscript(''); transcriptRef.current = ''; recognitionRef.current?.stop() }} style={{
             width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.07)',
             border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
@@ -272,7 +323,7 @@ export default function CapturePage() {
               </svg>
             </button>
 
-            <button onClick={startVoice} style={{
+            <button onClick={startVoiceFromChoose} style={{
               background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '20px',
               display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'left', width: '100%',
             }}>
@@ -385,7 +436,6 @@ export default function CapturePage() {
       {/* Image confirm */}
       {mode === 'image_confirm' && aiResult && (
         <div style={{ padding: '0 24px', flex: 1 }} className="animate-slide-up">
-
           <div style={{
             background: 'white', borderRadius: '18px',
             border: '0.5px solid rgba(0,0,0,0.07)',
@@ -528,17 +578,23 @@ export default function CapturePage() {
                 autoFocus
               />
             </div>
+
+            {/* Tap to talk, release to stop */}
             <button
               onMouseDown={startVoice}
               onMouseUp={stopVoice}
               onTouchStart={startVoice}
               onTouchEnd={stopVoice}
+              onContextMenu={e => e.preventDefault()}
               style={{
                 width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
                 background: isListening ? '#1D9E75' : '#1a1a18',
                 border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'background 0.2s ease',
+                WebkitUserSelect: 'none',
+                userSelect: 'none',
+                touchAction: 'none', // prevent scroll interference on mobile
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -547,6 +603,7 @@ export default function CapturePage() {
                 <path d="M12 17v4" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
+
             {inputText && (
               <button onClick={() => sendMessage(inputText)} style={{
                 width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
@@ -561,7 +618,6 @@ export default function CapturePage() {
           </div>
         </div>
       )}
-
     </main>
   )
 }
