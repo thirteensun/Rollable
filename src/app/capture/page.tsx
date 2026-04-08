@@ -208,7 +208,7 @@ export default function CapturePage() {
     setTranscript('')
 
     const recognition = new SpeechRecognition()
-    recognition.continuous = true       // don't auto-stop on silence
+    recognition.continuous = false       // don't auto-stop on silence
     recognition.interimResults = true
     recognition.lang = 'en-US'
     recognitionRef.current = recognition
