@@ -48,6 +48,7 @@ export default function CapturePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
+  const transcriptRef = useRef('')  // ← fix: ref to track latest transcript
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -102,7 +103,6 @@ export default function CapturePage() {
     if (!aiResult) return
     setSaving(true)
 
-    // Filter to only selected items
     const selectedItems = aiResult.creates.filter((_, i) => selectedCreates.includes(i))
     const shouldCreateContact = selectedItems.some(c => c.type === 'contact')
     const shouldCreateDeal = selectedItems.some(c => c.type === 'deal')
@@ -177,6 +177,7 @@ export default function CapturePage() {
     setMessages(prev => [...prev, userMsg])
     setInputText('')
     setTranscript('')
+    transcriptRef.current = ''  // ← reset ref when sending
     setIsThinking(true)
 
     try {
@@ -204,7 +205,11 @@ export default function CapturePage() {
     recognition.lang = 'en-US'
     recognitionRef.current = recognition
     recognition.onstart = () => { setIsListening(true); setMode('assistant') }
-    recognition.onresult = (e: any) => setTranscript(Array.from(e.results).map((r: any) => r[0].transcript).join(''))
+    recognition.onresult = (e: any) => {
+      const text = Array.from(e.results).map((r: any) => r[0].transcript).join('')
+      setTranscript(text)
+      transcriptRef.current = text  // ← keep ref in sync with latest transcript
+    }
     recognition.onend = () => { setIsListening(false) }
     recognition.onerror = () => setIsListening(false)
     recognition.start()
@@ -213,7 +218,9 @@ export default function CapturePage() {
   const stopVoice = () => {
     recognitionRef.current?.stop()
     setIsListening(false)
-    if (transcript) sendMessage(transcript)
+    if (transcriptRef.current) {        // ← read from ref, not stale state
+      sendMessage(transcriptRef.current)
+    }
   }
 
   return (
@@ -224,7 +231,7 @@ export default function CapturePage() {
       {/* Header */}
       <div style={{ padding: '56px 24px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         {mode !== 'choose' && (
-          <button onClick={() => { setMode('choose'); setMessages([]); setTranscript('') }} style={{
+          <button onClick={() => { setMode('choose'); setMessages([]); setTranscript(''); transcriptRef.current = '' }} style={{
             width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.07)',
             border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
@@ -379,7 +386,6 @@ export default function CapturePage() {
       {mode === 'image_confirm' && aiResult && (
         <div style={{ padding: '0 24px', flex: 1 }} className="animate-slide-up">
 
-          {/* AI summary card with typewriter */}
           <div style={{
             background: 'white', borderRadius: '18px',
             border: '0.5px solid rgba(0,0,0,0.07)',
@@ -397,7 +403,6 @@ export default function CapturePage() {
             </p>
           </div>
 
-          {/* Creates — staggered appearance */}
           {aiResult.creates.length > 0 && (
             <div style={{ marginBottom: '16px' }}>
               <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
