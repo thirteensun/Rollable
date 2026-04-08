@@ -197,8 +197,7 @@ export default function CapturePage() {
     }
   }
 
-  const startVoice = (e: React.TouchEvent | React.MouseEvent) => {
-    e.preventDefault() // prevent touch → click double-fire on mobile
+  const startVoice = () => {
     if (isListeningRef.current) return
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -208,7 +207,7 @@ export default function CapturePage() {
     setTranscript('')
 
     const recognition = new SpeechRecognition()
-    recognition.continuous = false       // don't auto-stop on silence
+    recognition.continuous = false      // auto-stop on silence
     recognition.interimResults = true
     recognition.lang = 'en-US'
     recognitionRef.current = recognition
@@ -216,7 +215,6 @@ export default function CapturePage() {
     recognition.onstart = () => {
       isListeningRef.current = true
       setIsListening(true)
-      setMode('assistant')
     }
 
     recognition.onresult = (e: any) => {
@@ -225,12 +223,16 @@ export default function CapturePage() {
       transcriptRef.current = text
     }
 
-    recognition.onerror = () => {
+    recognition.onend = () => {
       isListeningRef.current = false
       setIsListening(false)
+      // auto-send when silence detected
+      if (transcriptRef.current.trim()) {
+        sendMessage(transcriptRef.current.trim())
+      }
     }
 
-    recognition.onend = () => {
+    recognition.onerror = () => {
       isListeningRef.current = false
       setIsListening(false)
     }
@@ -238,40 +240,24 @@ export default function CapturePage() {
     recognition.start()
   }
 
-  const stopVoice = (e: React.TouchEvent | React.MouseEvent) => {
-    e.preventDefault()
+  const stopVoice = () => {
     if (!isListeningRef.current) return
-    recognitionRef.current?.stop()
-    isListeningRef.current = false
-    setIsListening(false)
-    if (transcriptRef.current.trim()) {
-      sendMessage(transcriptRef.current.trim())
-    }
+    recognitionRef.current?.stop() // triggers onend which sends the message
   }
 
   const startVoiceFromChoose = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) { alert('Voice not supported. Try Chrome or Safari.'); return }
     setMode('assistant')
-    // small delay to let mode switch render before starting
-    setTimeout(() => {
-      transcriptRef.current = ''
-      setTranscript('')
-      const recognition = new SpeechRecognition()
-      recognition.continuous = true
-      recognition.interimResults = true
-      recognition.lang = 'en-US'
-      recognitionRef.current = recognition
-      recognition.onstart = () => { isListeningRef.current = true; setIsListening(true) }
-      recognition.onresult = (e: any) => {
-        const text = Array.from(e.results).map((r: any) => r[0].transcript).join('')
-        setTranscript(text)
-        transcriptRef.current = text
-      }
-      recognition.onerror = () => { isListeningRef.current = false; setIsListening(false) }
-      recognition.onend = () => { isListeningRef.current = false; setIsListening(false) }
-      recognition.start()
-    }, 100)
+    setTimeout(() => startVoice(), 100)
+  }
+
+  const handleMicClick = () => {
+    if (isListeningRef.current) {
+      stopVoice()
+    } else {
+      startVoice()
+    }
   }
 
   return (
@@ -579,22 +565,18 @@ export default function CapturePage() {
               />
             </div>
 
-            {/* Tap to talk, release to stop */}
+            {/* Tap to start, tap again to stop early, silence auto-sends */}
             <button
-              onMouseDown={startVoice}
-              onMouseUp={stopVoice}
-              onTouchStart={startVoice}
-              onTouchEnd={stopVoice}
-              onContextMenu={e => e.preventDefault()}
+              onClick={handleMicClick}
               style={{
                 width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
                 background: isListening ? '#1D9E75' : '#1a1a18',
                 border: 'none', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'background 0.2s ease',
+                touchAction: 'manipulation',
                 WebkitUserSelect: 'none',
                 userSelect: 'none',
-                touchAction: 'none', // prevent scroll interference on mobile
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
