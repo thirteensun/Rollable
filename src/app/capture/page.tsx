@@ -44,7 +44,7 @@ export default function CapturePage() {
   const [isThinking, setIsThinking] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [transcript, setTranscript] = useState('')
-  const [conversationHistory, setConversationHistory] = useState<any[]>([])
+  const [conversationHistory, setConversationHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
@@ -230,14 +230,22 @@ export default function CapturePage() {
     setIsThinking(true)
 
     try {
+      const newHistory = [
+        ...conversationHistory,
+        { role: 'user' as const, content: text },
+      ]
       const response = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history: conversationHistory }),
+        body: JSON.stringify({ messages: newHistory }),
       })
       const data = await response.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
-      setConversationHistory(data.history)
+      const replyText = data.message ?? 'Something went wrong.'
+      setMessages(prev => [...prev, { role: 'assistant', content: replyText }])
+      setConversationHistory([
+        ...newHistory,
+        { role: 'assistant' as const, content: replyText },
+      ])
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
     } finally {
