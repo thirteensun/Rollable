@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import AIProactiveNudges from '@/components/AIProactiveNudges'
 
 interface Task {
   id: string
@@ -78,8 +79,6 @@ const eventTypeLabel: Record<string, string> = {
 
 export default function HomeClient({ name, initials, tasks, events, orgName, userRole }: Props) {
 
-
-
   const greeting = () => {
     const messages = [
       'Tap Capture and sell with total freedom.',
@@ -128,6 +127,9 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
           </div>
         </Link>
       </div>
+
+      {/* AI Proactive Nudges */}
+      <AIProactiveNudges />
 
       {/* Search */}
       <div style={{ padding: '0 24px 16px' }}>

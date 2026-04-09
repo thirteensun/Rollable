@@ -1,114 +1,131 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { cookies } from 'next/headers'
 
-export const maxDuration = 30
-export const dynamic = 'force-dynamic'
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent'
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent'
+export async function POST(req: NextRequest) {
+  try {
+    await cookies() // Next.js requires this before createServerSupabaseClient
+    const supabase = createServerSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-const SYSTEM_PROMPT = `You are an AI assistant for a sales CRM. Analyze this image and extract structured sales information.
+    const body = await req.json()
+    const { imageBase64, mimeType = 'image/jpeg' } = body
 
-The image could be:
-- A handwritten note from a meeting
-- A screenshot of a WhatsApp or iMessage conversation
-- An email screenshot
-- A business card
-- A conference or event listing
-- Any sales-related document or photo
+    const prompt = `You are an AI assistant for a CRM called SDM. Analyze this image and extract structured data.
 
-Extract the following information and return ONLY valid JSON (no markdown, no backticks, just raw JSON):
+DOCUMENT TYPES YOU MUST DETECT:
+1. Business card → extract contact info
+2. Meeting notes / whiteboard → extract contacts, deals, tasks
+3. Invoice → extract invoice details and link to deal
+4. Purchase Order (PO) → extract PO details and link to deal
+5. Other (screenshot, email, etc.) → extract whatever CRM-relevant info exists
 
+Respond ONLY with valid JSON in this exact format:
 {
-  "summary": "One sentence describing what was captured, written as a CRM action note. Focus on the person and action, not the image. Examples: 'Added Jennifer Quigley-Jones, founder of Digital Voices.', 'Met Steffan Sund, District Manager at Fibo, and Annina Eskola, Sales Advisor at Fibo.', 'Captured R. Ethan Braden and two other keynote speakers from image.'",
-  "event_type": "meeting|call|email|whatsapp|note|card_scan|other",
-  "contact_name": "Full name of the PRIMARY contact (or null if not found)",
-  "contacts": [
-    {
-      "full_name": "Full name of each person found",
-      "role": "Their job title or position (or null if not found)",
-      "company_name": "Their company name (or null if not found)",
-      "email": "Their email address (or null if not found)",
-      "phone": "Their phone number (or null if not found)"
-    }
-  ],
-  "company_name": "Primary company name (or null if not found)",
-  "deal_name": "A short deal name like 'TechCorp Enterprise' (or null if no deal context)",
-  "deal_value": null,
-  "follow_up_date": "ISO date string for follow-up if mentioned, like '2026-04-10' (or null)",
-  "notes": "Any additional important details like requirements, objections, next steps",
+  "document_type": "business_card" | "meeting_notes" | "invoice" | "purchase_order" | "other",
+  "summary": "One action-oriented sentence describing what was captured and what the CRM should do. Be specific.",
   "creates": [
-    {"label": "Contact — [name] · [role] at [company]", "type": "contact"},
-    {"label": "Deal — [name]", "type": "deal"},
-    {"label": "Task — Follow-up [date]", "type": "task"},
-    {"label": "Note — [brief description]", "type": "note"}
-  ]
+    { "type": "contact", "label": "Full Name — Company" },
+    { "type": "deal", "label": "Deal name — $value" },
+    { "type": "task", "label": "Task description" }
+  ],
+  "financial_update": {
+    "deal_name_hint": "Name or partial name of deal this document relates to (or null)",
+    "invoice_ref": "Invoice number if present (or null)",
+    "po_ref": "PO number if present (or null)",
+    "invoice_date": "YYYY-MM-DD if present (or null)",
+    "po_date": "YYYY-MM-DD if present (or null)",
+    "amount": 0,
+    "payment_status": "invoiced" | "paid" | null,
+    "currency": "USD"
+  }
 }
 
 Rules:
-- Always populate the "contacts" array with every person found, including their role and company
-- For business cards, extract all details: name, role, company, email, phone
-- For meeting notes or chat screenshots, extract the person you spoke with
-- For conference/event listings, extract all speakers with their roles and organizations
-- Only include items in "creates" that are actually relevant from the image
-- deal_value should be a number (e.g. 50000) or null, never a string
-- If you cannot read the image or it has no relevant content, return:
-{"summary": "I couldn't extract any useful information from this image.", "event_type": "other", "contacts": [], "creates": []}
-`
+- financial_update is ONLY populated for invoice or purchase_order document types. For all others set all fields to null.
+- summary must be action-oriented (e.g. "Invoice INV-2024-042 for $12,500 from Acme Corp — mark deal as invoiced")
+- creates[] should be empty [] for invoice/PO documents unless they also contain new contacts
+- amount should be a number (no currency symbols), 0 if not found`
 
-export async function POST(request: NextRequest) {
-  try {
-    const { image, mimeType } = await request.json()
-
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 })
-    }
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${process.env.GEMINI_API_KEY}`, {
+    const geminiRes = await fetch(`${GEMINI_API_URL}?key=${process.env.GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{
           parts: [
-            { text: SYSTEM_PROMPT },
-            {
-              inline_data: {
-                mime_type: mimeType || 'image/jpeg',
-                data: image,
-              }
-            }
+            { text: prompt },
+            { inline_data: { mime_type: mimeType, data: imageBase64 } }
           ]
         }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 1500,
-        }
+        generationConfig: { temperature: 0.1, maxOutputTokens: 1024 }
       })
     })
 
-    if (!response.ok) {
-      const err = await response.text()
+    if (!geminiRes.ok) {
+      const err = await geminiRes.text()
       console.error('Gemini error:', err)
-      return NextResponse.json({ error: 'Gemini API error' }, { status: 500 })
+      return NextResponse.json({ error: 'Gemini API failed' }, { status: 500 })
     }
 
-    const data = await response.json()
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    const geminiData = await geminiRes.json()
+    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
 
-    const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-
+    // Strip markdown fences
+    const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    let parsed: any
     try {
-      const parsed = JSON.parse(clean)
-      return NextResponse.json(parsed)
+      parsed = JSON.parse(cleaned)
     } catch {
-      console.error('Failed to parse Gemini response:', text)
-      return NextResponse.json({
-        summary: "I processed your image but couldn't extract structured data. Please try again.",
-        event_type: 'other',
-        contacts: [],
-        creates: []
-      })
+      return NextResponse.json({ error: 'Failed to parse Gemini response', raw: rawText }, { status: 500 })
     }
-  } catch (error) {
-    console.error('Capture API error:', error)
+
+    // If it's a financial document, try to auto-match to an existing deal
+    let matchedDeal: any = null
+    if (
+      (parsed.document_type === 'invoice' || parsed.document_type === 'purchase_order') &&
+      parsed.financial_update?.deal_name_hint
+    ) {
+      const hint = parsed.financial_update.deal_name_hint.toLowerCase()
+
+      // Get user's org
+      const { data: membership } = await supabase
+        .from('organisation_members')
+        .select('organisation_id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (membership) {
+        const { data: deals } = await supabase
+          .from('deals')
+          .select('id, name, value, stage')
+          .eq('organisation_id', membership.organisation_id)
+          .not('stage', 'in', '(closed_lost)')
+
+        // Simple fuzzy match: check if any deal name words appear in hint or vice versa
+        if (deals) {
+          for (const d of deals) {
+            const dealWords = d.name.toLowerCase().split(/\s+/)
+            const hintWords = hint.split(/\s+/)
+            const overlap = dealWords.filter((w: string) => w.length > 3 && hintWords.some((h: string) => h.includes(w) || w.includes(h)))
+            if (overlap.length > 0) {
+              matchedDeal = d
+              break
+            }
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({
+      ...parsed,
+      matched_deal: matchedDeal ?? null,
+    })
+
+  } catch (err) {
+    console.error('Capture route error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

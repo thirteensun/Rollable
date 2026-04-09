@@ -1,0 +1,351 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createBrowserSupabaseClient } from '@/lib/supabase'
+
+const STAGES = ['lead', 'qualified', 'demo', 'proposal', 'negotiation', 'closed_won', 'closed_lost']
+const STAGE_LABELS: Record<string, string> = {
+  lead: 'Lead', qualified: 'Qualified', demo: 'Demo',
+  proposal: 'Proposal', negotiation: 'Negotiation',
+  closed_won: 'Won', closed_lost: 'Lost',
+}
+
+const PAYMENT_COLORS: Record<string, { bg: string; text: string; label: string }> = {
+  none:     { bg: 'rgba(239,159,39,0.1)',  text: '#EF9F27', label: 'Not invoiced' },
+  invoiced: { bg: 'rgba(59,130,246,0.1)',  text: '#3b82f6', label: 'Invoiced' },
+  paid:     { bg: 'rgba(29,158,117,0.1)',  text: '#1D9E75', label: 'Paid' },
+}
+
+function formatCurrency(val?: number | null) {
+  if (val == null) return '—'
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val)
+}
+
+function formatDate(val?: string | null) {
+  if (!val) return '—'
+  return new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function timeAgo(val: string) {
+  const diff = Date.now() - new Date(val).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
+}
+
+export default function DealDetailClient({ deal, events }: { deal: any; events: any[] }) {
+  const router = useRouter()
+  const supabase = createBrowserSupabaseClient()
+
+  const [stage, setStage] = useState(deal.stage)
+  const [paymentStatus, setPaymentStatus] = useState(deal.payment_status ?? 'none')
+  const [invoiceRef, setInvoiceRef] = useState(deal.invoice_ref ?? '')
+  const [poRef, setPoRef] = useState(deal.po_ref ?? '')
+  const [invoiceDate, setInvoiceDate] = useState(deal.invoice_date ?? '')
+  const [poDate, setPoDate] = useState(deal.po_date ?? '')
+  const [confirmedRevenue, setConfirmedRevenue] = useState(
+    deal.confirmed_revenue != null ? String(deal.confirmed_revenue) : ''
+  )
+  const [saving, setSaving] = useState(false)
+  const [editingFinancials, setEditingFinancials] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  const contacts = deal.deal_contacts?.map((dc: any) => dc.contacts).filter(Boolean) ?? []
+  const payment = PAYMENT_COLORS[paymentStatus] ?? PAYMENT_COLORS.none
+  const stageIndex = STAGES.indexOf(stage)
+  const isLost = stage === 'closed_lost'
+
+  async function updateStage(newStage: string) {
+    setStage(newStage)
+    await supabase.from('deals').update({ stage: newStage }).eq('id', deal.id)
+  }
+
+  async function saveFinancials() {
+    setSaving(true)
+    await supabase.from('deals').update({
+      payment_status: paymentStatus,
+      invoice_ref: invoiceRef || null,
+      po_ref: poRef || null,
+      invoice_date: invoiceDate || null,
+      po_date: poDate || null,
+      confirmed_revenue: confirmedRevenue ? parseFloat(confirmedRevenue) : null,
+    }).eq('id', deal.id)
+    setSaving(false)
+    setEditingFinancials(false)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div style={{ background: '#f5f4f0', minHeight: '100dvh', paddingBottom: 100 }}>
+
+      {/* Header */}
+      <div style={{ background: 'white', borderBottom: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 20px 20px' }}>
+        <button
+          onClick={() => router.back()}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#6b6960', fontSize: 14, marginBottom: 16, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          Back
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 600, color: '#1a1a18', marginBottom: 4 }}>{deal.name}</h1>
+            {deal.companies?.name && (
+              <p style={{ fontSize: 14, color: '#6b6960' }}>{deal.companies.name}</p>
+            )}
+          </div>
+          <div style={{
+            padding: '4px 10px', borderRadius: 20,
+            background: payment.bg, color: payment.text,
+            fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', marginTop: 4
+          }}>
+            {payment.label}
+          </div>
+        </div>
+
+        {/* Revenue row */}
+        <div style={{ display: 'flex', gap: 24, marginTop: 16 }}>
+          <div>
+            <p style={{ fontSize: 11, color: '#9b9890', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expected</p>
+            <p style={{ fontSize: 20, fontWeight: 600, color: '#1a1a18' }}>{formatCurrency(deal.value)}</p>
+          </div>
+          {deal.confirmed_revenue != null && (
+            <div>
+              <p style={{ fontSize: 11, color: '#9b9890', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Confirmed</p>
+              <p style={{ fontSize: 20, fontWeight: 600, color: '#1D9E75' }}>{formatCurrency(deal.confirmed_revenue)}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+        {/* Stage pipeline */}
+        <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+          <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Stage</p>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {STAGES.filter(s => s !== 'closed_lost').map((s, i) => {
+              const isActive = s === stage
+              const isPast = !isLost && i < stageIndex
+              return (
+                <button
+                  key={s}
+                  onClick={() => updateStage(s)}
+                  style={{
+                    padding: '6px 11px',
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: isActive ? 600 : 400,
+                    border: isActive ? 'none' : '0.5px solid rgba(0,0,0,0.1)',
+                    background: isActive ? '#1a1a18' : isPast ? 'rgba(29,158,117,0.08)' : 'transparent',
+                    color: isActive ? 'white' : isPast ? '#1D9E75' : '#6b6960',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {STAGE_LABELS[s]}
+                </button>
+              )
+            })}
+            <button
+              onClick={() => updateStage('closed_lost')}
+              style={{
+                padding: '6px 11px', borderRadius: 20, fontSize: 12,
+                fontWeight: isLost ? 600 : 400,
+                border: isLost ? 'none' : '0.5px solid rgba(0,0,0,0.1)',
+                background: isLost ? '#E24B4A' : 'transparent',
+                color: isLost ? 'white' : '#E24B4A',
+                cursor: 'pointer',
+              }}
+            >
+              Lost
+            </button>
+          </div>
+        </div>
+
+        {/* Invoice / PO card */}
+        <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Invoice & PO</p>
+            <button
+              onClick={() => setEditingFinancials(e => !e)}
+              style={{ fontSize: 13, color: '#1a1a18', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+            >
+              {editingFinancials ? 'Cancel' : 'Edit'}
+            </button>
+          </div>
+
+          {editingFinancials ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Payment status */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(['none', 'invoiced', 'paid'] as const).map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setPaymentStatus(s)}
+                    style={{
+                      flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 12, fontWeight: 500,
+                      border: paymentStatus === s ? 'none' : '0.5px solid rgba(0,0,0,0.1)',
+                      background: paymentStatus === s ? PAYMENT_COLORS[s].bg : 'transparent',
+                      color: paymentStatus === s ? PAYMENT_COLORS[s].text : '#6b6960',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {PAYMENT_COLORS[s].label}
+                  </button>
+                ))}
+              </div>
+
+              <input
+                placeholder="Invoice ref (e.g. INV-2024-001)"
+                value={invoiceRef}
+                onChange={e => setInvoiceRef(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="date"
+                placeholder="Invoice date"
+                value={invoiceDate}
+                onChange={e => setInvoiceDate(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                placeholder="PO ref (e.g. PO-4521)"
+                value={poRef}
+                onChange={e => setPoRef(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="date"
+                placeholder="PO date"
+                value={poDate}
+                onChange={e => setPoDate(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="number"
+                placeholder="Confirmed revenue (actual amount invoiced)"
+                value={confirmedRevenue}
+                onChange={e => setConfirmedRevenue(e.target.value)}
+                style={inputStyle}
+              />
+
+              <button
+                onClick={saveFinancials}
+                disabled={saving}
+                style={{
+                  marginTop: 4, padding: '12px', borderRadius: 20, background: '#1a1a18',
+                  color: 'white', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer',
+                  opacity: saving ? 0.6 : 1,
+                }}
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <FinancialRow label="Invoice ref" value={invoiceRef || '—'} />
+              <FinancialRow label="Invoice date" value={formatDate(invoiceDate)} />
+              <FinancialRow label="PO ref" value={poRef || '—'} />
+              <FinancialRow label="PO date" value={formatDate(poDate)} />
+              <FinancialRow label="Confirmed revenue" value={formatCurrency(confirmedRevenue ? parseFloat(confirmedRevenue) : null)} highlight={!!confirmedRevenue} />
+              {saved && <p style={{ fontSize: 12, color: '#1D9E75', textAlign: 'center' }}>Saved ✓</p>}
+            </div>
+          )}
+        </div>
+
+        {/* Contacts */}
+        {contacts.length > 0 && (
+          <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+            <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Contacts</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {contacts.map((c: any) => (
+                <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%', background: '#f5f4f0',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 13, fontWeight: 600, color: '#1a1a18', flexShrink: 0,
+                  }}>
+                    {c.first_name?.[0]}{c.last_name?.[0]}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>
+                      {c.first_name} {c.last_name}
+                    </p>
+                    {c.title && <p style={{ fontSize: 12, color: '#6b6960' }}>{c.title}</p>}
+                  </div>
+                  {c.email && (
+                    <a href={`mailto:${c.email}`} style={{ color: '#6b6960' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/>
+                      </svg>
+                    </a>
+                  )}
+                  {c.phone && (
+                    <a href={`tel:${c.phone}`} style={{ color: '#6b6960' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3-8.59A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>
+                      </svg>
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Activity timeline */}
+        <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+          <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Activity</p>
+          {events.length === 0 ? (
+            <p style={{ fontSize: 14, color: '#9b9890', textAlign: 'center', padding: '12px 0' }}>No activity yet</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {events.map((ev: any, i: number) => (
+                <div key={ev.id} style={{ display: 'flex', gap: 12, paddingBottom: i < events.length - 1 ? 14 : 0 }}>
+                  {/* Timeline dot + line */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#1a1a18', marginTop: 4, flexShrink: 0 }} />
+                    {i < events.length - 1 && (
+                      <div style={{ width: 1, flex: 1, background: 'rgba(0,0,0,0.07)', marginTop: 4 }} />
+                    )}
+                  </div>
+                  <div style={{ flex: 1, paddingBottom: i < events.length - 1 ? 4 : 0 }}>
+                    <p style={{ fontSize: 13, color: '#1a1a18', marginBottom: 2 }}>
+                      {ev.metadata?.summary ?? ev.event_type ?? 'Event'}
+                    </p>
+                    <p style={{ fontSize: 11, color: '#9b9890' }}>{timeAgo(ev.created_at)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+function FinancialRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <span style={{ fontSize: 13, color: '#6b6960' }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 500, color: highlight ? '#1D9E75' : '#1a1a18' }}>{value}</span>
+    </div>
+  )
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 12px', borderRadius: 10,
+  border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 14,
+  color: '#1a1a18', background: '#f5f4f0', outline: 'none',
+  boxSizing: 'border-box',
+}

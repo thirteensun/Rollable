@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 
 interface Deal {
   id: string
@@ -113,43 +114,49 @@ export default function TrackingClient({ deals }: { deals: Deal[] }) {
               const progressColor = risk ? '#E24B4A' : progress >= 60 ? '#1D9E75' : '#EF9F27'
 
               return (
-                <div key={deal.id} style={{
-                  background: risk ? '#FFF8F8' : 'white',
-                  borderRadius: '16px',
-                  border: risk ? '0.5px solid rgba(226,75,74,0.18)' : '0.5px solid rgba(0,0,0,0.07)',
-                  padding: '14px 16px', cursor: 'pointer',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{
-                        width: '34px', height: '34px', borderRadius: '10px',
-                        background: palette.bg, display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', fontSize: '11px', fontWeight: 500, color: palette.color,
-                      }}>
-                        {getInitials(deal.name)}
+                <Link
+                  key={deal.id}
+                  href={`/tracking/deals/${deal.id}`}
+                  style={{ textDecoration: 'none' }}
+                >
+                  <div style={{
+                    background: risk ? '#FFF8F8' : 'white',
+                    borderRadius: '16px',
+                    border: risk ? '0.5px solid rgba(226,75,74,0.18)' : '0.5px solid rgba(0,0,0,0.07)',
+                    padding: '14px 16px', cursor: 'pointer',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '34px', height: '34px', borderRadius: '10px',
+                          background: palette.bg, display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', fontSize: '11px', fontWeight: 500, color: palette.color,
+                        }}>
+                          {getInitials(deal.name)}
+                        </div>
+                        <div>
+                          <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>{deal.name}</p>
+                          <p style={{ margin: '2px 0 0', fontSize: '12px', color: risk ? '#E24B4A' : '#9b9890' }}>
+                            {risk ? 'No activity in 14+ days' : contactName}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>{deal.name}</p>
-                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: risk ? '#E24B4A' : '#9b9890' }}>
-                          {risk ? 'No activity in 14+ days' : contactName}
+                      {deal.value && (
+                        <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: '#1a1a18' }}>
+                          {fmt(deal.value)}
                         </p>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ flex: 1, height: '4px', background: '#e8e6e0', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ width: `${progress}%`, height: '100%', background: progressColor, borderRadius: '2px' }} />
                       </div>
+                      <span style={{ fontSize: '11px', color: risk ? '#E24B4A' : '#9b9890', flexShrink: 0 }}>
+                        {stageLabel[deal.stage]}
+                      </span>
                     </div>
-                    {deal.value && (
-                      <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: '#1a1a18' }}>
-                        {fmt(deal.value)}
-                      </p>
-                    )}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ flex: 1, height: '4px', background: '#e8e6e0', borderRadius: '2px', overflow: 'hidden' }}>
-                      <div style={{ width: `${progress}%`, height: '100%', background: progressColor, borderRadius: '2px' }} />
-                    </div>
-                    <span style={{ fontSize: '11px', color: risk ? '#E24B4A' : '#9b9890', flexShrink: 0 }}>
-                      {stageLabel[deal.stage]}
-                    </span>
-                  </div>
-                </div>
+                </Link>
               )
             })}
           </div>

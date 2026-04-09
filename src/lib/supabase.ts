@@ -6,3 +6,5 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 }
+// alias so new files can use the explicit name
+export const createBrowserSupabaseClient = createClient
