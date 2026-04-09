@@ -18,7 +18,7 @@ The image could be:
 Extract the following information and return ONLY valid JSON (no markdown, no backticks, just raw JSON):
 
 {
-  "summary": "One sentence describing what was captured, written as a CRM action note. Focus on the person and action, not the image. Examples: 'Added Jennifer Quigley-Jones, founder of Digital Voices, from a podcast listing.', 'Met Steffan Sund, District Manager at Fibo, and Annina Eskola, Sales Advisor at Fibo.', 'Captured R. Ethan Braden and two other keynote speakers from a conference listing.'",
+  "summary": "One sentence describing what was captured, written as a CRM action note. Focus on the person and action, not the image. Examples: 'Added Jennifer Quigley-Jones, founder of Digital Voices.', 'Met Steffan Sund, District Manager at Fibo, and Annina Eskola, Sales Advisor at Fibo.', 'Captured R. Ethan Braden and two other keynote speakers from image.'",
   "event_type": "meeting|call|email|whatsapp|note|card_scan|other",
   "contact_name": "Full name of the PRIMARY contact (or null if not found)",
   "contacts": [
