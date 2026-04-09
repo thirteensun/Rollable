@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createBrowserSupabaseClient } from '@/lib/supabase'
 import Link from 'next/link'
 
 interface Nudge {
@@ -19,81 +18,10 @@ export default function AIProactiveNudges() {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    async function loadNudges() {
-      const supabase = createBrowserSupabaseClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: membership } = await supabase
-        .from('organisation_members')
-        .select('organisation_id')
-        .eq('user_id', user.id)
-        .single()
-
-      if (!membership) return
-
-      const { data: deals } = await supabase
-        .from('deals')
-        .select('id, name, value, stage, payment_status, updated_at, confirmed_revenue')
-        .eq('organisation_id', membership.organisation_id)
-        .not('stage', 'in', '(closed_lost)')
-
-      if (!deals) return
-
-      const now = Date.now()
-      const DAY = 86400000
-      const generatedNudges: Nudge[] = []
-
-      for (const deal of deals) {
-        const daysSinceUpdate = (now - new Date(deal.updated_at).getTime()) / DAY
-
-        // Closed won but no invoice after 7 days
-        if (deal.stage === 'closed_won' && deal.payment_status === 'none' && daysSinceUpdate > 7) {
-          generatedNudges.push({
-            id: `uninvoiced-${deal.id}`,
-            deal_id: deal.id,
-            deal_name: deal.name,
-            type: 'uninvoiced',
-            urgency: daysSinceUpdate > 14 ? 'high' : 'medium',
-            message: `Closed ${Math.round(daysSinceUpdate)} days ago — has an invoice been sent?`,
-          })
-        }
-
-        // Invoiced but not paid after 30 days
-        if (deal.payment_status === 'invoiced' && daysSinceUpdate > 30) {
-          generatedNudges.push({
-            id: `unpaid-${deal.id}`,
-            deal_id: deal.id,
-            deal_name: deal.name,
-            type: 'at_risk',
-            urgency: 'high',
-            message: `Invoiced ${Math.round(daysSinceUpdate)} days ago — follow up on payment?`,
-          })
-        }
-
-        // Active deal with no activity in 14 days
-        if (!['closed_won', 'closed_lost', 'lead'].includes(deal.stage) && daysSinceUpdate > 14) {
-          generatedNudges.push({
-            id: `inactive-${deal.id}`,
-            deal_id: deal.id,
-            deal_name: deal.name,
-            type: 'no_activity',
-            urgency: daysSinceUpdate > 21 ? 'high' : 'medium',
-            message: `No activity in ${Math.round(daysSinceUpdate)} days — time to follow up?`,
-          })
-        }
-      }
-
-      // Sort by urgency, limit to 3
-      const sorted = generatedNudges
-        .sort((a, b) => (a.urgency === 'high' ? -1 : 1))
-        .slice(0, 3)
-
-      setNudges(sorted)
-      setLoading(false)
-    }
-
-    loadNudges()
+    fetch('/api/nudges')
+      .then(r => r.json())
+      .then(data => { setNudges(data); setLoading(false) })
+      .catch(() => setLoading(false))
   }, [])
 
   const visible = nudges.filter(n => !dismissed.has(n.id))
