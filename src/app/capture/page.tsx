@@ -51,9 +51,57 @@ export default function CapturePage() {
   const transcriptRef = useRef('')
   const isListeningRef = useRef(false)
 
+  // Scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isThinking])
+
+  // Step-by-step processing animation
+  useEffect(() => {
+    if (mode !== 'image_processing') {
+      setProcessingStep(0)
+      return
+    }
+    const interval = setInterval(() => {
+      setProcessingStep(prev => {
+        if (prev >= 4) { clearInterval(interval); return prev }
+        return prev + 1
+      })
+    }, 600)
+    return () => clearInterval(interval)
+  }, [mode])
+
+  // Typewriter effect for summary
+  useEffect(() => {
+    if (mode !== 'image_confirm' || !aiResult?.summary) {
+      setDisplayedSummary('')
+      return
+    }
+    setDisplayedSummary('')
+    let i = 0
+    const interval = setInterval(() => {
+      i++
+      setDisplayedSummary(aiResult.summary.slice(0, i))
+      if (i >= aiResult.summary.length) clearInterval(interval)
+    }, 18)
+    return () => clearInterval(interval)
+  }, [mode, aiResult])
+
+  // Staggered appearance of create items
+  useEffect(() => {
+    if (mode !== 'image_confirm' || !aiResult?.creates.length) {
+      setVisibleCreates(0)
+      return
+    }
+    setVisibleCreates(0)
+    let i = 0
+    const interval = setInterval(() => {
+      i++
+      setVisibleCreates(i)
+      if (i >= aiResult.creates.length) clearInterval(interval)
+    }, 150)
+    return () => clearInterval(interval)
+  }, [mode, aiResult])
 
   const compressImage = (file: File): Promise<{ base64: string; mimeType: string }> => {
     return new Promise((resolve, reject) => {
@@ -199,50 +247,33 @@ export default function CapturePage() {
 
   const startVoice = () => {
     if (isListeningRef.current) return
-
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) { alert('Voice not supported. Try Chrome or Safari.'); return }
-
     transcriptRef.current = ''
     setTranscript('')
-
     const recognition = new SpeechRecognition()
-    recognition.continuous = false      // auto-stop on silence
+    recognition.continuous = false
     recognition.interimResults = true
     recognition.lang = 'en-US'
     recognitionRef.current = recognition
-
-    recognition.onstart = () => {
-      isListeningRef.current = true
-      setIsListening(true)
-    }
-
+    recognition.onstart = () => { isListeningRef.current = true; setIsListening(true) }
     recognition.onresult = (e: any) => {
       const text = Array.from(e.results).map((r: any) => r[0].transcript).join('')
       setTranscript(text)
       transcriptRef.current = text
     }
-
     recognition.onend = () => {
       isListeningRef.current = false
       setIsListening(false)
-      // auto-send when silence detected
-      if (transcriptRef.current.trim()) {
-        sendMessage(transcriptRef.current.trim())
-      }
+      if (transcriptRef.current.trim()) sendMessage(transcriptRef.current.trim())
     }
-
-    recognition.onerror = () => {
-      isListeningRef.current = false
-      setIsListening(false)
-    }
-
+    recognition.onerror = () => { isListeningRef.current = false; setIsListening(false) }
     recognition.start()
   }
 
   const stopVoice = () => {
     if (!isListeningRef.current) return
-    recognitionRef.current?.stop() // triggers onend which sends the message
+    recognitionRef.current?.stop()
   }
 
   const startVoiceFromChoose = () => {
@@ -253,11 +284,7 @@ export default function CapturePage() {
   }
 
   const handleMicClick = () => {
-    if (isListeningRef.current) {
-      stopVoice()
-    } else {
-      startVoice()
-    }
+    if (isListeningRef.current) { stopVoice() } else { startVoice() }
   }
 
   return (
@@ -352,8 +379,8 @@ export default function CapturePage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {[
               'Add Tom from UC Architecture to my contacts',
-              'What\'s the status of the TechCorp deal?',
-              'Pull out Tracy\'s email from Loo Consulting',
+              "What's the status of the TechCorp deal?",
+              "Pull out Tracy's email from Loo Consulting",
               'Schedule a follow-up with Maria for Friday',
               'Show me my pipeline summary',
             ].map((example, i) => (
@@ -377,7 +404,6 @@ export default function CapturePage() {
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '280px' }}>
             {[
               'Analysing image...',
@@ -564,8 +590,6 @@ export default function CapturePage() {
                 autoFocus
               />
             </div>
-
-            {/* Tap to start, tap again to stop early, silence auto-sends */}
             <button
               onClick={handleMicClick}
               style={{
@@ -585,7 +609,6 @@ export default function CapturePage() {
                 <path d="M12 17v4" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
-
             {inputText && (
               <button onClick={() => sendMessage(inputText)} style={{
                 width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
