@@ -178,7 +178,7 @@ Today's date: ${new Date().toISOString().split('T')[0]}`,
       // Process tool calls
       const toolResults: Anthropic.ToolResultBlockParam[] = []
 
-      for (const block of response.content) {
+      for (const block of (response.content ?? [])) {
         if (block.type !== 'tool_use') continue
         const input = block.input as any
         let result = ''
