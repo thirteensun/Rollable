@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
 
@@ -7,98 +8,112 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 async function getLatestSonnetModel(): Promise<string> {
   try {
-    const res = await fetch('https://api.anthropic.com/v1/models', {
-      headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY!, 'anthropic-version': '2023-06-01' }
+    const response = await fetch('https://api.anthropic.com/v1/models', {
+      headers: {
+        'x-api-key': process.env.ANTHROPIC_API_KEY!,
+        'anthropic-version': '2023-06-01',
+      },
     })
-    const data = await res.json()
-    const sonnet = data.data
-      ?.filter((m: any) => m.id.includes('sonnet'))
-      .sort((a: any, b: any) => b.id.localeCompare(a.id))[0]
-    return sonnet?.id ?? 'claude-sonnet-4-6'
+    const data = await response.json()
+    const sonnetModels = data.data
+      .map((m: any) => m.id)
+      .filter((id: string) => id.includes('claude-sonnet'))
+      .sort()
+      .reverse()
+    return sonnetModels[0] || 'claude-sonnet-4-6'
   } catch {
     return 'claude-sonnet-4-6'
   }
 }
 
-const TOOLS: Anthropic.Tool[] = [
+const tools: Anthropic.Tool[] = [
   {
     name: 'add_contact',
-    description: 'Add a new contact to the CRM',
+    description: 'Add a new contact to the CRM or update an existing one',
     input_schema: {
       type: 'object' as const,
       properties: {
-        first_name: { type: 'string' },
-        last_name: { type: 'string' },
-        email: { type: 'string' },
-        phone: { type: 'string' },
-        title: { type: 'string' },
-        company_name: { type: 'string' },
+        full_name: { type: 'string', description: 'Full name of the contact' },
+        company_name: { type: 'string', description: 'Company they work for' },
+        role: { type: 'string', description: 'Job title or role' },
+        email: { type: 'string', description: 'Email address' },
+        phone: { type: 'string', description: 'Phone number' },
       },
-      required: ['first_name'],
+      required: ['full_name'],
     },
   },
   {
     name: 'find_contact',
-    description: 'Search for an existing contact by name or email',
+    description: 'Search for a contact by name or company and return their details',
     input_schema: {
       type: 'object' as const,
-      properties: { query: { type: 'string', description: 'Name or email to search for' } },
-      required: ['query'],
+      properties: {
+        name: { type: 'string', description: 'Name to search for' },
+        company: { type: 'string', description: 'Company to search in' },
+      },
     },
   },
   {
     name: 'add_company',
-    description: 'Add a new company/account to the CRM',
+    description: 'Add a new company to the CRM',
     input_schema: {
       type: 'object' as const,
       properties: {
-        name: { type: 'string' },
-        industry: { type: 'string' },
-        website: { type: 'string' },
+        name: { type: 'string', description: 'Company name' },
+        industry: { type: 'string', description: 'Industry sector' },
+        website: { type: 'string', description: 'Website URL' },
       },
       required: ['name'],
     },
   },
   {
     name: 'add_deal',
-    description: 'Create a new deal in the pipeline',
+    description: 'Create a new deal or sales opportunity',
     input_schema: {
       type: 'object' as const,
       properties: {
-        name: { type: 'string' },
-        value: { type: 'number' },
-        stage: { type: 'string', enum: ['lead', 'qualified', 'demo', 'proposal', 'negotiation', 'closed_won', 'closed_lost'] },
-        company_name: { type: 'string' },
+        name: { type: 'string', description: 'Deal name' },
+        company_name: { type: 'string', description: 'Company this deal is with' },
+        value: { type: 'number', description: 'Deal value in euros' },
+        stage: { type: 'string', enum: ['lead', 'qualified', 'demo', 'proposal', 'negotiation'], description: 'Deal stage' },
       },
       required: ['name'],
     },
   },
   {
     name: 'add_task',
-    description: 'Create a task or follow-up action',
+    description: 'Create a follow-up task or reminder',
     input_schema: {
       type: 'object' as const,
       properties: {
-        title: { type: 'string' },
-        due_date: { type: 'string', description: 'ISO date string' },
-        priority: { type: 'string', enum: ['low', 'medium', 'high'] },
+        title: { type: 'string', description: 'Task description' },
+        contact_name: { type: 'string', description: 'Contact this task is for' },
+        due_date: { type: 'string', description: 'Due date in ISO format e.g. 2026-04-10' },
       },
       required: ['title'],
     },
   },
   {
     name: 'search_crm',
-    description: 'Search across contacts, companies, and deals',
+    description: 'Search across contacts, companies and deals',
     input_schema: {
       type: 'object' as const,
-      properties: { query: { type: 'string' } },
+      properties: {
+        query: { type: 'string', description: 'Search term' },
+        type: { type: 'string', enum: ['contacts', 'companies', 'deals', 'all'], description: 'What to search' },
+      },
       required: ['query'],
     },
   },
   {
     name: 'get_pipeline_summary',
-    description: 'Get a summary of the current sales pipeline',
-    input_schema: { type: 'object' as const, properties: {} },
+    description: 'Get a summary of the current sales pipeline and deals',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        filter: { type: 'string', enum: ['all', 'at_risk', 'closing_soon'], description: 'Filter deals' },
+      },
+    },
   },
   {
     name: 'update_deal_stage',
@@ -106,10 +121,10 @@ const TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: 'object' as const,
       properties: {
-        deal_name: { type: 'string' },
-        new_stage: { type: 'string', enum: ['lead', 'qualified', 'demo', 'proposal', 'negotiation', 'closed_won', 'closed_lost'] },
+        deal_name: { type: 'string', description: 'Name of the deal to update' },
+        stage: { type: 'string', enum: ['lead', 'qualified', 'demo', 'proposal', 'negotiation', 'closed_won', 'closed_lost'] },
       },
-      required: ['deal_name', 'new_stage'],
+      required: ['deal_name', 'stage'],
     },
   },
   {
@@ -131,199 +146,228 @@ const TOOLS: Anthropic.Tool[] = [
   },
 ]
 
-export async function POST(req: NextRequest) {
+async function executeTool(
+  toolName: string,
+  toolInput: any,
+  userId: string,
+  orgId: string | null,
+  admin: any
+): Promise<string> {
+  switch (toolName) {
+    case 'add_contact': {
+      let company_id = null
+      if (toolInput.company_name) {
+        const { data: existingCo } = await admin.from('companies').select('id').eq('user_id', userId).ilike('name', toolInput.company_name).maybeSingle()
+        if (existingCo) {
+          company_id = existingCo.id
+        } else {
+          const { data: newCo } = await admin.from('companies').insert({ user_id: userId, name: toolInput.company_name, org_id: orgId }).select('id').maybeSingle()
+          company_id = newCo?.id
+        }
+      }
+      const { data: existing } = await admin.from('contacts').select('id, full_name').eq('user_id', userId).ilike('full_name', toolInput.full_name).maybeSingle()
+      if (existing) {
+        await admin.from('contacts').update({
+          company_id: company_id || undefined,
+          role: toolInput.role || undefined,
+          email: toolInput.email || undefined,
+          phone: toolInput.phone || undefined,
+          last_contacted_at: new Date().toISOString(),
+        }).eq('id', existing.id)
+        return `Updated existing contact ${toolInput.full_name} with the new details.`
+      }
+      await admin.from('contacts').insert({
+        user_id: userId, org_id: orgId, full_name: toolInput.full_name,
+        company_id, role: toolInput.role || null, email: toolInput.email || null, phone: toolInput.phone || null,
+        last_contacted_at: new Date().toISOString(),
+      })
+      return `Added ${toolInput.full_name}${toolInput.company_name ? ` from ${toolInput.company_name}` : ''} to your contacts.`
+    }
+
+    case 'find_contact': {
+      let query = admin.from('contacts').select('full_name, role, email, phone, companies(name)').eq('user_id', userId)
+      if (toolInput.name) query = query.ilike('full_name', `%${toolInput.name}%`)
+      if (toolInput.company) query = query.ilike('companies.name', `%${toolInput.company}%`)
+      const { data } = await query.limit(5)
+      if (!data || data.length === 0) return `No contacts found matching your search.`
+      return data.map((c: any) => `${c.full_name}${c.role ? ` (${c.role})` : ''}${c.companies?.name ? ` at ${c.companies.name}` : ''} — Email: ${c.email || 'not recorded'}, Phone: ${c.phone || 'not recorded'}`).join('\n')
+    }
+
+    case 'add_company': {
+      const { data: existing } = await admin.from('companies').select('id').eq('user_id', userId).ilike('name', toolInput.name).maybeSingle()
+      if (existing) return `${toolInput.name} already exists in your companies.`
+      await admin.from('companies').insert({ user_id: userId, org_id: orgId, name: toolInput.name, industry: toolInput.industry || null, website: toolInput.website || null })
+      return `Added ${toolInput.name} to your companies.`
+    }
+
+    case 'add_deal': {
+      let company_id = null
+      if (toolInput.company_name) {
+        const { data: co } = await admin.from('companies').select('id').eq('user_id', userId).ilike('name', toolInput.company_name).maybeSingle()
+        company_id = co?.id || null
+      }
+      await admin.from('deals').insert({
+        user_id: userId, org_id: orgId, company_id,
+        name: toolInput.name, value: toolInput.value || null,
+        stage: toolInput.stage || 'lead', last_activity_at: new Date().toISOString(),
+      })
+      return `Created deal "${toolInput.name}"${toolInput.value ? ` worth €${toolInput.value.toLocaleString()}` : ''} at ${toolInput.stage || 'lead'} stage.`
+    }
+
+    case 'add_task': {
+      let contact_id = null
+      if (toolInput.contact_name) {
+        const { data: contact } = await admin.from('contacts').select('id').eq('user_id', userId).ilike('full_name', `%${toolInput.contact_name}%`).maybeSingle()
+        contact_id = contact?.id || null
+      }
+      await admin.from('tasks').insert({
+        user_id: userId, org_id: orgId, contact_id,
+        title: toolInput.title, due_date: toolInput.due_date || null, ai_generated: true,
+      })
+      return `Created task: "${toolInput.title}"${toolInput.due_date ? ` due ${new Date(toolInput.due_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}` : ''}.`
+    }
+
+    case 'search_crm': {
+      const results: string[] = []
+      const searchType = toolInput.type || 'all'
+      if (searchType === 'all' || searchType === 'contacts') {
+        const { data } = await admin.from('contacts').select('full_name, role, email, phone, companies(name)').eq('user_id', userId).ilike('full_name', `%${toolInput.query}%`).limit(3)
+        if (data?.length) results.push(`Contacts: ${data.map((c: any) => `${c.full_name}${c.companies?.name ? ` at ${c.companies.name}` : ''}`).join(', ')}`)
+      }
+      if (searchType === 'all' || searchType === 'companies') {
+        const { data } = await admin.from('companies').select('name, industry').eq('user_id', userId).ilike('name', `%${toolInput.query}%`).limit(3)
+        if (data?.length) results.push(`Companies: ${data.map((c: any) => c.name).join(', ')}`)
+      }
+      if (searchType === 'all' || searchType === 'deals') {
+        const { data } = await admin.from('deals').select('name, stage, value').eq('user_id', userId).ilike('name', `%${toolInput.query}%`).limit(3)
+        if (data?.length) results.push(`Deals: ${data.map((d: any) => `${d.name} (${d.stage}${d.value ? `, €${d.value.toLocaleString()}` : ''})`).join(', ')}`)
+      }
+      return results.length ? results.join('\n') : `No results found for "${toolInput.query}".`
+    }
+
+    case 'get_pipeline_summary': {
+      const { data: deals } = await admin.from('deals').select('name, stage, value, last_activity_at').eq('user_id', userId).not('stage', 'in', '("closed_won","closed_lost")')
+      if (!deals?.length) return 'No active deals in your pipeline.'
+      const total = deals.reduce((s: number, d: any) => s + (d.value || 0), 0)
+      const atRisk = deals.filter((d: any) => {
+        const days = (Date.now() - new Date(d.last_activity_at || d.created_at).getTime()) / 86400000
+        return days > 14
+      })
+      return `You have ${deals.length} active deals worth €${total.toLocaleString()} total. ${atRisk.length > 0 ? `${atRisk.length} deal${atRisk.length > 1 ? 's' : ''} at risk: ${atRisk.map((d: any) => d.name).join(', ')}.` : 'No deals at risk.'}`
+    }
+
+    case 'update_deal_stage': {
+      const { data: deal } = await admin.from('deals').select('id, name').eq('user_id', userId).ilike('name', `%${toolInput.deal_name}%`).maybeSingle()
+      if (!deal) return `Couldn't find a deal matching "${toolInput.deal_name}".`
+      await admin.from('deals').update({ stage: toolInput.stage, last_activity_at: new Date().toISOString() }).eq('id', deal.id)
+      return `Updated "${deal.name}" to ${toolInput.stage} stage.`
+    }
+
+    case 'update_deal_financials': {
+      const { data: deal } = await admin.from('deals').select('id, name').eq('user_id', userId).ilike('name', `%${toolInput.deal_name}%`).maybeSingle()
+      if (!deal) return `Couldn't find a deal matching "${toolInput.deal_name}".`
+      const updates: any = {}
+      if (toolInput.payment_status) updates.payment_status = toolInput.payment_status
+      if (toolInput.invoice_ref) updates.invoice_ref = toolInput.invoice_ref
+      if (toolInput.po_ref) updates.po_ref = toolInput.po_ref
+      if (toolInput.invoice_date) updates.invoice_date = toolInput.invoice_date
+      if (toolInput.po_date) updates.po_date = toolInput.po_date
+      if (toolInput.confirmed_revenue != null) updates.confirmed_revenue = toolInput.confirmed_revenue
+      await admin.from('deals').update(updates).eq('id', deal.id)
+      return `Updated financials for "${deal.name}": ${Object.entries(updates).map(([k, v]) => `${k} = ${v}`).join(', ')}.`
+    }
+
+    default:
+      return 'Unknown tool.'
+  }
+}
+
+export async function POST(request: NextRequest) {
   try {
-    await cookies()
-    const supabase = await createServerSupabaseClient()
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) { return cookieStore.get(name)?.value },
+          set() {}, remove() {},
+        },
+      }
+    )
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: membership } = await supabase
-      .from('organisation_members')
-      .select('organisation_id')
-      .eq('user_id', user.id)
-      .single()
+    const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-    const orgId = membership?.organisation_id
-    const body = await req.json()
-    const { messages } = body
+    const { data: membership } = await admin.from('organisation_members').select('org_id').eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle()
+    const org_id = membership?.org_id || null
+
+    const { message, history } = await request.json()
+
+    const messages: Anthropic.MessageParam[] = [
+      ...(history || []),
+      { role: 'user', content: message },
+    ]
+
+    const systemPrompt = `You are an AI sales assistant built into a CRM app. You help salespeople manage their contacts, companies, deals and tasks through natural conversation.
+
+Be concise and friendly — like a smart colleague, not a formal assistant. Always confirm what you did in plain English.
+
+When users ask you to:
+- Add/update contacts or companies → use add_contact or add_company tools
+- Find or look up info → use find_contact or search_crm tools
+- Create deals → use add_deal tool
+- Schedule follow-ups or tasks → use add_task tool
+- Check pipeline status → use get_pipeline_summary tool
+- Move deals forward → use update_deal_stage tool
+- Log invoices, POs, or payments → use update_deal_financials tool
+
+Always use tools to take real action — never just describe what you would do.
+After using a tool, summarise what you did in 1-2 sentences.
+Today's date: ${new Date().toISOString().split('T')[0]}`
 
     const model = await getLatestSonnetModel()
 
-    // Agentic loop
-    let currentMessages = [...messages]
-    let finalText = ''
+    let response = await anthropic.messages.create({
+      model,
+      max_tokens: 1024,
+      system: systemPrompt,
+      tools,
+      messages,
+    })
 
-    while (true) {
-      const response = await anthropic.messages.create({
-        model,
-        max_tokens: 4024,
-        system: `You are an AI sales assistant for SDM CRM. You help salespeople log contacts, deals, tasks, and track financial progress effortlessly.
+    const assistantMessages: Anthropic.MessageParam[] = []
 
-When users mention invoices, POs, or payments, always use update_deal_financials to record them.
-Be concise and action-oriented. Confirm what you did in 1-2 sentences.
-Today's date: ${new Date().toISOString().split('T')[0]}`,
-        tools: TOOLS,
-        messages: currentMessages,
-      })
-
-      if (response.stop_reason !== 'tool_use') {
-        finalText = response.content
-          .filter((b: any) => b.type === 'text')
-          .map((b: any) => b.text)
-          .join('')
-        break
-      }
-
-      // Process tool calls
+    while (response.stop_reason === 'tool_use') {
+      const toolUseBlocks = response.content.filter(b => b.type === 'tool_use') as Anthropic.ToolUseBlock[]
       const toolResults: Anthropic.ToolResultBlockParam[] = []
 
-      for (const block of (response.content ?? [])) {
-        if (block.type !== 'tool_use') continue
-        const input = block.input as any
-        let result = ''
-
-        try {
-          switch (block.name) {
-
-            case 'add_contact': {
-              let companyId: string | null = null
-              if (input.company_name) {
-                const { data: existing } = await supabase
-                  .from('companies').select('id').ilike('name', input.company_name).limit(1).single()
-                if (existing) {
-                  companyId = existing.id
-                } else {
-                  const { data: newCo } = await supabase
-                    .from('companies').insert({ name: input.company_name, organisation_id: orgId, created_by: user.id }).select('id').single()
-                  companyId = newCo?.id ?? null
-                }
-              }
-              const { data } = await supabase.from('contacts').insert({
-                first_name: input.first_name, last_name: input.last_name,
-                email: input.email, phone: input.phone, title: input.title,
-                company_id: companyId, organisation_id: orgId, created_by: user.id,
-              }).select('id').single()
-              result = `Contact ${input.first_name} ${input.last_name ?? ''} added (id: ${data?.id})`
-              break
-            }
-
-            case 'find_contact': {
-              const { data } = await supabase.from('contacts')
-                .select('id, first_name, last_name, email, title, companies(name)')
-                .eq('organisation_id', orgId)
-                .or(`first_name.ilike.%${input.query}%,last_name.ilike.%${input.query}%,email.ilike.%${input.query}%`)
-                .limit(5)
-              result = JSON.stringify(data ?? [])
-              break
-            }
-
-            case 'add_company': {
-              const { data } = await supabase.from('companies').insert({
-                name: input.name, industry: input.industry, website: input.website,
-                organisation_id: orgId, created_by: user.id,
-              }).select('id').single()
-              result = `Company ${input.name} added (id: ${data?.id})`
-              break
-            }
-
-            case 'add_deal': {
-              let companyId: string | null = null
-              if (input.company_name) {
-                const { data: co } = await supabase
-                  .from('companies').select('id').ilike('name', input.company_name).limit(1).single()
-                companyId = co?.id ?? null
-              }
-              const { data } = await supabase.from('deals').insert({
-                name: input.name, value: input.value ?? null,
-                stage: input.stage ?? 'lead', company_id: companyId,
-                organisation_id: orgId, created_by: user.id,
-              }).select('id').single()
-              result = `Deal "${input.name}" created (id: ${data?.id})`
-              break
-            }
-
-            case 'add_task': {
-              const { data } = await supabase.from('tasks').insert({
-                title: input.title, due_date: input.due_date ?? null,
-                priority: input.priority ?? 'medium',
-                organisation_id: orgId, created_by: user.id, assigned_to: user.id,
-              }).select('id').single()
-              result = `Task "${input.title}" created (id: ${data?.id})`
-              break
-            }
-
-            case 'search_crm': {
-              const q = input.query
-              const [contacts, companies, deals] = await Promise.all([
-                supabase.from('contacts').select('id, first_name, last_name, email').eq('organisation_id', orgId)
-                  .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,email.ilike.%${q}%`).limit(3),
-                supabase.from('companies').select('id, name').eq('organisation_id', orgId).ilike('name', `%${q}%`).limit(3),
-                supabase.from('deals').select('id, name, value, stage').eq('organisation_id', orgId).ilike('name', `%${q}%`).limit(3),
-              ])
-              result = JSON.stringify({ contacts: contacts.data, companies: companies.data, deals: deals.data })
-              break
-            }
-
-            case 'get_pipeline_summary': {
-              const { data } = await supabase.from('deals')
-                .select('stage, value').eq('organisation_id', orgId).not('stage', 'in', '(closed_lost)')
-              const summary = (data ?? []).reduce((acc: any, d: any) => {
-                acc[d.stage] = (acc[d.stage] ?? 0) + (d.value ?? 0)
-                return acc
-              }, {})
-              result = JSON.stringify(summary)
-              break
-            }
-
-            case 'update_deal_stage': {
-              const { data: deals } = await supabase.from('deals')
-                .select('id, name').eq('organisation_id', orgId).ilike('name', `%${input.deal_name}%`).limit(1)
-              if (!deals?.length) { result = `Deal "${input.deal_name}" not found`; break }
-              await supabase.from('deals').update({ stage: input.new_stage }).eq('id', deals[0].id)
-              result = `Deal "${deals[0].name}" moved to ${input.new_stage}`
-              break
-            }
-
-            case 'update_deal_financials': {
-              const { data: deals } = await supabase.from('deals')
-                .select('id, name').eq('organisation_id', orgId).ilike('name', `%${input.deal_name}%`).limit(1)
-              if (!deals?.length) { result = `Deal "${input.deal_name}" not found`; break }
-
-              const updates: any = {}
-              if (input.payment_status) updates.payment_status = input.payment_status
-              if (input.invoice_ref) updates.invoice_ref = input.invoice_ref
-              if (input.po_ref) updates.po_ref = input.po_ref
-              if (input.invoice_date) updates.invoice_date = input.invoice_date
-              if (input.po_date) updates.po_date = input.po_date
-              if (input.confirmed_revenue != null) updates.confirmed_revenue = input.confirmed_revenue
-
-              await supabase.from('deals').update(updates).eq('id', deals[0].id)
-              result = `Deal "${deals[0].name}" financials updated: ${JSON.stringify(updates)}`
-              break
-            }
-
-            default:
-              result = 'Unknown tool'
-          }
-        } catch (err) {
-          result = `Error: ${err}`
-        }
-
-        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result })
+      for (const toolUse of toolUseBlocks) {
+        const result = await executeTool(toolUse.name, toolUse.input, user.id, org_id, admin)
+        toolResults.push({ type: 'tool_result', tool_use_id: toolUse.id, content: result })
       }
 
-      currentMessages = [
-        ...currentMessages,
-        { role: 'assistant' as const, content: response.content },
-        { role: 'user' as const, content: toolResults },
-      ]
+      assistantMessages.push({ role: 'assistant', content: response.content })
+      assistantMessages.push({ role: 'user', content: toolResults })
+
+      response = await anthropic.messages.create({
+        model,
+        max_tokens: 1024,
+        system: systemPrompt,
+        tools,
+        messages: [...messages, ...assistantMessages],
+      })
     }
 
-    return NextResponse.json({ message: finalText })
+    const textBlock = response.content.find(b => b.type === 'text') as Anthropic.TextBlock | undefined
+    const reply = textBlock?.text || 'Done.'
 
-  } catch (err) {
-    console.error('Assistant route error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ reply, history: [...messages, { role: 'assistant', content: reply }] })
+
+  } catch (error: any) {
+    console.error('Assistant error:', error)
+    return NextResponse.json({ error: error.message || 'Assistant failed' }, { status: 500 })
   }
 }

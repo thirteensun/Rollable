@@ -237,15 +237,12 @@ export default function CapturePage() {
       const response = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newHistory }),
+        body: JSON.stringify({ message: text, history: conversationHistory }),
       })
       const data = await response.json()
-      const replyText = data.message ?? 'Something went wrong.'
-      setMessages(prev => [...prev, { role: 'assistant', content: replyText }])
-      setConversationHistory([
-        ...newHistory,
-        { role: 'assistant' as const, content: replyText },
-      ])
+      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
+      setConversationHistory(data.history)
+      
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
     } finally {
