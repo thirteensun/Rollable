@@ -1,9 +1,9 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
-import DealDetailClient from '../../deals/[id]/DealDetailClient'
+import DealDetailClient from './DealDetailClient'
 
 export default async function DealDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createServerSupabaseClient()
+  const supabase = await createServerSupabaseClient()
 
   const { data: deal, error } = await supabase
     .from('deals')
