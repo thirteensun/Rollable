@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
     while (true) {
       const response = await anthropic.messages.create({
         model,
-        max_tokens: 1024,
+        max_tokens: 4024,
         system: `You are an AI sales assistant for SDM CRM. You help salespeople log contacts, deals, tasks, and track financial progress effortlessly.
 
 When users mention invoices, POs, or payments, always use update_deal_financials to record them.
