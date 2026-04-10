@@ -97,10 +97,10 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
       {/* Header */}
       <div style={{ padding: '56px 24px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div>
-          <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }}>
+          <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }} suppressHydrationWarning>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
           </p>
-          <p style={{ margin: '4px 0 0', fontSize: '22px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.3 }}>
+          <p style={{ margin: '4px 0 0', fontSize: '22px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.3 }} suppressHydrationWarning>
             {greeting()}
           </p>
           {orgName && (
