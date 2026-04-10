@@ -364,6 +364,28 @@ Today's date: ${new Date().toISOString().split('T')[0]}`
     const textBlock = response.content.find(b => b.type === 'text') as Anthropic.TextBlock | undefined
     const reply = textBlock?.text || 'Done.'
 
+    // Log event if any write tools were used
+    const writeTools = ['add_contact', 'add_deal', 'add_task', 'add_company', 'update_deal_stage', 'update_deal_financials']
+    const usedWriteTools = assistantMessages
+      .flatMap((m: any) => Array.isArray(m.content) ? m.content : [])
+      .filter((b: any) => b.type === 'tool_use' && writeTools.includes(b.name))
+
+    if (usedWriteTools.length > 0) {
+      const userMessage = messages[messages.length - 1]
+      const userText = typeof userMessage?.content === 'string' ? userMessage.content : ''
+      await admin.from('events').insert({
+        user_id: user.id,
+        org_id,
+        type: 'other',
+        summary: reply,
+        metadata: {
+          source: 'assistant',
+          user_message: userText,
+          tools_used: usedWriteTools.map((b: any) => b.name),
+        },
+      })
+    }
+
     return NextResponse.json({ reply, history: [...messages, { role: 'assistant', content: reply }] })
 
   } catch (error: any) {
