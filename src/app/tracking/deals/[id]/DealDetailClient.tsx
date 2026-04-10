@@ -88,50 +88,53 @@ export default function DealDetailClient({ deal, events }: { deal: any; events: 
   return (
     <div style={{ background: '#f5f4f0', minHeight: '100dvh', paddingBottom: 100 }}>
 
-      {/* Header — plain text on background, no white block */}
-      <div style={{ padding: '56px 20px 8px' }}>
+      {/* Back button — sits above cards, plain on background */}
+      <div style={{ padding: '56px 20px 12px' }}>
         <button
           onClick={() => router.back()}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#9b9890', fontSize: 13, marginBottom: 20, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#9b9890', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M19 12H5M12 5l-7 7 7 7"/>
           </svg>
           Back
         </button>
-
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 600, color: '#1a1a18', margin: 0, flex: 1, paddingRight: 12 }}>
-            {deal.name}
-          </h1>
-          <div style={{
-            padding: '4px 10px', borderRadius: 20, flexShrink: 0,
-            background: payment.bg, color: payment.text,
-            fontSize: 12, fontWeight: 500, marginTop: 4,
-          }}>
-            {payment.label}
-          </div>
-        </div>
-
-        {deal.companies?.name && (
-          <p style={{ fontSize: 13, color: '#9b9890', margin: '0 0 16px' }}>{deal.companies.name}</p>
-        )}
-
-        <div style={{ display: 'flex', gap: 24 }}>
-          <div>
-            <p style={{ fontSize: 11, color: '#9b9890', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expected</p>
-            <p style={{ fontSize: 22, fontWeight: 600, color: '#1a1a18', margin: 0 }}>{formatCurrency(deal.value)}</p>
-          </div>
-          {deal.confirmed_revenue != null && (
-            <div>
-              <p style={{ fontSize: 11, color: '#9b9890', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Confirmed</p>
-              <p style={{ fontSize: 22, fontWeight: 600, color: '#1D9E75', margin: 0 }}>{formatCurrency(deal.confirmed_revenue)}</p>
-            </div>
-          )}
-        </div>
       </div>
 
-      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+        {/* Header card — same style as all other cards */}
+        <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
+            <h1 style={{ fontSize: 20, fontWeight: 600, color: '#1a1a18', margin: 0, flex: 1, paddingRight: 12 }}>
+              {deal.name}
+            </h1>
+            <div style={{
+              padding: '4px 10px', borderRadius: 20, flexShrink: 0,
+              background: payment.bg, color: payment.text,
+              fontSize: 12, fontWeight: 500,
+            }}>
+              {payment.label}
+            </div>
+          </div>
+
+          {deal.companies?.name && (
+            <p style={{ fontSize: 13, color: '#9b9890', margin: '0 0 14px' }}>{deal.companies.name}</p>
+          )}
+
+          <div style={{ display: 'flex', gap: 20, paddingTop: deal.companies?.name ? 0 : 10 }}>
+            <div>
+              <p style={{ fontSize: 11, color: '#9b9890', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expected</p>
+              <p style={{ fontSize: 20, fontWeight: 600, color: '#1a1a18', margin: 0 }}>{formatCurrency(deal.value)}</p>
+            </div>
+            {deal.confirmed_revenue != null && (
+              <div>
+                <p style={{ fontSize: 11, color: '#9b9890', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Confirmed</p>
+                <p style={{ fontSize: 20, fontWeight: 600, color: '#1D9E75', margin: 0 }}>{formatCurrency(deal.confirmed_revenue)}</p>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Stage pipeline */}
         <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
