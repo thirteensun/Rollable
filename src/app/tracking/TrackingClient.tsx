@@ -249,30 +249,32 @@ export default function TrackingClient({ deals, contacts, companies }: {
               {companies.map((co, i) => {
                 const palette = avatarPalette[i % avatarPalette.length]
                 return (
-                  <div key={co.id} style={{
-                    background: 'white', borderRadius: '16px',
-                    border: '0.5px solid rgba(0,0,0,0.07)',
-                    padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
-                  }}>
-                    <div style={{
-                      width: 38, height: 38, borderRadius: 10,
-                      background: palette.bg, display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: '13px', fontWeight: 500, color: palette.color, flexShrink: 0,
+<Link key={co.id} href={`/companies/${co.id}`} style={{ textDecoration: 'none' }}>
+<div style={{
+                      background: 'white', borderRadius: '16px',
+                      border: '0.5px solid rgba(0,0,0,0.07)',
+                      padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
                     }}>
-                      {getInitials(co.name)}
+                      <div style={{
+                        width: 38, height: 38, borderRadius: 10,
+                        background: palette.bg, display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', fontSize: '13px', fontWeight: 500, color: palette.color, flexShrink: 0,
+                      }}>
+                        {getInitials(co.name)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>{co.name}</p>
+                        {co.industry && <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890' }}>{co.industry}</p>}
+                      </div>
+                      {co.website && (
+                        <a href={co.website} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ color: '#9b9890' }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                          </svg>
+                        </a>
+                      )}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>{co.name}</p>
-                      {co.industry && <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890' }}>{co.industry}</p>}
-                    </div>
-                    {co.website && (
-                      <a href={co.website} target="_blank" rel="noreferrer" style={{ color: '#9b9890' }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                        </svg>
-                      </a>
-                    )}
-                  </div>
+                  </Link>
                 )
               })}
             </div>
