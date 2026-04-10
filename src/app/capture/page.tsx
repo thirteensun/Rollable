@@ -23,11 +23,18 @@ interface Message {
   content: string
 }
 
+interface PendingAction {
+  message: string
+  summary: string
+  creates: { type: string; label: string }[]
+}
+
 const pillColors: Record<string, { bg: string; color: string }> = {
   contact: { bg: '#E6F1FB', color: '#185FA5' },
-  deal: { bg: '#E1F5EE', color: '#0F6E56' },
-  task: { bg: '#FAEEDA', color: '#854F0B' },
-  note: { bg: '#EEEDFE', color: '#534AB7' },
+  deal:    { bg: '#E1F5EE', color: '#0F6E56' },
+  task:    { bg: '#FAEEDA', color: '#854F0B' },
+  note:    { bg: '#EEEDFE', color: '#534AB7' },
+  company: { bg: '#FCEBEB', color: '#A32D2D' },
 }
 
 export default function CapturePage() {
@@ -44,39 +51,28 @@ export default function CapturePage() {
   const [isThinking, setIsThinking] = useState(false)
   const [isListening, setIsListening] = useState(false)
   const [transcript, setTranscript] = useState('')
-  const [conversationHistory, setConversationHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [conversationHistory, setConversationHistory] = useState<any[]>([])
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
   const transcriptRef = useRef('')
   const isListeningRef = useRef(false)
 
-  // Scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isThinking])
+  }, [messages, isThinking, pendingAction])
 
-  // Step-by-step processing animation
   useEffect(() => {
-    if (mode !== 'image_processing') {
-      setProcessingStep(0)
-      return
-    }
+    if (mode !== 'image_processing') { setProcessingStep(0); return }
     const interval = setInterval(() => {
-      setProcessingStep(prev => {
-        if (prev >= 4) { clearInterval(interval); return prev }
-        return prev + 1
-      })
+      setProcessingStep(prev => { if (prev >= 4) { clearInterval(interval); return prev } return prev + 1 })
     }, 600)
     return () => clearInterval(interval)
   }, [mode])
 
-  // Typewriter effect for summary
   useEffect(() => {
-    if (mode !== 'image_confirm' || !aiResult?.summary) {
-      setDisplayedSummary('')
-      return
-    }
+    if (mode !== 'image_confirm' || !aiResult?.summary) { setDisplayedSummary(''); return }
     setDisplayedSummary('')
     let i = 0
     const interval = setInterval(() => {
@@ -87,12 +83,8 @@ export default function CapturePage() {
     return () => clearInterval(interval)
   }, [mode, aiResult])
 
-  // Staggered appearance of create items
   useEffect(() => {
-    if (mode !== 'image_confirm' || !aiResult?.creates.length) {
-      setVisibleCreates(0)
-      return
-    }
+    if (mode !== 'image_confirm' || !aiResult?.creates.length) { setVisibleCreates(0); return }
     setVisibleCreates(0)
     let i = 0
     const interval = setInterval(() => {
@@ -116,8 +108,7 @@ export default function CapturePage() {
           if (width > height) { height = Math.round(height * MAX / width); width = MAX }
           else { width = Math.round(width * MAX / height); height = MAX }
         }
-        canvas.width = width
-        canvas.height = height
+        canvas.width = width; canvas.height = height
         const ctx = canvas.getContext('2d')!
         ctx.drawImage(img, 0, 0, width, height)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
@@ -151,7 +142,6 @@ export default function CapturePage() {
   const handleImageSave = async () => {
     if (!aiResult) return
     setSaving(true)
-
     const selectedItems = aiResult.creates.filter((_, i) => selectedCreates.includes(i))
     const shouldCreateContact = selectedItems.some(c => c.type === 'contact')
     const shouldCreateDeal = selectedItems.some(c => c.type === 'deal')
@@ -159,12 +149,10 @@ export default function CapturePage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
-
     const { data: membership } = await supabase
       .from('organisation_members').select('org_id')
       .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle()
     const org_id = membership?.org_id || null
-
     try {
       let company_id = null
       if (aiResult.company_name) {
@@ -175,7 +163,6 @@ export default function CapturePage() {
           company_id = newCo?.id
         }
       }
-
       let contact_id = null
       const allContacts = shouldCreateContact
         ? (aiResult.contacts?.length ? aiResult.contacts : aiResult.contact_name ? [{ full_name: aiResult.contact_name }] : [])
@@ -198,20 +185,16 @@ export default function CapturePage() {
           if (!contact_id) contact_id = newContact?.id
         }
       }
-
       let deal_id = null
       if (shouldCreateDeal && aiResult.deal_name) {
         const { data: newDeal } = await supabase.from('deals').insert({ user_id: user.id, company_id, name: aiResult.deal_name, value: aiResult.deal_value || null, stage: 'lead', last_activity_at: new Date().toISOString(), org_id }).select('id').maybeSingle()
         deal_id = newDeal?.id
         if (deal_id && contact_id) await supabase.from('deal_contacts').upsert({ deal_id, contact_id }, { onConflict: 'deal_id,contact_id' })
       }
-
       await supabase.from('events').insert({ user_id: user.id, deal_id, contact_id, company_id, org_id, type: aiResult.event_type || 'meeting', summary: aiResult.summary, ai_confidence: 0.9, metadata: { raw_ai_result: aiResult } })
-
       if (shouldCreateTask && aiResult.follow_up_date) {
         await supabase.from('tasks').insert({ user_id: user.id, deal_id, contact_id, org_id, title: `Follow up with ${aiResult.contact_name || aiResult.company_name || 'contact'}`, due_date: new Date(aiResult.follow_up_date).toISOString(), ai_generated: true })
       }
-
       router.push('/')
       router.refresh()
     } catch (err: any) {
@@ -220,34 +203,66 @@ export default function CapturePage() {
     }
   }
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim() || isThinking) return
-    const userMsg: Message = { role: 'user', content: text }
-    setMessages(prev => [...prev, userMsg])
-    setInputText('')
-    setTranscript('')
-    transcriptRef.current = ''
+  const executeMessage = async (text: string) => {
     setIsThinking(true)
-
     try {
-      const newHistory = [
-        ...conversationHistory,
-        { role: 'user' as const, content: text },
-      ]
       const response = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text, history: conversationHistory }),
       })
       const data = await response.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
+      const replyText = data.reply ?? 'Something went wrong.'
+      setMessages(prev => [...prev, { role: 'assistant', content: replyText }])
       setConversationHistory(data.history)
-      
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
     } finally {
       setIsThinking(false)
     }
+  }
+
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || isThinking) return
+    setMessages(prev => [...prev, { role: 'user', content: text }])
+    setInputText('')
+    setTranscript('')
+    transcriptRef.current = ''
+    setPendingAction(null)
+    setIsThinking(true)
+
+    try {
+      // First call preview to check if confirmation needed
+      const previewRes = await fetch('/api/assistant/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+      })
+      const preview = await previewRes.json()
+
+      if (preview.needs_confirmation && preview.creates?.length > 0) {
+        setIsThinking(false)
+        setPendingAction({ message: text, summary: preview.summary, creates: preview.creates })
+      } else {
+        await executeMessage(text)
+      }
+    } catch {
+      await executeMessage(text)
+    }
+  }
+
+  const confirmAction = async () => {
+    if (!pendingAction) return
+    const action = pendingAction
+    setPendingAction(null)
+    setIsThinking(true)
+    await executeMessage(action.message)
+  }
+
+  const cancelAction = () => {
+    if (!pendingAction) return
+    setPendingAction(null)
+    setMessages(prev => [...prev, { role: 'assistant', content: 'No problem, action cancelled.' }])
   }
 
   const startVoice = () => {
@@ -276,21 +291,14 @@ export default function CapturePage() {
     recognition.start()
   }
 
-  const stopVoice = () => {
-    if (!isListeningRef.current) return
-    recognitionRef.current?.stop()
-  }
-
+  const stopVoice = () => { if (!isListeningRef.current) return; recognitionRef.current?.stop() }
   const startVoiceFromChoose = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognition) { alert('Voice not supported. Try Chrome or Safari.'); return }
     setMode('assistant')
     setTimeout(() => startVoice(), 100)
   }
-
-  const handleMicClick = () => {
-    if (isListeningRef.current) { stopVoice() } else { startVoice() }
-  }
+  const handleMicClick = () => { if (isListeningRef.current) { stopVoice() } else { startVoice() } }
 
   return (
     <main style={{ background: '#f5f4f0', paddingBottom: '90px', display: 'flex', flexDirection: 'column' }}>
@@ -300,7 +308,7 @@ export default function CapturePage() {
       {/* Header */}
       <div style={{ padding: '56px 24px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         {mode !== 'choose' && (
-          <button onClick={() => { setMode('choose'); setMessages([]); setTranscript(''); transcriptRef.current = ''; recognitionRef.current?.stop() }} style={{
+          <button onClick={() => { setMode('choose'); setMessages([]); setTranscript(''); setPendingAction(null); transcriptRef.current = ''; recognitionRef.current?.stop() }} style={{
             width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.07)',
             border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
@@ -410,40 +418,16 @@ export default function CapturePage() {
             </svg>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '280px' }}>
-            {[
-              'Analysing image...',
-              'Identifying people and companies...',
-              'Extracting contact details...',
-              'Building your CRM update...',
-              'Almost done...',
-            ].map((step, i) => (
-              <div key={i} style={{
-                display: 'flex', alignItems: 'center', gap: '12px',
-                opacity: processingStep >= i ? 1 : 0.2,
-                transition: 'opacity 0.4s ease',
-              }}>
-                <div style={{
-                  width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
-                  background: processingStep > i ? '#1D9E75' : processingStep === i ? '#1a1a18' : 'rgba(0,0,0,0.1)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'background 0.3s ease',
-                }}>
+            {['Analysing image...', 'Identifying people and companies...', 'Extracting contact details...', 'Building your CRM update...', 'Almost done...'].map((step, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', opacity: processingStep >= i ? 1 : 0.2, transition: 'opacity 0.4s ease' }}>
+                <div style={{ width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0, background: processingStep > i ? '#1D9E75' : processingStep === i ? '#1a1a18' : 'rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.3s ease' }}>
                   {processingStep > i ? (
-                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                      <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   ) : processingStep === i ? (
                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'white', animation: 'breathe 1s ease-in-out infinite' }} />
                   ) : null}
                 </div>
-                <p style={{
-                  margin: 0, fontSize: '14px',
-                  color: processingStep > i ? '#1D9E75' : processingStep === i ? '#1a1a18' : '#9b9890',
-                  fontWeight: processingStep === i ? 500 : 400,
-                  transition: 'color 0.3s ease',
-                }}>
-                  {step}
-                </p>
+                <p style={{ margin: 0, fontSize: '14px', color: processingStep > i ? '#1D9E75' : processingStep === i ? '#1a1a18' : '#9b9890', fontWeight: processingStep === i ? 500 : 400, transition: 'color 0.3s ease' }}>{step}</p>
               </div>
             ))}
           </div>
@@ -453,11 +437,7 @@ export default function CapturePage() {
       {/* Image confirm */}
       {mode === 'image_confirm' && aiResult && (
         <div style={{ padding: '0 24px', flex: 1 }} className="animate-slide-up">
-          <div style={{
-            background: 'white', borderRadius: '18px',
-            border: '0.5px solid rgba(0,0,0,0.07)',
-            padding: '16px 18px', marginBottom: '16px',
-          }}>
+          <div style={{ background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1D9E75' }} />
               <span style={{ fontSize: '12px', fontWeight: 500, color: '#1D9E75' }}>AI processed</span>
@@ -472,51 +452,23 @@ export default function CapturePage() {
 
           {aiResult.creates.length > 0 && (
             <div style={{ marginBottom: '16px' }}>
-              <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                I'll create or update
-              </p>
+              <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>I'll create or update</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {aiResult.creates.map((item, i) => {
                   const selected = selectedCreates.includes(i)
                   const visible = i < visibleCreates
                   return (
-                    <div key={i} style={{
-                      opacity: visible ? 1 : 0,
-                      transform: visible ? 'translateY(0)' : 'translateY(12px)',
-                      transition: 'opacity 0.3s ease, transform 0.3s ease',
-                    }}>
-                      <button onClick={() => {
-                        setSelectedCreates(prev =>
-                          prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
-                        )
-                      }} style={{
+                    <div key={i} style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(12px)', transition: 'opacity 0.3s ease, transform 0.3s ease' }}>
+                      <button onClick={() => setSelectedCreates(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])} style={{
                         display: 'flex', alignItems: 'center', gap: '12px',
-                        background: selected ? pillColors[item.type].bg : '#f5f4f0',
-                        border: selected ? `1px solid ${pillColors[item.type].color}20` : '1px solid rgba(0,0,0,0.08)',
-                        borderRadius: '14px', padding: '11px 14px',
-                        cursor: 'pointer', textAlign: 'left', width: '100%',
-                        transition: 'all 0.15s ease',
+                        background: selected ? pillColors[item.type]?.bg ?? '#f5f4f0' : '#f5f4f0',
+                        border: selected ? `1px solid ${pillColors[item.type]?.color ?? '#9b9890'}20` : '1px solid rgba(0,0,0,0.08)',
+                        borderRadius: '14px', padding: '11px 14px', cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 0.15s ease',
                       }}>
-                        <div style={{
-                          width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0,
-                          background: selected ? pillColors[item.type].color : 'white',
-                          border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          transition: 'all 0.15s ease',
-                        }}>
-                          {selected && (
-                            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                              <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
+                        <div style={{ width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, background: selected ? pillColors[item.type]?.color ?? '#9b9890' : 'white', border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
+                          {selected && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </div>
-                        <span style={{
-                          fontSize: '14px', fontWeight: 500,
-                          color: selected ? pillColors[item.type].color : '#9b9890',
-                          transition: 'color 0.15s ease',
-                        }}>
-                          {item.label}
-                        </span>
+                        <span style={{ fontSize: '14px', fontWeight: 500, color: selected ? pillColors[item.type]?.color ?? '#9b9890' : '#9b9890', transition: 'color 0.15s ease' }}>{item.label}</span>
                       </button>
                     </div>
                   )
@@ -526,19 +478,8 @@ export default function CapturePage() {
           )}
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-            <button onClick={() => setMode('choose')} style={{
-              flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)',
-              borderRadius: '22px', padding: '15px', fontSize: '15px',
-              color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
-            }}>
-              Discard
-            </button>
-            <button onClick={handleImageSave} disabled={saving} style={{
-              flex: 2, background: saving ? '#6b6960' : '#1a1a18', border: 'none',
-              borderRadius: '22px', padding: '15px', fontSize: '15px',
-              color: 'white', fontWeight: 500,
-              cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-            }}>
+            <button onClick={() => setMode('choose')} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: '22px', padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
+            <button onClick={handleImageSave} disabled={saving} style={{ flex: 2, background: saving ? '#6b6960' : '#1a1a18', border: 'none', borderRadius: '22px', padding: '15px', fontSize: '15px', color: 'white', fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
               {saving ? 'Saving...' : 'Looks good, save it'}
             </button>
           </div>
@@ -568,6 +509,39 @@ export default function CapturePage() {
                 </div>
               </div>
             ))}
+
+            {/* Pending action confirm card */}
+            {pendingAction && (
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF9F27' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: '#EF9F27' }}>Confirm action</span>
+                  </div>
+                  <p style={{ margin: '0 0 12px', fontSize: '14px', color: '#1a1a18', lineHeight: 1.5 }}>{pendingAction.summary}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                    {pendingAction.creates.map((item, i) => {
+                      const colors = pillColors[item.type] ?? { bg: '#f5f4f0', color: '#6b6960' }
+                      return (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 12, background: colors.bg }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: colors.color, flexShrink: 0 }} />
+                          <span style={{ fontSize: '13px', fontWeight: 500, color: colors.color }}>{item.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={cancelAction} style={{ flex: 1, padding: '10px', borderRadius: 20, background: 'transparent', border: '0.5px solid rgba(0,0,0,0.1)', fontSize: '14px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Cancel
+                    </button>
+                    <button onClick={confirmAction} style={{ flex: 2, padding: '10px', borderRadius: 20, background: '#1a1a18', border: 'none', fontSize: '14px', color: 'white', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Yes, do it
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {isThinking && (
               <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '10px' }}>
                 <div style={{ padding: '12px 16px', borderRadius: '18px 18px 18px 4px', background: 'white', border: '0.5px solid rgba(0,0,0,0.07)', display: 'flex', gap: '5px', alignItems: 'center' }}>
@@ -595,19 +569,7 @@ export default function CapturePage() {
                 autoFocus
               />
             </div>
-            <button
-              onClick={handleMicClick}
-              style={{
-                width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
-                background: isListening ? '#1D9E75' : '#1a1a18',
-                border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                transition: 'background 0.2s ease',
-                touchAction: 'manipulation',
-                WebkitUserSelect: 'none',
-                userSelect: 'none',
-              }}
-            >
+            <button onClick={handleMicClick} style={{ width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0, background: isListening ? '#1D9E75' : '#1a1a18', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s ease', touchAction: 'manipulation', WebkitUserSelect: 'none', userSelect: 'none' }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <rect x="9" y="2" width="6" height="12" rx="3" stroke="white" strokeWidth="1.5" />
                 <path d="M5 10a7 7 0 0 0 14 0" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
@@ -615,11 +577,7 @@ export default function CapturePage() {
               </svg>
             </button>
             {inputText && (
-              <button onClick={() => sendMessage(inputText)} style={{
-                width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0,
-                background: '#1a1a18', border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
+              <button onClick={() => sendMessage(inputText)} style={{ width: '44px', height: '44px', borderRadius: '50%', flexShrink: 0, background: '#1a1a18', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                   <path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
