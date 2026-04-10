@@ -86,12 +86,34 @@ export default function TrackingClient({ deals, contacts, companies }: {
   return (
     <main style={{ background: '#f5f4f0', paddingBottom: '90px' }}>
 
-      {/* Header */}
-      <div style={{ padding: '56px 24px 16px' }}>
+      {/* Header + Tabs */}
+      <div style={{ padding: '56px 24px 0' }}>
         <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }} suppressHydrationWarning>
           {new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
         </p>
-        <p style={{ margin: '4px 0 0', fontSize: '26px', fontWeight: 500, color: '#1a1a18' }}>Pipeline</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '4px 0 16px' }}>
+          <p style={{ margin: 0, fontSize: '26px', fontWeight: 500, color: '#1a1a18' }}>
+            {tab === 'deals' ? 'Pipeline' : tab === 'contacts' ? 'Contacts' : 'Companies'}
+          </p>
+        </div>
+        <div style={{ display: 'flex', background: 'white', borderRadius: 14, border: '0.5px solid rgba(0,0,0,0.07)', padding: 4, gap: 2, marginBottom: 16 }}>
+          {(['deals', 'contacts', 'companies'] as Tab[]).map(t => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 13, fontWeight: 500,
+                border: 'none', cursor: 'pointer',
+                background: tab === t ? '#1a1a18' : 'transparent',
+                color: tab === t ? 'white' : '#9b9890',
+                transition: 'all 0.15s',
+                textTransform: 'capitalize',
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Summary — only show on deals tab */}
@@ -111,28 +133,6 @@ export default function TrackingClient({ deals, contacts, companies }: {
           </div>
         </div>
       )}
-
-      {/* Tabs */}
-      <div style={{ padding: '0 24px 16px' }}>
-        <div style={{ display: 'flex', background: 'white', borderRadius: 14, border: '0.5px solid rgba(0,0,0,0.07)', padding: 4, gap: 2 }}>
-          {(['deals', 'contacts', 'companies'] as Tab[]).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              style={{
-                flex: 1, padding: '8px 0', borderRadius: 10, fontSize: 13, fontWeight: 500,
-                border: 'none', cursor: 'pointer',
-                background: tab === t ? '#1a1a18' : 'transparent',
-                color: tab === t ? 'white' : '#9b9890',
-                transition: 'all 0.15s',
-                textTransform: 'capitalize',
-              }}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Deals tab */}
       {tab === 'deals' && (
@@ -249,8 +249,8 @@ export default function TrackingClient({ deals, contacts, companies }: {
               {companies.map((co, i) => {
                 const palette = avatarPalette[i % avatarPalette.length]
                 return (
-<Link key={co.id} href={`/companies/${co.id}`} style={{ textDecoration: 'none' }}>
-<div style={{
+                  <Link key={co.id} href={} style={{ textDecoration: 'none' }}>
+                    <div style={{
                       background: 'white', borderRadius: '16px',
                       border: '0.5px solid rgba(0,0,0,0.07)',
                       padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
