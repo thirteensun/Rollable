@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import AIProactiveNudges from '@/components/AIProactiveNudges'
-import SearchModal from '@/components/SearchModal'
+import CommandBar from '@/components/CommandBar'
 
 interface Task {
   id: string
@@ -80,7 +80,7 @@ const eventTypeLabel: Record<string, string> = {
 }
 
 export default function HomeClient({ name, initials, tasks, events, orgName, userRole }: Props) {
-  const [searchOpen, setSearchOpen] = useState(false)
+  const [showAllEvents, setShowAllEvents] = useState(false)
 
   const greeting = () => {
     const messages = [
@@ -93,6 +93,8 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
     const day = new Date().getDay()
     return messages[day % messages.length]
   }
+
+  const visibleEvents = showAllEvents ? events : events.slice(0, 3)
 
   return (
     <main style={{ background: '#f5f4f0', paddingBottom: '90px' }}>
@@ -131,26 +133,11 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
         </Link>
       </div>
 
+      {/* Command Bar — prominent, always visible */}
+      <CommandBar />
+
       {/* AI Proactive Nudges */}
       <AIProactiveNudges />
-
-      {/* Search */}
-      <div style={{ padding: '0 24px 16px' }}>
-        <button onClick={() => setSearchOpen(true)} style={{
-          width: '100%', background: 'white', borderRadius: '16px',
-          border: '0.5px solid rgba(0,0,0,0.07)',
-          padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px',
-          cursor: 'pointer', fontFamily: 'inherit',
-        }}>
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-            <circle cx="7" cy="7" r="5.5" stroke="#9b9890" strokeWidth="1.2" />
-            <path d="M11 11l2.5 2.5" stroke="#9b9890" strokeWidth="1.2" strokeLinecap="round" />
-          </svg>
-          <span style={{ fontSize: '14px', color: '#9b9890' }}>Search contacts, deals, notes...</span>
-        </button>
-      </div>
-
-      {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
 
       {/* Today's focus */}
       <div style={{ padding: '0 24px 20px' }}>
@@ -217,63 +204,78 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
             <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }}>Tap Capture to log your first interaction</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {events.map((event, i) => {
-              const contactName = event.contacts?.full_name || null
-              const companyName = event.companies?.name || null
-              const dealName = event.deals?.name || null
-              const palette = avatarColors[i % avatarColors.length]
-              const displayName = contactName || companyName || 'Activity'
-              const label = eventTypeLabel[event.type] || 'Activity logged'
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {visibleEvents.map((event, i) => {
+                const contactName = event.contacts?.full_name || null
+                const companyName = event.companies?.name || null
+                const dealName = event.deals?.name || null
+                const palette = avatarColors[i % avatarColors.length]
+                const displayName = contactName || companyName || 'Activity'
+                const label = eventTypeLabel[event.type] || 'Activity logged'
 
-              const created = []
-              if (contactName) created.push(`Contact — ${contactName}`)
-              if (dealName) created.push(`Deal — ${dealName}`)
-              if (companyName && !contactName) created.push(`Company — ${companyName}`)
+                const created = []
+                if (contactName) created.push(`Contact — ${contactName}`)
+                if (dealName) created.push(`Deal — ${dealName}`)
+                if (companyName && !contactName) created.push(`Company — ${companyName}`)
 
-              return (
-                <div key={event.id} style={{
-                  background: 'white', borderRadius: '14px',
-                  border: '0.5px solid rgba(0,0,0,0.07)', padding: '13px 14px',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <div style={{
-                      width: '28px', height: '28px', borderRadius: '8px',
-                      background: palette.bg, display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: '10px', fontWeight: 500,
-                      color: palette.color, flexShrink: 0,
-                    }}>
-                      {getInitials(displayName)}
+                return (
+                  <div key={event.id} style={{
+                    background: 'white', borderRadius: '14px',
+                    border: '0.5px solid rgba(0,0,0,0.07)', padding: '13px 14px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <div style={{
+                        width: '28px', height: '28px', borderRadius: '8px',
+                        background: palette.bg, display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', fontSize: '10px', fontWeight: 500,
+                        color: palette.color, flexShrink: 0,
+                      }}>
+                        {getInitials(displayName)}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18' }}>{label}</p>
+                        <p style={{ margin: 0, fontSize: '11px', color: '#9b9890' }}>{timeAgo(event.created_at)}</p>
+                      </div>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18' }}>{label}</p>
-                      <p style={{ margin: 0, fontSize: '11px', color: '#9b9890' }}>{timeAgo(event.created_at)}</p>
-                    </div>
+
+                    {created.length > 0 && (
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                        {created.map((item, j) => (
+                          <span key={j} style={{
+                            fontSize: '11px', color: '#6b6960',
+                            background: '#f5f4f0', borderRadius: '6px',
+                            padding: '3px 8px',
+                          }}>
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {event.summary && (
+                      <p style={{ margin: 0, fontSize: '13px', color: '#9b9890', lineHeight: 1.5 }}>
+                        {event.summary}
+                      </p>
+                    )}
                   </div>
+                )
+              })}
+            </div>
 
-                  {created.length > 0 && (
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                      {created.map((item, j) => (
-                        <span key={j} style={{
-                          fontSize: '11px', color: '#6b6960',
-                          background: '#f5f4f0', borderRadius: '6px',
-                          padding: '3px 8px',
-                        }}>
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {event.summary && (
-                    <p style={{ margin: 0, fontSize: '13px', color: '#9b9890', lineHeight: 1.5 }}>
-                      {event.summary}
-                    </p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+            {events.length > 3 && (
+              <button
+                onClick={() => setShowAllEvents(v => !v)}
+                style={{
+                  marginTop: '10px', width: '100%', background: 'none',
+                  border: 'none', cursor: 'pointer', fontSize: '13px',
+                  color: '#9b9890', padding: '8px', fontFamily: 'inherit',
+                }}
+              >
+                {showAllEvents ? 'Show less' : `Show ${events.length - 3} more`}
+              </button>
+            )}
+          </>
         )}
       </div>
 
