@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import AIProactiveNudges from '@/components/AIProactiveNudges'
+import SearchModal from '@/components/SearchModal'
 
 interface Task {
   id: string
@@ -78,6 +80,7 @@ const eventTypeLabel: Record<string, string> = {
 }
 
 export default function HomeClient({ name, initials, tasks, events, orgName, userRole }: Props) {
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const greeting = () => {
     const messages = [
@@ -133,18 +136,21 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
 
       {/* Search */}
       <div style={{ padding: '0 24px 16px' }}>
-        <div style={{
-          background: 'white', borderRadius: '16px',
+        <button onClick={() => setSearchOpen(true)} style={{
+          width: '100%', background: 'white', borderRadius: '16px',
           border: '0.5px solid rgba(0,0,0,0.07)',
           padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px',
+          cursor: 'pointer', fontFamily: 'inherit',
         }}>
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
             <circle cx="7" cy="7" r="5.5" stroke="#9b9890" strokeWidth="1.2" />
             <path d="M11 11l2.5 2.5" stroke="#9b9890" strokeWidth="1.2" strokeLinecap="round" />
           </svg>
           <span style={{ fontSize: '14px', color: '#9b9890' }}>Search contacts, deals, notes...</span>
-        </div>
+        </button>
       </div>
+
+      {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
 
       {/* Today's focus */}
       <div style={{ padding: '0 24px 20px' }}>
