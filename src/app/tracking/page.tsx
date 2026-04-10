@@ -30,7 +30,7 @@ export default async function TrackingPage() {
   ])
 
   return (
-    <TrackingClient
+    <TrackingClient events={[]}
       deals={(dealsRes.data ?? []) as any[]}
       contacts={(contactsRes.data ?? []) as any[]}
       companies={(companiesRes.data ?? []) as any[]}
