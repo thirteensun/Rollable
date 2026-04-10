@@ -38,6 +38,10 @@ function timeAgo(val: string) {
   return `${days}d ago`
 }
 
+function getInitials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+}
+
 export default function DealDetailClient({ deal, events }: { deal: any; events: any[] }) {
   const router = useRouter()
   const supabase = createBrowserSupabaseClient()
@@ -84,42 +88,44 @@ export default function DealDetailClient({ deal, events }: { deal: any; events: 
   return (
     <div style={{ background: '#f5f4f0', minHeight: '100dvh', paddingBottom: 100 }}>
 
-      {/* Header */}
-      <div style={{ background: 'white', borderBottom: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 20px 20px' }}>
+      {/* Header — plain text on background, no white block */}
+      <div style={{ padding: '56px 20px 8px' }}>
         <button
           onClick={() => router.back()}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#6b6960', fontSize: 14, marginBottom: 16, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#9b9890', fontSize: 13, marginBottom: 20, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 12H5M12 5l-7 7 7 7"/>
+          </svg>
           Back
         </button>
 
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 600, color: '#1a1a18', marginBottom: 4 }}>{deal.name}</h1>
-            {deal.companies?.name && (
-              <p style={{ fontSize: 14, color: '#6b6960' }}>{deal.companies.name}</p>
-            )}
-          </div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 600, color: '#1a1a18', margin: 0, flex: 1, paddingRight: 12 }}>
+            {deal.name}
+          </h1>
           <div style={{
-            padding: '4px 10px', borderRadius: 20,
+            padding: '4px 10px', borderRadius: 20, flexShrink: 0,
             background: payment.bg, color: payment.text,
-            fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', marginTop: 4
+            fontSize: 12, fontWeight: 500, marginTop: 4,
           }}>
             {payment.label}
           </div>
         </div>
 
-        {/* Revenue row */}
-        <div style={{ display: 'flex', gap: 24, marginTop: 16 }}>
+        {deal.companies?.name && (
+          <p style={{ fontSize: 13, color: '#9b9890', margin: '0 0 16px' }}>{deal.companies.name}</p>
+        )}
+
+        <div style={{ display: 'flex', gap: 24 }}>
           <div>
-            <p style={{ fontSize: 11, color: '#9b9890', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expected</p>
-            <p style={{ fontSize: 20, fontWeight: 600, color: '#1a1a18' }}>{formatCurrency(deal.value)}</p>
+            <p style={{ fontSize: 11, color: '#9b9890', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Expected</p>
+            <p style={{ fontSize: 22, fontWeight: 600, color: '#1a1a18', margin: 0 }}>{formatCurrency(deal.value)}</p>
           </div>
           {deal.confirmed_revenue != null && (
             <div>
-              <p style={{ fontSize: 11, color: '#9b9890', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Confirmed</p>
-              <p style={{ fontSize: 20, fontWeight: 600, color: '#1D9E75' }}>{formatCurrency(deal.confirmed_revenue)}</p>
+              <p style={{ fontSize: 11, color: '#9b9890', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Confirmed</p>
+              <p style={{ fontSize: 22, fontWeight: 600, color: '#1D9E75', margin: 0 }}>{formatCurrency(deal.confirmed_revenue)}</p>
             </div>
           )}
         </div>
@@ -139,15 +145,12 @@ export default function DealDetailClient({ deal, events }: { deal: any; events: 
                   key={s}
                   onClick={() => updateStage(s)}
                   style={{
-                    padding: '6px 11px',
-                    borderRadius: 20,
-                    fontSize: 12,
+                    padding: '6px 11px', borderRadius: 20, fontSize: 12,
                     fontWeight: isActive ? 600 : 400,
                     border: isActive ? 'none' : '0.5px solid rgba(0,0,0,0.1)',
                     background: isActive ? '#1a1a18' : isPast ? 'rgba(29,158,117,0.08)' : 'transparent',
                     color: isActive ? 'white' : isPast ? '#1D9E75' : '#6b6960',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
+                    cursor: 'pointer', transition: 'all 0.15s',
                   }}
                 >
                   {STAGE_LABELS[s]}
@@ -184,7 +187,6 @@ export default function DealDetailClient({ deal, events }: { deal: any; events: 
 
           {editingFinancials ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {/* Payment status */}
               <div style={{ display: 'flex', gap: 8 }}>
                 {(['none', 'invoiced', 'paid'] as const).map(s => (
                   <button
@@ -202,41 +204,11 @@ export default function DealDetailClient({ deal, events }: { deal: any; events: 
                   </button>
                 ))}
               </div>
-
-              <input
-                placeholder="Invoice ref (e.g. INV-2024-001)"
-                value={invoiceRef}
-                onChange={e => setInvoiceRef(e.target.value)}
-                style={inputStyle}
-              />
-              <input
-                type="date"
-                placeholder="Invoice date"
-                value={invoiceDate}
-                onChange={e => setInvoiceDate(e.target.value)}
-                style={inputStyle}
-              />
-              <input
-                placeholder="PO ref (e.g. PO-4521)"
-                value={poRef}
-                onChange={e => setPoRef(e.target.value)}
-                style={inputStyle}
-              />
-              <input
-                type="date"
-                placeholder="PO date"
-                value={poDate}
-                onChange={e => setPoDate(e.target.value)}
-                style={inputStyle}
-              />
-              <input
-                type="number"
-                placeholder="Confirmed revenue (actual amount invoiced)"
-                value={confirmedRevenue}
-                onChange={e => setConfirmedRevenue(e.target.value)}
-                style={inputStyle}
-              />
-
+              <input placeholder="Invoice ref (e.g. INV-2024-001)" value={invoiceRef} onChange={e => setInvoiceRef(e.target.value)} style={inputStyle} />
+              <input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} style={inputStyle} />
+              <input placeholder="PO ref (e.g. PO-4521)" value={poRef} onChange={e => setPoRef(e.target.value)} style={inputStyle} />
+              <input type="date" value={poDate} onChange={e => setPoDate(e.target.value)} style={inputStyle} />
+              <input type="number" placeholder="Confirmed revenue" value={confirmedRevenue} onChange={e => setConfirmedRevenue(e.target.value)} style={inputStyle} />
               <button
                 onClick={saveFinancials}
                 disabled={saving}
@@ -273,13 +245,11 @@ export default function DealDetailClient({ deal, events }: { deal: any; events: 
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 13, fontWeight: 600, color: '#1a1a18', flexShrink: 0,
                   }}>
-                    {c.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                    {getInitials(c.full_name ?? '')}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>
-                      {c.full_name}
-                    </p>
-                    {c.role && <p style={{ fontSize: 12, color: '#6b6960' }}>{c.role}</p>}
+                    <p style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', margin: 0 }}>{c.full_name}</p>
+                    {c.role && <p style={{ fontSize: 12, color: '#6b6960', margin: 0 }}>{c.role}</p>}
                   </div>
                   {c.email && (
                     <a href={`mailto:${c.email}`} style={{ color: '#6b6960' }}>
@@ -310,7 +280,6 @@ export default function DealDetailClient({ deal, events }: { deal: any; events: 
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {events.map((ev: any, i: number) => (
                 <div key={ev.id} style={{ display: 'flex', gap: 12, paddingBottom: i < events.length - 1 ? 14 : 0 }}>
-                  {/* Timeline dot + line */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#1a1a18', marginTop: 4, flexShrink: 0 }} />
                     {i < events.length - 1 && (
@@ -319,7 +288,7 @@ export default function DealDetailClient({ deal, events }: { deal: any; events: 
                   </div>
                   <div style={{ flex: 1, paddingBottom: i < events.length - 1 ? 4 : 0 }}>
                     <p style={{ fontSize: 13, color: '#1a1a18', marginBottom: 2 }}>
-                      {ev.metadata?.summary ?? ev.event_type ?? 'Event'}
+                      {ev.metadata?.summary ?? ev.summary ?? ev.event_type ?? 'Event'}
                     </p>
                     <p style={{ fontSize: 11, color: '#9b9890' }}>{timeAgo(ev.created_at)}</p>
                   </div>
