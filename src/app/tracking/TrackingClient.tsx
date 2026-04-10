@@ -249,7 +249,7 @@ export default function TrackingClient({ deals, contacts, companies }: {
               {companies.map((co, i) => {
                 const palette = avatarPalette[i % avatarPalette.length]
                 return (
-                  <Link key={co.id} href={} style={{ textDecoration: 'none' }}>
+                  <Link key={co.id} href={`/companies/${co.id}`} style={{ textDecoration: 'none' }}>
                     <div style={{
                       background: 'white', borderRadius: '16px',
                       border: '0.5px solid rgba(0,0,0,0.07)',
