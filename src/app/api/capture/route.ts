@@ -1,131 +1,100 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import Anthropic from '@anthropic-ai/sdk'
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent'
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    await cookies() // Next.js requires this before createServerSupabaseClient
-    const supabase = createServerSupabaseClient()
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) { return cookieStore.get(name)?.value },
+          set() {}, remove() {},
+        },
+      }
+    )
+
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const body = await req.json()
-    const { imageBase64, mimeType = 'image/jpeg' } = body
+    const { image, mimeType = 'image/jpeg' } = await request.json()
+    if (!image) return NextResponse.json({ error: 'No image provided' }, { status: 400 })
 
-    const prompt = `You are an AI assistant for a CRM called SDM. Analyze this image and extract structured data.
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: mimeType as any,
+                data: image,
+              },
+            },
+            {
+              type: 'text',
+              text: `You are an AI assistant for a CRM called SDM. Analyze this image and extract CRM-relevant information.
 
-DOCUMENT TYPES YOU MUST DETECT:
-1. Business card → extract contact info
-2. Meeting notes / whiteboard → extract contacts, deals, tasks
-3. Invoice → extract invoice details and link to deal
-4. Purchase Order (PO) → extract PO details and link to deal
-5. Other (screenshot, email, etc.) → extract whatever CRM-relevant info exists
-
-Respond ONLY with valid JSON in this exact format:
+Respond ONLY with valid JSON in this exact format, no other text:
 {
-  "document_type": "business_card" | "meeting_notes" | "invoice" | "purchase_order" | "other",
-  "summary": "One action-oriented sentence describing what was captured and what the CRM should do. Be specific.",
-  "creates": [
-    { "type": "contact", "label": "Full Name — Company" },
-    { "type": "deal", "label": "Deal name — $value" },
-    { "type": "task", "label": "Task description" }
+  "event_type": "meeting" | "call" | "email" | "card_scan" | "note" | "other",
+  "summary": "One action-oriented CRM sentence describing what was captured and what should happen next. Be specific about names, companies, and amounts.",
+  "contact_name": "Primary contact full name if present, otherwise null",
+  "contacts": [
+    {
+      "full_name": "Full name",
+      "role": "Job title or null",
+      "company_name": "Company or null",
+      "email": "email@example.com or null",
+      "phone": "+1234567890 or null"
+    }
   ],
-  "financial_update": {
-    "deal_name_hint": "Name or partial name of deal this document relates to (or null)",
-    "invoice_ref": "Invoice number if present (or null)",
-    "po_ref": "PO number if present (or null)",
-    "invoice_date": "YYYY-MM-DD if present (or null)",
-    "po_date": "YYYY-MM-DD if present (or null)",
-    "amount": 0,
-    "payment_status": "invoiced" | "paid" | null,
-    "currency": "USD"
-  }
+  "company_name": "Primary company name if present, otherwise null",
+  "deal_name": "Deal name if a deal is mentioned, otherwise null",
+  "deal_value": 0,
+  "follow_up_date": "YYYY-MM-DD if a follow-up date is mentioned, otherwise null",
+  "creates": [
+    { "type": "contact" | "deal" | "task" | "note", "label": "Short description e.g. Contact — John Smith" }
+  ]
 }
 
 Rules:
-- financial_update is ONLY populated for invoice or purchase_order document types. For all others set all fields to null.
-- summary must be action-oriented (e.g. "Invoice INV-2024-042 for $12,500 from Acme Corp — mark deal as invoiced")
-- creates[] should be empty [] for invoice/PO documents unless they also contain new contacts
-- amount should be a number (no currency symbols), 0 if not found`
-
-    const geminiRes = await fetch(`${GEMINI_API_URL}?key=${process.env.GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: mimeType, data: imageBase64 } }
-          ]
-        }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 1024 }
-      })
+- summary must be action-oriented (e.g. "Met John Smith from Acme Corp — add to contacts and schedule follow-up")
+- contacts[] should list every person found in the image
+- creates[] should list every CRM record that should be created
+- deal_value should be a number with no currency symbols, 0 if not found
+- If this is a business card, set event_type to "card_scan"
+- If no CRM-relevant info found, return empty contacts[] and creates[]`,
+            },
+          ],
+        },
+      ],
     })
 
-    if (!geminiRes.ok) {
-      const err = await geminiRes.text()
-      console.error('Gemini error:', err)
-      return NextResponse.json({ error: 'Gemini API failed' }, { status: 500 })
-    }
-
-    const geminiData = await geminiRes.json()
-    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-
-    // Strip markdown fences
+    const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
     const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+
     let parsed: any
     try {
       parsed = JSON.parse(cleaned)
     } catch {
-      return NextResponse.json({ error: 'Failed to parse Gemini response', raw: rawText }, { status: 500 })
+      console.error('Failed to parse Claude response:', rawText)
+      return NextResponse.json({ error: 'Failed to parse AI response', raw: rawText }, { status: 500 })
     }
 
-    // If it's a financial document, try to auto-match to an existing deal
-    let matchedDeal: any = null
-    if (
-      (parsed.document_type === 'invoice' || parsed.document_type === 'purchase_order') &&
-      parsed.financial_update?.deal_name_hint
-    ) {
-      const hint = parsed.financial_update.deal_name_hint.toLowerCase()
+    return NextResponse.json(parsed)
 
-      // Get user's org
-      const { data: membership } = await supabase
-        .from('organisation_members')
-        .select('organisation_id')
-        .eq('user_id', user.id)
-        .single()
-
-      if (membership) {
-        const { data: deals } = await supabase
-          .from('deals')
-          .select('id, name, value, stage')
-          .eq('organisation_id', membership.organisation_id)
-          .not('stage', 'in', '(closed_lost)')
-
-        // Simple fuzzy match: check if any deal name words appear in hint or vice versa
-        if (deals) {
-          for (const d of deals) {
-            const dealWords = d.name.toLowerCase().split(/\s+/)
-            const hintWords = hint.split(/\s+/)
-            const overlap = dealWords.filter((w: string) => w.length > 3 && hintWords.some((h: string) => h.includes(w) || w.includes(h)))
-            if (overlap.length > 0) {
-              matchedDeal = d
-              break
-            }
-          }
-        }
-      }
-    }
-
-    return NextResponse.json({
-      ...parsed,
-      matched_deal: matchedDeal ?? null,
-    })
-
-  } catch (err) {
-    console.error('Capture route error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  } catch (error: any) {
+    console.error('Capture error:', error)
+    return NextResponse.json({ error: error.message || 'Capture failed' }, { status: 500 })
   }
 }
