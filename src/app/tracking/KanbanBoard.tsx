@@ -1,0 +1,244 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+
+const STAGES = [
+  { key: 'lead',        label: 'Lead' },
+  { key: 'qualified',   label: 'Qualified' },
+  { key: 'demo',        label: 'Demo' },
+  { key: 'proposal',    label: 'Proposal' },
+  { key: 'negotiation', label: 'Negotiation' },
+  { key: 'closed_won',  label: 'Won' },
+  { key: 'closed_lost', label: 'Lost' },
+]
+
+type Deal = {
+  id: string
+  name: string
+  company_name?: string
+  value?: number
+  stage: string
+  days_since_activity: number
+  owner_initials?: string
+}
+
+function daysSince(lastActivity: string | null | undefined): number {
+  if (!lastActivity) return 0
+  return Math.floor((Date.now() - new Date(lastActivity).getTime()) / 86400000)
+}
+
+function activityTag(days: number, stage: string) {
+  if (stage === 'closed_won' || stage === 'closed_lost') return null
+  if (days >= 14) return { label: `${days}d`, style: { background: '#fdeaea', color: '#E24B4A' } }
+  if (days >= 7)  return { label: `${days}d`, style: { background: '#fdf3e3', color: '#EF9F27' } }
+  return { label: `${days}d`, style: { background: '#f0f0ee', color: '#6b6960' } }
+}
+
+function initials(name: string) {
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+}
+
+function formatValue(v?: number) {
+  if (!v) return '—'
+  if (v >= 1000) return `$${(v / 1000).toFixed(0)}k`
+  return `$${v}`
+}
+
+export default function KanbanBoard({ deals }: { deals: Deal[] }) {
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [overStage, setOverStage] = useState<string | null>(null)
+  const [localDeals, setLocalDeals] = useState<Deal[]>(deals)
+
+  const grouped = STAGES.reduce<Record<string, Deal[]>>((acc, s) => {
+    acc[s.key] = localDeals.filter(d => d.stage === s.key)
+    return acc
+  }, {})
+
+  function handleDragStart(id: string) { setDragId(id) }
+  function handleDragOver(e: React.DragEvent, stage: string) {
+    e.preventDefault()
+    setOverStage(stage)
+  }
+  function handleDrop(stage: string) {
+    if (!dragId) return
+    setLocalDeals(prev => prev.map(d => d.id === dragId ? { ...d, stage } : d))
+    setDragId(null)
+    setOverStage(null)
+    // TODO: persist to Supabase — call /api/assistant or direct supabase update
+  }
+  function handleDragEnd() {
+    setDragId(null)
+    setOverStage(null)
+  }
+
+  return (
+    <div style={{
+      display: 'flex',
+      gap: 10,
+      padding: '16px',
+      overflowX: 'auto',
+      overflowY: 'hidden',
+      height: '100%',
+      alignItems: 'flex-start',
+    }}>
+      {STAGES.map(stage => {
+        const cards = grouped[stage.key] ?? []
+        const isOver = overStage === stage.key
+        const isWon = stage.key === 'closed_won'
+        const isLost = stage.key === 'closed_lost'
+
+        return (
+          <div
+            key={stage.key}
+            style={{ width: 210, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8 }}
+            onDragOver={e => handleDragOver(e, stage.key)}
+            onDrop={() => handleDrop(stage.key)}
+          >
+            {/* Column header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px' }}>
+              <span style={{
+                fontSize: 11,
+                fontWeight: 500,
+                color: isWon ? '#1D9E75' : isLost ? '#E24B4A' : '#6b6960',
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+              }}>
+                {stage.label}
+              </span>
+              <span style={{
+                width: 18, height: 18, borderRadius: '50%',
+                background: '#f5f4f0',
+                border: '0.5px solid rgba(0,0,0,0.07)',
+                fontSize: 10, color: '#9b9890',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {cards.length}
+              </span>
+              {isWon && (
+                <span style={{ fontSize: 10, color: '#1D9E75', marginLeft: 'auto' }}>
+                  {formatValue(cards.reduce((s, d) => s + (d.value ?? 0), 0))}
+                </span>
+              )}
+            </div>
+
+            {/* Drop zone + cards */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              minHeight: 80,
+              borderRadius: 14,
+              padding: isOver ? 4 : 0,
+              background: isOver ? 'rgba(0,0,0,0.03)' : 'transparent',
+              border: isOver ? '1.5px dashed rgba(0,0,0,0.12)' : '1.5px solid transparent',
+              transition: 'all 0.15s',
+            }}>
+              {cards.map(deal => {
+                const days = deal.days_since_activity
+                const tag = activityTag(days, deal.stage)
+                const atRisk = days >= 14 && stage.key !== 'closed_won' && stage.key !== 'closed_lost'
+                const isDragging = dragId === deal.id
+
+                return (
+                  <div
+                    key={deal.id}
+                    draggable
+                    onDragStart={() => handleDragStart(deal.id)}
+                    onDragEnd={handleDragEnd}
+                    style={{
+                      background: 'white',
+                      border: atRisk
+                        ? '0.5px solid rgba(0,0,0,0.07)'
+                        : '0.5px solid rgba(0,0,0,0.07)',
+                      borderLeft: atRisk ? '2.5px solid #EF9F27' : undefined,
+                      borderRadius: 12,
+                      padding: '11px 12px',
+                      cursor: 'grab',
+                      opacity: isDragging ? 0.4 : isWon || isLost ? 0.65 : 1,
+                      transition: 'opacity 0.15s, transform 0.1s, border-color 0.15s',
+                      userSelect: 'none',
+                    }}
+                    className="kanban-card"
+                  >
+                    <Link
+                      href={`/tracking/deals/${deal.id}`}
+                      style={{ textDecoration: 'none', display: 'block' }}
+                      onClick={e => { if (dragId) e.preventDefault() }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18', marginBottom: 3 }}>
+                        {deal.name}
+                      </div>
+                      {deal.company_name && (
+                        <div style={{ fontSize: 11, color: '#9b9890', marginBottom: 8 }}>
+                          {deal.company_name}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18' }}>
+                          {formatValue(deal.value)}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          {deal.owner_initials && (
+                            <div style={{
+                              width: 20, height: 20, borderRadius: '50%',
+                              background: '#1a1a18', color: 'white',
+                              fontSize: 8, fontWeight: 600,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              {deal.owner_initials}
+                            </div>
+                          )}
+                          {tag && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 500,
+                              padding: '2px 6px', borderRadius: 6,
+                              ...tag.style,
+                            }}>
+                              {tag.label}
+                            </span>
+                          )}
+                          {isWon && (
+                            <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 6, background: '#e8f5f0', color: '#1D9E75' }}>Won</span>
+                          )}
+                          {isLost && (
+                            <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 6, background: '#fdeaea', color: '#E24B4A' }}>Lost</span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+                )
+              })}
+
+              {/* Add deal button */}
+              {stage.key !== 'closed_won' && stage.key !== 'closed_lost' && (
+                <button style={{
+                  background: 'transparent',
+                  border: '0.5px dashed rgba(0,0,0,0.1)',
+                  borderRadius: 12,
+                  padding: '9px 12px',
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  color: '#9b9890',
+                  textAlign: 'left',
+                  width: '100%',
+                  transition: 'border-color 0.15s, color 0.15s',
+                }}
+                  className="add-deal-btn"
+                >
+                  + Add deal
+                </button>
+              )}
+            </div>
+          </div>
+        )
+      })}
+
+      <style>{`
+        .kanban-card:hover { border-color: rgba(0,0,0,0.14) !important; transform: translateY(-1px); }
+        .add-deal-btn:hover { border-color: rgba(0,0,0,0.2) !important; color: #6b6960 !important; }
+      `}</style>
+    </div>
+  )
+}
