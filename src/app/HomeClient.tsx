@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import AIProactiveNudges from '@/components/AIProactiveNudges'
 import CommandBar from '@/components/CommandBar'
@@ -80,8 +79,6 @@ const eventTypeLabel: Record<string, string> = {
 }
 
 export default function HomeClient({ name, initials, tasks, events, orgName, userRole }: Props) {
-  const [showAllEvents, setShowAllEvents] = useState(false)
-
   const greeting = () => {
     const messages = [
       'Tap Capture and sell with total freedom.',
@@ -94,7 +91,7 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
     return messages[day % messages.length]
   }
 
-  const visibleEvents = showAllEvents ? events : events.slice(0, 3)
+
 
   return (
     <main style={{ background: '#f5f4f0', paddingBottom: '90px' }}>
@@ -204,9 +201,8 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
             <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }}>Tap Capture to log your first interaction</p>
           </div>
         ) : (
-          <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {visibleEvents.map((event, i) => {
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {events.map((event, i) => {
                 const contactName = event.contacts?.full_name || null
                 const companyName = event.companies?.name || null
                 const dealName = event.deals?.name || null
@@ -262,20 +258,6 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
                 )
               })}
             </div>
-
-            {events.length > 3 && (
-              <button
-                onClick={() => setShowAllEvents(v => !v)}
-                style={{
-                  marginTop: '10px', width: '100%', background: 'none',
-                  border: 'none', cursor: 'pointer', fontSize: '13px',
-                  color: '#9b9890', padding: '8px', fontFamily: 'inherit',
-                }}
-              >
-                {showAllEvents ? 'Show less' : `Show ${events.length - 3} more`}
-              </button>
-            )}
-          </>
         )}
       </div>
 
