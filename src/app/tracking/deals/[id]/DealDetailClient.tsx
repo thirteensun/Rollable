@@ -273,13 +273,13 @@ export default function DealDetailClient({ deal, events }: { deal: any; events: 
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 13, fontWeight: 600, color: '#1a1a18', flexShrink: 0,
                   }}>
-                    {c.first_name?.[0]}{c.last_name?.[0]}
+                    {c.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>
-                      {c.first_name} {c.last_name}
+                      {c.full_name}
                     </p>
-                    {c.title && <p style={{ fontSize: 12, color: '#6b6960' }}>{c.title}</p>}
+                    {c.role && <p style={{ fontSize: 12, color: '#6b6960' }}>{c.role}</p>}
                   </div>
                   {c.email && (
                     <a href={`mailto:${c.email}`} style={{ color: '#6b6960' }}>

@@ -7,13 +7,24 @@ export default async function DealDetailPage({ params }: { params: { id: string 
 
   const { data: deal, error } = await supabase
     .from('deals')
-    .select('*')
+    .select(`
+      *,
+      companies ( id, name ),
+      deal_contacts (
+        contacts ( id, full_name, email, phone, role )
+      )
+    `)
     .eq('id', params.id)
     .single()
 
-  console.log('deal:', deal, 'error:', error)
-
   if (error || !deal) notFound()
 
-  return <DealDetailClient deal={deal} events={[]} />
+  const { data: events } = await supabase
+    .from('events')
+    .select('*')
+    .eq('deal_id', params.id)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  return <DealDetailClient deal={deal} events={events ?? []} />
 }
