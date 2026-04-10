@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import AIProactiveNudges from '@/components/AIProactiveNudges'
-import CommandBar from '@/components/CommandBar'
 
 interface Task {
   id: string
@@ -129,9 +128,6 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
           </div>
         </Link>
       </div>
-
-      {/* Command Bar — prominent, always visible */}
-      <CommandBar />
 
       {/* AI Proactive Nudges */}
       <AIProactiveNudges />
