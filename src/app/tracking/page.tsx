@@ -31,9 +31,9 @@ export default async function TrackingPage() {
 
   return (
     <TrackingClient
-      deals={dealsRes.data ?? []}
-      contacts={contactsRes.data ?? []}
-      companies={companiesRes.data ?? []}
+      deals={(dealsRes.data ?? []) as any[]}
+      contacts={(contactsRes.data ?? []) as any[]}
+      companies={(companiesRes.data ?? []) as any[]}
     />
   )
 }
