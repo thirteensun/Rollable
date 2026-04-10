@@ -6,7 +6,7 @@ export default async function TrackingPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [dealsRes, contactsRes, companiesRes] = await Promise.all([
+  const [dealsRes, contactsRes, companiesRes, eventsRes] = await Promise.all([
     supabase
       .from('deals')
       .select('id, name, value, currency, stage, last_activity_at, created_at, companies(name), deal_contacts(contacts(full_name))')
@@ -27,6 +27,13 @@ export default async function TrackingPage() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50),
+
+    supabase
+      .from('events')
+      .select('id, type, summary, created_at, contacts(full_name), deals(name), companies(name)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(100),
   ])
 
   return (
@@ -34,6 +41,7 @@ export default async function TrackingPage() {
       deals={(dealsRes.data ?? []) as any[]}
       contacts={(contactsRes.data ?? []) as any[]}
       companies={(companiesRes.data ?? []) as any[]}
+      events={(eventsRes.data ?? []) as any[]}
     />
   )
 }

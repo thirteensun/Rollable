@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
-type Tab = 'deals' | 'contacts' | 'companies'
+type Tab = 'deals' | 'contacts' | 'companies' | 'events'
 
 interface Deal {
   id: string
@@ -34,6 +34,16 @@ interface Company {
   website: string | null
 }
 
+interface Event {
+  id: string
+  type: string
+  summary: string | null
+  created_at: string
+  contacts: { full_name: string } | null
+  deals: { name: string } | null
+  companies: { name: string } | null
+}
+
 const stageProgress: Record<string, number> = {
   lead: 10, qualified: 25, demo: 40,
   proposal: 60, negotiation: 80,
@@ -49,6 +59,14 @@ const stageLabel: Record<string, string> = {
 function isAtRisk(deal: Deal): boolean {
   const ref = deal.last_activity_at ?? deal.created_at
   return (Date.now() - new Date(ref).getTime()) / 86400000 > 14
+}
+
+
+const eventTypeLabel: Record<string, string> = {
+  meeting: 'Meeting logged', call: 'Call logged',
+  email: 'Email captured', whatsapp: 'WhatsApp captured',
+  note: 'Note added', card_scan: 'Business card scanned',
+  voice_memo: 'Voice memo logged', other: 'Activity logged',
 }
 
 function getInitials(name: string) {
@@ -71,10 +89,11 @@ const avatarPalette = [
   { bg: '#FCEBEB', color: '#A32D2D' },
 ]
 
-export default function TrackingClient({ deals, contacts, companies }: {
+export default function TrackingClient({ deals, contacts, companies, events }: {
   deals: Deal[]
   contacts: Contact[]
   companies: Company[]
+  events: Event[]
 }) {
   const [tab, setTab] = useState<Tab>('deals')
 
@@ -93,11 +112,11 @@ export default function TrackingClient({ deals, contacts, companies }: {
         </p>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '4px 0 16px' }}>
           <p style={{ margin: 0, fontSize: '26px', fontWeight: 500, color: '#1a1a18' }}>
-            {tab === 'deals' ? 'Pipeline' : tab === 'contacts' ? 'Contacts' : 'Companies'}
+            {tab === 'deals' ? 'Pipeline' : tab === 'contacts' ? 'Contacts' : tab === 'companies' ? 'Companies' : 'Activity'}
           </p>
         </div>
         <div style={{ display: 'flex', background: 'white', borderRadius: 14, border: '0.5px solid rgba(0,0,0,0.07)', padding: 4, gap: 2, marginBottom: 16 }}>
-          {(['deals', 'contacts', 'companies'] as Tab[]).map(t => (
+          {(['deals', 'contacts', 'companies', 'events'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -249,7 +268,7 @@ export default function TrackingClient({ deals, contacts, companies }: {
               {companies.map((co, i) => {
                 const palette = avatarPalette[i % avatarPalette.length]
                 return (
-                  <Link key={co.id} href={`/companies/${co.id}`} style={{ textDecoration: 'none' }}>
+                  <Link key={co.id} href={`/tracking/companies/${co.id}`} style={{ textDecoration: 'none' }}>
                     <div style={{
                       background: 'white', borderRadius: '16px',
                       border: '0.5px solid rgba(0,0,0,0.07)',
