@@ -81,7 +81,6 @@ const eventTypeLabel: Record<string, string> = {
 
 export default function HomeClient({ name, initials, tasks, events, orgName, userRole }: Props) {
   const [searchOpen, setSearchOpen] = useState(false)
-  const [showAllEvents, setShowAllEvents] = useState(false)
 
   const greeting = () => {
     const messages = [
@@ -219,7 +218,7 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {(showAllEvents ? events : events.slice(0, 3)).map((event, i) => {
+            {events.map((event, i) => {
               const contactName = event.contacts?.full_name || null
               const companyName = event.companies?.name || null
               const dealName = event.deals?.name || null
@@ -275,19 +274,6 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
               )
             })}
           </div>
-        )}
-        {events.length > 3 && (
-          <button
-            onClick={() => setShowAllEvents(v => !v)}
-            style={{
-              marginTop: 8, width: '100%', padding: '12px',
-              background: 'white', border: '0.5px solid rgba(0,0,0,0.07)',
-              borderRadius: 14, fontSize: 13, color: '#6b6960', fontWeight: 500,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            {showAllEvents ? 'Show less' : `Show ${events.length - 3} more`}
-          </button>
         )}
       </div>
 
