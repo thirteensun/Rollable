@@ -101,7 +101,7 @@ export default function SidebarNav() {
           CRM
         </div>
 
-        <NavItem href="/contacts" active={isActive('/contacts')} icon={
+        <NavItem href="/tracking" active={isActive('/contacts')} icon={
           <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
             <circle cx="7.5" cy="5" r="3"/>
             <path d="M1.5 13.5c0-3 2.7-5 6-5s6 2 6 5" strokeLinecap="round"/>
@@ -110,7 +110,7 @@ export default function SidebarNav() {
           Contacts
         </NavItem>
 
-        <NavItem href="/companies" active={isActive('/companies')} icon={
+        <NavItem href="/tracking" active={isActive('/companies')} icon={
           <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
             <rect x="1.5" y="5" width="12" height="8.5" rx="2"/>
             <path d="M5 5V3.5a2.5 2.5 0 015 0V5" strokeLinecap="round"/>
