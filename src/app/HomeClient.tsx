@@ -93,7 +93,7 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
 
 
   return (
-    <main style={{ background: '#f5f4f0', paddingBottom: '90px' }}>
+    <main style={{ background: '#f5f4f0', paddingBottom: 0 }}>
 
       {/* Header */}
       <div style={{ padding: '56px 24px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>

@@ -65,7 +65,7 @@ export default function RootLayout({
                 // Desktop: no bottom nav, so no padding needed
               }}
             >
-              <div className="pb-[90px] md:pb-0">
+              <div className="px-4 py-4 pb-[90px] md:px-10 md:py-8 md:pb-8 md:max-w-[1240px]">
                 {children}
               </div>
             </main>
