@@ -526,7 +526,11 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
               key={s.id}
               s={s}
               dismissed={dismissed.has(s.id)}
-              onDismiss={() => setDismissed(prev => new Set([...prev, s.id]))}
+              onDismiss={() => setDismissed(prev => {
+                const newSet = new Set(prev)
+                newSet.add(s.id)
+                return newSet
+              })}
               onAction={msg => sendMessage(msg)}
             />
           ))}
