@@ -94,7 +94,7 @@ export default function SidebarNav() {
             <path d="M7.5 5v3.5l2 2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         } badge={3} badgeColor="#E24B4A">
-          AI Coach
+          AI Sandbox
         </NavItem>
 
         <div style={{ fontSize: 10, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 8px', margin: '16px 0 4px' }}>
