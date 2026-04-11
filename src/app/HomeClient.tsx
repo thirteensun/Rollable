@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import AIProactiveNudges from '@/components/AIProactiveNudges'
 
 interface Task {
@@ -78,6 +79,8 @@ const eventTypeLabel: Record<string, string> = {
 }
 
 export default function HomeClient({ name, initials, tasks, events, orgName, userRole }: Props) {
+  const [showAll, setShowAll] = useState(false)
+
   const greeting = () => {
     const messages = [
       'Tap Capture and sell with total freedom.',
@@ -90,13 +93,12 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
     return messages[day % messages.length]
   }
 
-
+  const visibleEvents = showAll ? events : events.slice(0, 3)
 
   return (
-    <main style={{ background: '#f5f4f0', paddingBottom: 0 }}>
-
+    <div>
       {/* Header */}
-      <div style={{ padding: '56px 24px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
         <div>
           <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }} suppressHydrationWarning>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
@@ -129,134 +131,152 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
         </Link>
       </div>
 
-      {/* AI Proactive Nudges */}
+      {/* AI Nudges */}
       <AIProactiveNudges />
 
-      {/* Today's focus */}
-      <div style={{ padding: '0 24px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-            Today's focus
-          </p>
-          <Link href="/planning" style={{ fontSize: '13px', color: '#9b9890', textDecoration: 'none' }}>
-            See all
-          </Link>
+      {/* Desktop: two columns / Mobile: single column */}
+      <div className="md:grid md:grid-cols-2 md:gap-8">
+
+        {/* Today's focus */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              Today's focus
+            </p>
+            <Link href="/planning" style={{ fontSize: '13px', color: '#9b9890', textDecoration: 'none' }}>
+              See all
+            </Link>
+          </div>
+
+          {tasks.length === 0 ? (
+            <div style={{
+              background: 'white', borderRadius: '14px',
+              border: '0.5px solid rgba(0,0,0,0.07)',
+              padding: '20px', textAlign: 'center',
+            }}>
+              <p style={{ margin: 0, fontSize: '14px', color: '#9b9890' }}>All caught up — nothing due today</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {tasks.map((task, i) => (
+                <div key={task.id} className="animate-fade-in-up" style={{
+                  background: 'white', borderRadius: '14px',
+                  border: '0.5px solid rgba(0,0,0,0.07)',
+                  padding: '13px 14px', display: 'flex',
+                  alignItems: 'center', gap: '12px', cursor: 'pointer',
+                  animationDelay: `${i * 0.05}s`,
+                }}>
+                  <div style={{
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: getTaskUrgency(task), flexShrink: 0,
+                  }} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>{task.title}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890' }}>
+                      {task.contacts?.full_name || task.deals?.name || ''}
+                      {task.due_date && ` · ${new Date(task.due_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`}
+                    </p>
+                  </div>
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.3" strokeLinecap="round" />
+                  </svg>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {tasks.length === 0 ? (
-          <div style={{
-            background: 'white', borderRadius: '14px',
-            border: '0.5px solid rgba(0,0,0,0.07)',
-            padding: '20px', textAlign: 'center',
-          }}>
-            <p style={{ margin: 0, fontSize: '14px', color: '#9b9890' }}>All caught up — nothing due today</p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {tasks.map((task, i) => (
-              <div key={task.id} className="animate-fade-in-up" style={{
-                background: 'white', borderRadius: '14px',
-                border: '0.5px solid rgba(0,0,0,0.07)',
-                padding: '13px 14px', display: 'flex',
-                alignItems: 'center', gap: '12px', cursor: 'pointer',
-                animationDelay: `${i * 0.05}s`,
-              }}>
-                <div style={{
-                  width: '8px', height: '8px', borderRadius: '50%',
-                  background: getTaskUrgency(task), flexShrink: 0,
-                }} />
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>{task.title}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890' }}>
-                    {task.contacts?.full_name || task.deals?.name || ''}
-                    {task.due_date && ` · ${new Date(task.due_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`}
-                  </p>
-                </div>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.3" strokeLinecap="round" />
-                </svg>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        {/* Recent activity */}
+        <div>
+          <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            Recent activity
+          </p>
 
-      {/* Recent activity */}
-      <div style={{ padding: '0 24px' }}>
-        <p style={{ margin: '0 0 12px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-          Recent activity
-        </p>
-
-        {events.length === 0 ? (
-          <div style={{
-            background: 'white', borderRadius: '14px',
-            border: '0.5px solid rgba(0,0,0,0.07)',
-            padding: '24px', textAlign: 'center',
-          }}>
-            <p style={{ margin: '0 0 8px', fontSize: '14px', color: '#1a1a18', fontWeight: 500 }}>No activity yet</p>
-            <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }}>Tap Capture to log your first interaction</p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {events.map((event, i) => {
-                const contactName = event.contacts?.full_name || null
-                const companyName = event.companies?.name || null
-                const dealName = event.deals?.name || null
-                const palette = avatarColors[i % avatarColors.length]
-                const displayName = contactName || companyName || 'Activity'
-                const label = eventTypeLabel[event.type] || 'Activity logged'
-
-                const created = []
-                if (contactName) created.push(`Contact — ${contactName}`)
-                if (dealName) created.push(`Deal — ${dealName}`)
-                if (companyName && !contactName) created.push(`Company — ${companyName}`)
-
-                return (
-                  <div key={event.id} style={{
-                    background: 'white', borderRadius: '14px',
-                    border: '0.5px solid rgba(0,0,0,0.07)', padding: '13px 14px',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                      <div style={{
-                        width: '28px', height: '28px', borderRadius: '8px',
-                        background: palette.bg, display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', fontSize: '10px', fontWeight: 500,
-                        color: palette.color, flexShrink: 0,
-                      }}>
-                        {getInitials(displayName)}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18' }}>{label}</p>
-                        <p style={{ margin: 0, fontSize: '11px', color: '#9b9890' }}>{timeAgo(event.created_at)}</p>
-                      </div>
-                    </div>
-
-                    {created.length > 0 && (
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                        {created.map((item, j) => (
-                          <span key={j} style={{
-                            fontSize: '11px', color: '#6b6960',
-                            background: '#f5f4f0', borderRadius: '6px',
-                            padding: '3px 8px',
-                          }}>
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {event.summary && (
-                      <p style={{ margin: 0, fontSize: '13px', color: '#9b9890', lineHeight: 1.5 }}>
-                        {event.summary}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
+          {events.length === 0 ? (
+            <div style={{
+              background: 'white', borderRadius: '14px',
+              border: '0.5px solid rgba(0,0,0,0.07)',
+              padding: '24px', textAlign: 'center',
+            }}>
+              <p style={{ margin: '0 0 8px', fontSize: '14px', color: '#1a1a18', fontWeight: 500 }}>No activity yet</p>
+              <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }}>Tap Capture to log your first interaction</p>
             </div>
-        )}
-      </div>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {visibleEvents.map((event, i) => {
+                  const contactName = event.contacts?.full_name || null
+                  const companyName = event.companies?.name || null
+                  const dealName = event.deals?.name || null
+                  const palette = avatarColors[i % avatarColors.length]
+                  const displayName = contactName || companyName || 'Activity'
+                  const label = eventTypeLabel[event.type] || 'Activity logged'
 
-    </main>
+                  const created = []
+                  if (contactName) created.push(`Contact — ${contactName}`)
+                  if (dealName) created.push(`Deal — ${dealName}`)
+                  if (companyName && !contactName) created.push(`Company — ${companyName}`)
+
+                  return (
+                    <div key={event.id} style={{
+                      background: 'white', borderRadius: '14px',
+                      border: '0.5px solid rgba(0,0,0,0.07)', padding: '13px 14px',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <div style={{
+                          width: '28px', height: '28px', borderRadius: '8px',
+                          background: palette.bg, display: 'flex', alignItems: 'center',
+                          justifyContent: 'center', fontSize: '10px', fontWeight: 500,
+                          color: palette.color, flexShrink: 0,
+                        }}>
+                          {getInitials(displayName)}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18' }}>{label}</p>
+                          <p style={{ margin: 0, fontSize: '11px', color: '#9b9890' }}>{timeAgo(event.created_at)}</p>
+                        </div>
+                      </div>
+
+                      {created.length > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                          {created.map((item, j) => (
+                            <span key={j} style={{
+                              fontSize: '11px', color: '#6b6960',
+                              background: '#f5f4f0', borderRadius: '6px',
+                              padding: '3px 8px',
+                            }}>
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {event.summary && (
+                        <p style={{ margin: 0, fontSize: '13px', color: '#9b9890', lineHeight: 1.5 }}>
+                          {event.summary}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {events.length > 3 && (
+                <button
+                  onClick={() => setShowAll(!showAll)}
+                  style={{
+                    marginTop: '10px', width: '100%', background: 'none',
+                    border: 'none', cursor: 'pointer', fontSize: '13px',
+                    color: '#9b9890', padding: '8px',
+                  }}
+                >
+                  {showAll ? 'Show less' : `Show ${events.length - 3} more`}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
