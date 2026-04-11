@@ -88,7 +88,7 @@ export default function SidebarNav() {
           Analytics
         </NavItem>
 
-        <NavItem href="/ai-coach" active={isActive('/ai-coach')} icon={
+        <NavItem href="/ai-sandbox" active={isActive('/ai-coach')} icon={
           <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d="M7.5 1.5a6 6 0 100 12 6 6 0 000-12z"/>
             <path d="M7.5 5v3.5l2 2" strokeLinecap="round" strokeLinejoin="round"/>
