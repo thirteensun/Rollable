@@ -7,7 +7,7 @@ export default function SidebarNav() {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
-    if (href === '/home') return pathname === '/home' || pathname === '/'
+    if (href === '/home') return pathname === '/' || pathname === '/'
     return pathname.startsWith(href)
   }
 
@@ -53,7 +53,7 @@ export default function SidebarNav() {
           Workspace
         </div>
 
-        <NavItem href="/home" active={isActive('/home')} icon={
+        <NavItem href="/" active={isActive('/home')} icon={
           <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d="M1.5 6.5L7.5 1.5L13.5 6.5V13H9.5V9.5H5.5V13H1.5V6.5Z" strokeLinejoin="round"/>
           </svg>
