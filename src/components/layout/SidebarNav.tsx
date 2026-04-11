@@ -7,7 +7,7 @@ export default function SidebarNav() {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
-    if (href === '/home') return pathname === '/' || pathname === '/'
+    if (href === '/') return pathname === '/'
     return pathname.startsWith(href)
   }
 
@@ -53,7 +53,7 @@ export default function SidebarNav() {
           Workspace
         </div>
 
-        <NavItem href="/" active={isActive('/home')} icon={
+        <NavItem href="/" active={isActive('/')} icon={
           <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d="M1.5 6.5L7.5 1.5L13.5 6.5V13H9.5V9.5H5.5V13H1.5V6.5Z" strokeLinejoin="round"/>
           </svg>
@@ -88,7 +88,7 @@ export default function SidebarNav() {
           Analytics
         </NavItem>
 
-        <NavItem href="/ai-sandbox" active={isActive('/ai-coach')} icon={
+        <NavItem href="/ai-sandbox" active={isActive('/ai-sandbox')} icon={
           <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
             <path d="M7.5 1.5a6 6 0 100 12 6 6 0 000-12z"/>
             <path d="M7.5 5v3.5l2 2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -101,7 +101,7 @@ export default function SidebarNav() {
           CRM
         </div>
 
-        <NavItem href="/tracking" active={isActive('/contacts')} icon={
+        <NavItem href="/tracking?tab=contacts" active={pathname === '/tracking' && false} icon={
           <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
             <circle cx="7.5" cy="5" r="3"/>
             <path d="M1.5 13.5c0-3 2.7-5 6-5s6 2 6 5" strokeLinecap="round"/>
@@ -110,7 +110,7 @@ export default function SidebarNav() {
           Contacts
         </NavItem>
 
-        <NavItem href="/tracking" active={isActive('/companies')} icon={
+        <NavItem href="/tracking?tab=companies" active={false} icon={
           <svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
             <rect x="1.5" y="5" width="12" height="8.5" rx="2"/>
             <path d="M5 5V3.5a2.5 2.5 0 015 0V5" strokeLinecap="round"/>
