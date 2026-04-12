@@ -36,7 +36,7 @@ export default async function CompaniesPage() {
             <div style={{ background: 'white', border: '0.5px solid rgba(0,0,0,0.07)', borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 38, height: 38, borderRadius: 12, background: '#f5f4f0', border: '0.5px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>🏢</div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', marginBotm: 2 }}>{c.name}</div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', marginBottom: 2 }}>{c.name}</div>
                 {c.industry && <div style={{ fontSize: 12, color: '#9b9890' }}>{c.industry}</div>}
               </div>
               <div style={{ fontSize: 11, color: '#9b9890', flexShrink: 0 }}>{timeAgo(c.created_at)}</div>
