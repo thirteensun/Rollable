@@ -22,7 +22,7 @@ type Props = {
 
 export default function TrackingClient({ deals }: Props) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
       {/* Top bar */}
       <div style={{
         height: 50, background: 'white',
@@ -31,16 +31,13 @@ export default function TrackingClient({ deals }: Props) {
         padding: '0 20px', gap: 12, flexShrink: 0,
       }}>
         <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', flex: 1 }}>Pipeline</span>
-        <Link href="/capture" style={{
-          background: '#1a1a18', color: 'white', borderRadius: 10,
-          padding: '7px 14px', fontSize: 12, fontWeight: 500, textDecoration: 'none',
-        }}>
+        <Link href="/capture" style={{ background: '#1a1a18', color: 'white', borderRadius: 10, padding: '7px 14px', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}>
           + Add Deal
         </Link>
       </div>
 
-      {/* Kanban */}
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      {/* Kanban scrolls horizontally */}
+      <div style={{ overflowX: 'auto', overflowY: 'hidden', flex: 1 }}>
         <KanbanBoard deals={deals} />
       </div>
     </div>
