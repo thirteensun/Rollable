@@ -289,7 +289,7 @@ function UrgencyList({ tasks, onToggle }: { tasks: Task[]; onToggle: (id: string
 export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
   const isDesktop = useIsDesktop()
   const router = useRouter()
-  const [view, setView] = useState<'week' | 'month'>('week')
+  const [view, setView] = useState<'week' | 'month'>('month')
   const [weekOffset, setWeekOffset] = useState(0)
   const [monthOffset, setMonthOffset] = useState(0)
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks)
