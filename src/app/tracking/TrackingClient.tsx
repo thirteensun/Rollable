@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import KanbanBoard from './KanbanBoard'
 
 type Deal = {
@@ -78,7 +78,7 @@ function DealsList({ deals }: { deals: Deal[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {sorted.map(deal => {
-        const atRisk = deal.days_since_activity  14 &&
+        const atRisk = deal.days_since_activity >= 14 &&
           deal.stage !== 'closed_won' && deal.stage !== 'closed_lost'
         return (
           <Link key={deal.id} href={`/tracking/deals/${deal.id}`} style={{ textDecoration: 'none' }}>
@@ -135,7 +135,7 @@ function CompaniesList({ companies }: { companies: Company[] }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {companies.map(c => (
         <Link key={c.id} href={`/companies/${c.id}`} style={{ textDecoration: 'none' }}>
-          <div style={{ background: 'hite', border: '0.5px solid rgba(0,0,0,0.07)', borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ background: 'white', border: '0.5px solid rgba(0,0,0,0.07)', borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 38, height: 38, borderRadius: 12, background: '#f5f4f0', border: '0.5px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>🏢</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', marginBottom: 2 }}>{c.name}</div>
@@ -155,10 +155,37 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'companies', label: 'Companies' },
 ]
 
-export default function TrackingClient({ deals,ontacts, companies }: Props) {
+export default function TrackingClient({ deals, contacts, companies }: Props) {
   const isDesktop = useIsDesktop()
+  const scrollRef = useRef<HTMLDivElement>(null)
   const [tab, setTab] = useState<Tab>('deals')
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(true)
 
+  function checkScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 0)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+  }
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    checkScroll()
+    el.addEventListener('scroll', checkScroll)
+    window.addEventListener('resize', checkScroll)
+    return () => {
+      el.removeEventListener('scroll', checkScroll)
+      window.removeEventListener('resize', checkScroll)
+    }
+  }, [isDesktop])
+
+  function scrollKanban(amount: number) {
+    scrollRef.current?.scrollBy({ left: amount, behavior: 'smooth' })
+  }
+
+  // ── Desktop: Kanban ──────────────────────────────────────────────────────
   if (isDesktop) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -169,17 +196,19 @@ export default function TrackingClient({ deals,ontacts, companies }: Props) {
           padding: '0 20px', gap: 12, flexShrink: 0,
         }}>
           <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', flex: 1 }}>Pipeline</span>
+          
           <Link href="/capture" style={{ background: '#1a1a18', color: 'white', borderRadius: 10, padding: '7px 14px', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}>
             + Add Deal
           </Link>
         </div>
-        <div style={{ overflowX: 'auto', overflowY: 'hidden', flex: 1 }} className="no-scrollbar">
+        <div ref={scrollRef} style={{ overflowX: 'auto', overflowY: 'hidden', flex: 1 }} className="no-scrollbar">
           <KanbanBoard deals={deals} />
         </div>
       </div>
     )
   }
 
+  // ── Mobile: tabbed list ──────────────────────────────────────────────────
   return (
     <div style={{ paddingTop: 16 }}>
       <div style={{ paddingBottom: 16 }}>
