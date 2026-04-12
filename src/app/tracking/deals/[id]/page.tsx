@@ -19,12 +19,20 @@ export default async function DealDetailPage({ params }: { params: { id: string 
 
   if (error || !deal) notFound()
 
-  const { data: events } = await supabase
-    .from('events')
-    .select('*')
-    .eq('deal_id', params.id)
-    .order('created_at', { ascending: false })
-    .limit(50)
+  const [{ data: events }, { data: tasks }] = await Promise.all([
+    supabase
+      .from('events')
+      .select('id, type, summary, created_at, metadata')
+      .eq('deal_id', params.id)
+      .order('created_at', { ascending: false })
+      .limit(50),
+    supabase
+      .from('tasks')
+      .select('id, title, done, status, priority, due_date, created_at')
+      .eq('deal_id', params.id)
+      .order('created_at', { ascending: false })
+      .limit(50),
+  ])
 
-  return <DealDetailClient deal={deal} events={events ?? []} />
+  return <DealDetailClient deal={deal} events={events ?? []} tasks={tasks ?? []} />
 }
