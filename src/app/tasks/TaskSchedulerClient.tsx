@@ -147,7 +147,7 @@ function TaskChip({ task, onToggle, compact = false }: {
       </div>
       {/* Title — links to task detail */}
       <Link href={`/tasks/${task.id}`} style={{
-        fontSize: compact ? 10 : 11, lineHeight: 1.4, flex: 1,
+        fontSize: compact ? 12 : 13, lineHeight: 1.4, flex: 1,
         color: overdue ? '#E24B4A' : done ? '#9b9890' : '#1a1a18',
         textDecoration: done ? 'line-through' : 'none',
       }} onClick={e => e.stopPropagation()}>
@@ -257,7 +257,7 @@ function MonthView({ tasks, monthOffset, onToggle, onDayClick }: {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, overflow: 'hidden' }}>
                 {dayTasks.slice(0, 3).map(t => (
                   <Link key={t.id} href={`/tasks/${t.id}`} onClick={e => e.stopPropagation()} style={{
-                    fontSize: 9, padding: '2px 5px', borderRadius: 4,
+                    fontSize: 11, padding: '2px 5px', borderRadius: 4,
                     background: isOverdue(t) ? '#fdeaea' : t.status === 'done' ? '#f5f4f0' : '#e8f5f0',
                     color: isOverdue(t) ? '#E24B4A' : t.status === 'done' ? '#9b9890' : '#1D9E75',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -267,7 +267,7 @@ function MonthView({ tasks, monthOffset, onToggle, onDayClick }: {
                   </Link>
                 ))}
                 {dayTasks.length > 3 && (
-                  <div style={{ fontSize: 9, color: '#9b9890', paddingLeft: 4 }}>+{dayTasks.length - 3} more</div>
+                  <div style={{ fontSize: 11, color: '#9b9890', paddingLeft: 4 }}>+{dayTasks.length - 3} more</div>
                 )}
               </div>
             </div>
