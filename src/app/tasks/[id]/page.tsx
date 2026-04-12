@@ -16,12 +16,10 @@ export default async function TaskDetailPage({ params }: { params: { id: string 
 
   if (!task) notFound()
 
-  const { data: events } = await supabase
-    .from('events')
-    .select('id, type, summary, created_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(20)
+  const [{ data: allDeals }, { data: allContacts }] = await Promise.all([
+    supabase.from('deals').select('id, name, stage').eq('user_id', user.id).not('stage', 'in', '(closed_won,closed_lost)').order('created_at', { ascending: false }).limit(50),
+    supabase.from('contacts').select('id, full_name, role').eq('user_id', user.id).order('full_name').limit(50),
+  ])
 
-  return <TaskDetailClient task={task} events={events ?? []} />
+  return <TaskDetailClient task={task} allDeals={allDeals ?? []} allContacts={allContacts ?? []} />
 }
