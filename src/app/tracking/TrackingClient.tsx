@@ -15,9 +15,9 @@ type Deal = {
 
 type Props = {
   deals: Deal[]
-  contacts: never[]
-  companies: never[]
-  events: never[]
+  contacts: any[]
+  companies: any[]
+  events: any[]
 }
 
 export default function TrackingClient({ deals }: Props) {
