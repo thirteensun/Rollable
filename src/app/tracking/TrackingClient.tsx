@@ -87,8 +87,7 @@ function DealsList({ deals }: { deals: Deal[] }) {
               background: 'white',
               border: '0.5px solid rgba(0,0,0,0.07)',
               borderLeft: atRisk ? '2.5px solid #EF9F27' : undefined,
-              borderRadius: 16,
-              padding: '14px 16px',
+              borderRadius: 16, padding: '14px 16px',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                 <div>
@@ -98,18 +97,10 @@ function DealsList({ deals }: { deals: Deal[] }) {
                 <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>{formatValue(deal.value)}</div>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{
-                  fontSize: 11, fontWeight: 500,
-                  background: '#f5f4f0', color: '#6b6960',
-                  padding: '3px 8px', borderRadius: 6,
-                }}>
+                <span style={{ fontSize: 11, fontWeight: 500, background: '#f5f4f0', color: '#6b6960', padding: '3px 8px', borderRadius: 6 }}>
                   {STAGE_LABELS[deal.stage] ?? deal.stage}
                 </span>
-                {atRisk && (
-                  <span style={{ fontSize: 11, color: '#EF9F27' }}>
-                    {deal.days_since_activity}d no activity
-                  </span>
-                )}
+                {atRisk && <span style={{ fontSize: 11, color: '#EF9F27' }}>{deal.days_since_activity}d no activity</span>}
               </div>
             </div>
           </Link>
@@ -164,9 +155,7 @@ function CompaniesList({ companies }: { companies: Company[] }) {
               background: '#f5f4f0', border: '0.5px solid rgba(0,0,0,0.07)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               fontSize: 18,
-            }}>
-              🏢
-            </div>
+            }}>🏢</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', marginBottom: 2 }}>{c.name}</div>
               {c.industry && <div style={{ fontSize: 12, color: '#9b9890' }}>{c.industry}</div>}
@@ -179,6 +168,12 @@ function CompaniesList({ companies }: { companies: Company[] }) {
   )
 }
 
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'deals', label: 'Deals' },
+  { key: 'contacts', label: 'Contacts' },
+  { key: 'companies', label: 'Companies' },
+]
+
 export default function TrackingClient({ deals, contacts, companies }: Props) {
   const isDesktop = useIsDesktop()
   const searchParams = useSearchParams()
@@ -187,9 +182,11 @@ export default function TrackingClient({ deals, contacts, companies }: Props) {
   useEffect(() => {
     const t = searchParams.get('tab') as Tab
     if (t && ['deals', 'contacts', 'companies'].includes(t)) setTab(t)
+    else setTab('deals')
   }, [searchParams])
 
-  if (isDesktop) {
+  // Desktop Kanban — only when tab is deals
+  if (isDesktop && tab === 'deals') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}>
         {/* Top bar */}
@@ -201,20 +198,12 @@ export default function TrackingClient({ deals, contacts, companies }: Props) {
         }}>
           <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', flex: 1 }}>Pipeline</span>
           <div style={{ display: 'flex', gap: 2, background: '#f5f4f0', borderRadius: 9, padding: 3 }}>
-            <button style={{
-              background: 'white', border: 'none', borderRadius: 7,
-              padding: '4px 10px', fontSize: 12, fontWeight: 500, color: '#1a1a18', cursor: 'pointer',
-            }}>Kanban</button>
-            <button style={{
-              background: 'transparent', border: 'none', borderRadius: 7,
-              padding: '4px 10px', fontSize: 12, color: '#6b6960', cursor: 'pointer',
-            }}>List</button>
+            <button style={{ background: 'white', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, fontWeight: 500, color: '#1a1a18', cursor: 'pointer' }}>Kanban</button>
+            <button style={{ background: 'transparent', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, color: '#6b6960', cursor: 'pointer' }}>List</button>
           </div>
-          <button style={{
-            background: '#1a1a18', color: 'white', border: 'none',
-            borderRadius: 10, padding: '7px 14px',
-            fontSize: 12, fontWeight: 500, cursor: 'pointer',
-          }}>+ Add Deal</button>
+          <button style={{ background: '#1a1a18', color: 'white', border: 'none', borderRadius: 10, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
+            + Add Deal
+          </button>
         </div>
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <KanbanBoard deals={deals} />
@@ -223,35 +212,34 @@ export default function TrackingClient({ deals, contacts, companies }: Props) {
     )
   }
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'deals', label: 'Deals' },
-    { key: 'contacts', label: 'Contacts' },
-    { key: 'companies', label: 'Companies' },
-  ]
-
+  // Desktop contacts/companies + all mobile views — shared tab UI
   return (
-    <div style={{ paddingTop: 16 }}>
-      <div style={{ padding: '0 0 16px' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 500, color: '#1a1a18' }}>Tracking</h1>
+    <div>
+      {/* Header + tabs */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 500, color: '#1a1a18', margin: 0 }}>
+          {tab === 'deals' ? 'Deals' : tab === 'contacts' ? 'Contacts' : 'Companies'}
+        </h1>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {TABS.map(t => (
+            <Link
+              key={t.key}
+              href={`/tracking?tab=${t.key}`}
+              style={{
+                background: tab === t.key ? '#1a1a18' : 'white',
+                color: tab === t.key ? 'white' : '#6b6960',
+                border: '0.5px solid rgba(0,0,0,0.07)',
+                borderRadius: 20, padding: '6px 14px',
+                fontSize: 13, fontWeight: tab === t.key ? 500 : 400,
+                textDecoration: 'none', whiteSpace: 'nowrap',
+              }}
+            >
+              {t.label}
+            </Link>
+          ))}
+        </div>
       </div>
-      <div style={{ display: 'flex', gap: 4, paddingBottom: 12, overflowX: 'auto' }}>
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            style={{
-              background: tab === t.key ? '#1a1a18' : 'white',
-              color: tab === t.key ? 'white' : '#6b6960',
-              border: '0.5px solid rgba(0,0,0,0.07)',
-              borderRadius: 20, padding: '6px 14px',
-              fontSize: 13, fontWeight: tab === t.key ? 500 : 400,
-              cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+
       {tab === 'deals'     && <DealsList deals={deals} />}
       {tab === 'contacts'  && <ContactsList contacts={contacts} />}
       {tab === 'companies' && <CompaniesList companies={companies} />}

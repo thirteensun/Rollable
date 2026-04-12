@@ -1,0 +1,126 @@
+# SDM Prototype 001 — CRM Context
+
+## Product
+Name: SDM Prototype 001 | Stack: Next.js 14 App Router, Supabase, Tailwind, Vercel
+Repo: github.com/thirteensun/sdm-prototype | Live: sdm-prototype.vercel.app
+Supabase project: wndnihuqmtdiekglxkgu
+
+## Three Pillars
+Capture (photo/voice/text → AI extracts) | Planning (tasks by urgency) | Tracking (pipeline + at-risk)
+
+## Design Tokens
+BG #f5f4f0 | Dark #1a1a18 | Muted #6b6960 | Faint #9b9890 | Card white
+Border 0.5px solid rgba(0,0,0,0.07) | Radius 14-18px cards, 20-22px buttons
+Status: Red #E24B4A | Amber #EF9F27 | Green #1D9E75
+
+## AI Models
+Haiku (claude-haiku-4-5-20251001): image capture, search, assistant preview
+Sonnet (dynamic latest, fallback claude-sonnet-4-6): AI assistant
+
+## API Routes
+POST /api/capture — Haiku vision → contacts/deals/tasks JSON
+POST /api/assistant — Sonnet + 9 tools, agentic loop, logs events after write
+POST /api/assistant/preview — Haiku confirm card before write actions
+POST /api/search — Haiku intent parsing + Supabase queries
+POST /api/nudges — proactive home screen cards
+POST /api/tasks — create task
+PATCH /api/tasks/[id] — update task (status, title, due_date, priority)
+
+## Assistant Tools (9)
+add_contact, find_contact, add_company, add_deal, add_task, search_crm, get_pipeline_summary, update_deal_stage, update_deal_financials
+
+## Database Tables
+users, organisations, organisation_members, subscriptions
+companies, contacts, deals, deal_contacts, events, tasks
+
+## Schema Notes
+contacts: full_name (not first/last), role (not title)
+organisation_members: org_id (not organisation_id), role: admin/manager/rep
+deals stages: lead → qualified → demo → proposal → negotiation → closed_won → closed_lost
+deals fields: confirmed_revenue, invoice_ref, po_ref, invoice_date, po_date, payment_status (none/invoiced/paid)
+tasks fields: title, status, done (bool), due_date, priority, deal_id, contact_id, user_id
+events: jsonb metadata, every capture and assistant write action logged
+
+## Key DB Functions
+create_organisation(name, slug) — creates org + admin member + free subscription
+get_user_org_id() — returns current user's org
+RLS: rep=own data, manager=read org, admin=full org
+Server components use service role key, client uses anon key
+
+## Auth Flow
+/login → magic link / Google / GitHub OAuth → /auth/callback → has org? redirect / : redirect /onboarding
+Onboarding: create workspace (admin) or join existing
+
+## Layout Architecture
+Mobile (<768px): bottom nav fixed (Home | Capture pulse button | Tracking), content pb-[90px]
+Desktop (≥768px): sidebar fixed left 210px, content md:ml-[210px], no bottom nav
+layout.tsx wrapper div: px-4 py-4 pb-[90px] md:px-10 md:py-8 md:pb-8 md:max-w-[1240px] md:mx-auto
+Nav hidden on /login /onboarding /auth/* via NavVisibilityWrapper
+useIsDesktop() hook (768px breakpoint) used across all client components
+
+## File Structure
+src/app/layout.tsx, page.tsx, HomeClient.tsx, loading.tsx
+src/app/planning/ — mobile tasks (legacy)
+src/app/tasks/ — TaskSchedulerClient (desktop week view + mobile urgency list)
+src/app/tracking/ — TrackingClient (Kanban desktop, tabs mobile), KanbanBoard.tsx
+src/app/tracking/deals/[id]/ — DealDetailClient
+src/app/analytics/ — AnalyticsClient
+src/app/ai-sandbox/ — AISandboxClient
+src/app/contacts/[id]/ — ContactDetailClient
+src/app/companies/[id]/ — CompanyDetailClient
+src/app/settings/, src/app/capture/
+src/app/auth/callback/route.ts
+src/app/api/ — capture, assistant, assistant/preview, search, nudges, tasks/
+src/components/layout/ — BottomNav, SidebarNav, ProgressBar, NavVisibilityWrapper
+src/components/ — AIProactiveNudges, SearchModal
+src/lib/ — supabase.ts, supabase-server.ts
+
+## Critical Patterns
+Server client: const supabase = await createServerSupabaseClient()
+Assistant request: { message, history } → response: { reply, history }
+Any new Date() in JSX needs suppressHydrationWarning
+Sidebar home link: href="/" active only when pathname === "/"
+Tracking tab links: /tracking?tab=contacts and /tracking?tab=companies
+Kanban drag-drop is optimistic only — Supabase persist not yet wired
+
+## Environment Variables
+NEXT_PUBLIC_SUPABASE_URL=https://wndnihuqmtdiekglxkgu.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+ANTHROPIC_API_KEY=
+
+## What's Working
+Auth (magic link + Google + GitHub), onboarding (create/join workspace)
+Home: tasks, activity feed, AI nudges, AI search
+Planning: mobile urgency task list (legacy)
+Tasks: desktop week view + mobile urgency list, create/update via API
+Tracking: Kanban desktop (drag+drop optimistic, at-risk highlight) + tabbed mobile (Deals/Contacts/Companies)
+Analytics: pipeline metrics, revenue chart, funnel, at-risk, uninvoiced, task rate
+AI Sandbox: Sonnet chat with pipeline context, suggestions, deal health scores
+Deal detail: stage pipeline, invoice/PO tracking, contacts, activity
+Contact detail: quick actions, linked deals, edit, activity
+Company detail: people, linked deals, edit, activity
+Capture: Haiku vision, thinking UI, typewriter confirm
+AI Assistant: Sonnet + 9 tools + voice + text, confirm card before writes
+Event logging, AI search modal, AI nudges, settings
+Nav: mobile bottom + desktop sidebar, hidden on auth routes
+Loading skeletons, top progress bar, PWA manifest
+
+## What to Build Next
+1. Polish — detail pages, settings, login, onboarding for desktop spacing
+2. Kanban persist — wire drag-drop stage change to Supabase
+3. Invite system — magic link auto-joins org
+4. Onboarding Q&A — AI learns the business on setup
+5. Stripe billing — per seat (Solo/Team/Business)
+6. Org-scoped assistant — currently user_id scoped
+7. Company enrichment — Apollo / Google Places
+8. React Native app — after first real users
+
+## Session Log
+S1 Apr 5: Vision, pillars, design language, AI strategy, web-first PWA
+S2 Apr 6: Supabase schema, GitHub/Vercel setup, Next.js skeleton, magic link auth, multi-tenant org
+S3 Apr 7: RLS fixed, Google/GitHub OAuth, unified capture + assistant, Claude 9 tools, voice, animations, settings, skeletons
+S4 Apr 9: Dynamic model selection, fixed cookies/voice/capture bugs, improved capture prompt
+S5 Apr 10: Deal/contact/company detail pages, tabbed tracking, assistant confirm card, event logging, switched capture to Haiku, AI nudges, search modal
+S6 Apr 11: Full desktop — SidebarNav, NavVisibilityWrapper, Kanban board, analytics page, AI sandbox, task scheduler, responsive layout system
+S7 Apr 12: Desktop layout polish — removed 390px app-shell constraint, layout.tsx padding/centering, stripped mobile paddingBottom from all clients, HomeClient 2-col desktop grid, fixed sidebar isActive bugs, tracking ?tab= param, removed events tab
