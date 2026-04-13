@@ -74,7 +74,7 @@ function dealHealthScore(deal: Deal): number {
   if (days > 21) score -= 50
   else if (days > 14) score -= 30
   else if (days > 7) score -= 10
-  const stageIndex = ['lead','qualified','demo','proposal','negotiation','closed_won','closed_lost'].indexOf(deal.stage)
+  const stageIndex = ['lead', 'qualified', 'demo', 'proposal', 'negotiation', 'closed_won', 'closed_lost'].indexOf(deal.stage)
   if (stageIndex >= 3) score += 10
   if (deal.stage === 'closed_won') return 100
   if (deal.stage === 'closed_lost') return 0
@@ -130,7 +130,7 @@ function buildSuggestions(deals: Deal[]): Suggestion[] {
   }
 
   const hotDeals = activeDeals.filter(
-    d => ['proposal','negotiation'].includes(d.stage) && daysSince(d.updated_at) < 7
+    d => ['proposal', 'negotiation'].includes(d.stage) && daysSince(d.updated_at) < 7
   )
   if (hotDeals.length > 0) {
     const d = hotDeals[0]
@@ -406,8 +406,8 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <circle cx="7" cy="7" r="5" fill="white" opacity="0.9"/>
-              <circle cx="7" cy="7" r="2.5" fill="#1a1a18"/>
+              <circle cx="7" cy="7" r="5" fill="white" opacity="0.9" />
+              <circle cx="7" cy="7" r="2.5" fill="#1a1a18" />
             </svg>
           </div>
           <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>AI Sandbox</span>
@@ -537,7 +537,7 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
               <path d="M7 12V2M2 7l5-5 5 5"
                 stroke={input.trim() && !loading ? 'white' : '#9b9890'}
-                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
         </div>
@@ -613,8 +613,7 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
                   <SuggestionBanner
                     key={s.id}
                     s={s}
-                    onDismiss={() => setDismissed(prev => new Set([...prev, s.id]))}
-                    onAction={msg => sendMessage(msg)}
+                    onDismiss={() => setDismissed(prev => { const s2 = new Set(prev); s2.add(s.id); return s2 })} onAction={msg => sendMessage(msg)}
                   />
                 ))
               )}
