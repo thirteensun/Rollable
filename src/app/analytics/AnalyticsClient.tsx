@@ -17,7 +17,7 @@ type Deal = {
 
 type Event = {
   id: string
-  event_type: string
+  type: string        // was event_type
   created_at: string
 }
 

@@ -132,7 +132,6 @@ function TaskChip({ task, onToggle, compact = false }: {
       borderLeft: priorityColor && !done ? `2px solid ${priorityColor}` : '2px solid transparent',
       opacity: done ? 0.5 : 1, transition: 'opacity 0.2s', marginBottom: 3,
     }}>
-      {/* Checkbox */}
       <div
         onClick={() => onToggle(task.id, !done)}
         style={{
@@ -145,7 +144,6 @@ function TaskChip({ task, onToggle, compact = false }: {
       >
         {done && <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><path d="M1.5 4L3 5.5L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
       </div>
-      {/* Title — links to task detail */}
       <Link href={`/tasks/${task.id}`} style={{
         fontSize: compact ? 12 : 13, lineHeight: 1.4, flex: 1,
         color: overdue ? '#E24B4A' : done ? '#9b9890' : '#1a1a18',
@@ -157,7 +155,7 @@ function TaskChip({ task, onToggle, compact = false }: {
   )
 }
 
-// ── Week View ──────────────────────────────────────────────────────────────────
+// ── Week View (desktop) ────────────────────────────────────────────────────────
 function WeekView({ tasks, weekOffset, onToggle, onDayClick }: {
   tasks: Task[]; weekOffset: number
   onToggle: (id: string, done: boolean) => void
@@ -213,7 +211,7 @@ function WeekView({ tasks, weekOffset, onToggle, onDayClick }: {
   )
 }
 
-// ── Month View ─────────────────────────────────────────────────────────────────
+// ── Month View (desktop) ───────────────────────────────────────────────────────
 function MonthView({ tasks, monthOffset, onToggle, onDayClick }: {
   tasks: Task[]; monthOffset: number
   onToggle: (id: string, done: boolean) => void
@@ -278,41 +276,301 @@ function MonthView({ tasks, monthOffset, onToggle, onDayClick }: {
   )
 }
 
-// ── Mobile urgency list ────────────────────────────────────────────────────────
-function UrgencyList({ tasks, onToggle }: { tasks: Task[]; onToggle: (id: string, done: boolean) => void }) {
-  const overdue = tasks.filter(isOverdue)
-  const today = tasks.filter(t => taskDateKey(t) === dateKey(new Date()) && !isOverdue(t))
-  const upcoming = tasks.filter(t => { const k = taskDateKey(t); return k && k > dateKey(new Date()) && t.status !== 'done' })
-  const noDue = tasks.filter(t => !t.due_date && t.status !== 'done')
+// ── Mobile Week Calendar ───────────────────────────────────────────────────────
+function MobileWeekCalendar({ tasks, weekOffset, selectedDate, onSelectDay }: {
+  tasks: Task[]
+  weekOffset: number
+  selectedDate: string
+  onSelectDay: (date: string) => void
+}) {
+  const days = getWeekDays(weekOffset)
 
-  function Section({ title, items, color }: { title: string; items: Task[]; color?: string }) {
-    if (!items.length) return null
-    return (
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 500, color: color ?? '#6b6960', marginBottom: 8 }}>{title} · {items.length}</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {items.map(t => (
-            <Link key={t.id} href={`/tasks/${t.id}`} style={{ textDecoration: 'none' }}>
-              <div style={{ background: 'white', border: '0.5px solid rgba(0,0,0,0.07)', borderRadius: 14, padding: '12px 14px' }}>
-                <TaskChip task={t} onToggle={onToggle} />
+  return (
+    <div style={{ display: 'flex', gap: 6, padding: '0 0 16px' }}>
+      {days.map(day => {
+        const key = dateKey(day)
+        const dayTasks = tasks.filter(t => taskDateKey(t) === key)
+        const count = dayTasks.length
+        const today = isToday(day)
+        const selected = selectedDate === key
+        const hasOverdue = dayTasks.some(isOverdue)
+
+        return (
+          <div key={key} onClick={() => onSelectDay(key)} style={{
+            flex: 1, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', gap: 4, cursor: 'pointer',
+          }}>
+            {/* Weekday label */}
+            <div style={{ fontSize: 10, fontWeight: 500, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.04em' }} suppressHydrationWarning>
+              {day.toLocaleDateString('en-US', { weekday: 'short' })}
+            </div>
+            {/* Day number circle */}
+            <div style={{
+              width: 34, height: 34, borderRadius: '50%',
+              background: selected ? '#1a1a18' : today ? '#f5f4f0' : 'transparent',
+              border: today && !selected ? '1.5px solid rgba(0,0,0,0.12)' : 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, fontWeight: selected || today ? 600 : 400,
+              color: selected ? 'white' : today ? '#1D9E75' : '#1a1a18',
+              transition: 'all 0.15s',
+            }} suppressHydrationWarning>
+              {day.getDate()}
+            </div>
+            {/* Task count badge */}
+            {count > 0 && (
+              <div style={{
+                minWidth: 18, height: 18, borderRadius: 9,
+                background: hasOverdue ? '#E24B4A' : selected ? '#1a1a18' : '#1D9E75',
+                color: 'white', fontSize: 10, fontWeight: 600,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '0 5px',
+              }}>
+                {count}
               </div>
-            </Link>
-          ))}
-        </div>
+            )}
+            {count === 0 && <div style={{ height: 18 }} />}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Mobile Month Calendar ──────────────────────────────────────────────────────
+function MobileMonthCalendar({ tasks, monthOffset, selectedDate, onSelectDay }: {
+  tasks: Task[]
+  monthOffset: number
+  selectedDate: string
+  onSelectDay: (date: string) => void
+}) {
+  const now = new Date()
+  const date = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+  const year = date.getFullYear()
+  const month = date.getMonth()
+  const days = getMonthDays(year, month)
+  const weekDays = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+
+  return (
+    <div style={{ paddingBottom: 16 }}>
+      {/* Weekday headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 4 }}>
+        {weekDays.map((d, i) => (
+          <div key={i} style={{ fontSize: 10, fontWeight: 500, color: '#9b9890', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{d}</div>
+        ))}
       </div>
-    )
-  }
+      {/* Day grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '2px 0' }}>
+        {days.map((day, i) => {
+          if (!day) return <div key={`empty-${i}`} />
+          const key = dateKey(day)
+          const dayTasks = tasks.filter(t => taskDateKey(t) === key)
+          const count = dayTasks.length
+          const today = isToday(day)
+          const selected = selectedDate === key
+          const past = isPast(day)
+          const hasOverdue = dayTasks.some(isOverdue)
+
+          return (
+            <div key={key} onClick={() => onSelectDay(key)} style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              gap: 3, padding: '4px 0', cursor: 'pointer',
+              opacity: past && !today && !selected ? 0.45 : 1,
+            }}>
+              {/* Day number */}
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%',
+                background: selected ? '#1a1a18' : today ? '#f5f4f0' : 'transparent',
+                border: today && !selected ? '1.5px solid rgba(0,0,0,0.12)' : 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: selected || today ? 600 : 400,
+                color: selected ? 'white' : today ? '#1D9E75' : '#1a1a18',
+                transition: 'all 0.15s',
+              }} suppressHydrationWarning>
+                {day.getDate()}
+              </div>
+              {/* Badge */}
+              {count > 0 ? (
+                <div style={{
+                  minWidth: 16, height: 16, borderRadius: 8,
+                  background: hasOverdue ? '#E24B4A' : selected ? '#6b6960' : '#1D9E75',
+                  color: 'white', fontSize: 9, fontWeight: 600,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px',
+                }}>
+                  {count}
+                </div>
+              ) : (
+                <div style={{ height: 16 }} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Mobile Day Task List ───────────────────────────────────────────────────────
+function MobileDayList({ tasks, selectedDate, onToggle, onAddTask }: {
+  tasks: Task[]
+  selectedDate: string
+  onToggle: (id: string, done: boolean) => void
+  onAddTask: (date: string) => void
+}) {
+  const dayTasks = tasks.filter(t => taskDateKey(t) === selectedDate)
+  const overdueTasks = tasks.filter(isOverdue)
+  const todayKey = dateKey(new Date())
+  const isSelectedToday = selectedDate === todayKey
+
+  const formatted = new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric'
+  })
+
+  return (
+    <div>
+      {/* Overdue banner — only on today */}
+      {isSelectedToday && overdueTasks.length > 0 && (
+        <div style={{
+          background: '#fdeaea', border: '0.5px solid rgba(226,75,74,0.15)',
+          borderRadius: 14, padding: '12px 14px', marginBottom: 12,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: '#E24B4A', marginBottom: 8 }}>
+            Overdue · {overdueTasks.length}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {overdueTasks.map(t => <TaskChip key={t.id} task={t} onToggle={onToggle} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Selected day tasks */}
+      <div style={{
+        background: 'white', border: '0.5px solid rgba(0,0,0,0.07)',
+        borderRadius: 14, padding: '14px',
+        marginBottom: 12,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>{formatted}</div>
+          <button
+            onClick={() => onAddTask(selectedDate)}
+            style={{
+              background: '#f5f4f0', border: 'none', borderRadius: 8,
+              padding: '5px 10px', fontSize: 11, color: '#6b6960', cursor: 'pointer',
+            }}
+          >
+            + Add
+          </button>
+        </div>
+
+        {dayTasks.length === 0 ? (
+          <div style={{ fontSize: 13, color: '#9b9890', textAlign: 'center', padding: '12px 0' }}>
+            No tasks for this day
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {dayTasks.map(t => <TaskChip key={t.id} task={t} onToggle={onToggle} />)}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Mobile Calendar View ───────────────────────────────────────────────────────
+function MobileCalendarView({ tasks, onToggle }: {
+  tasks: Task[]
+  onToggle: (id: string, done: boolean) => void
+}) {
+  const router = useRouter()
+  const [view, setView] = useState<'week' | 'month'>('month')
+  const [weekOffset, setWeekOffset] = useState(0)
+  const [monthOffset, setMonthOffset] = useState(0)
+  const [selectedDate, setSelectedDate] = useState(dateKey(new Date()))
+  const [confirmDate, setConfirmDate] = useState<string | null>(null)
+
+  const now = new Date()
+  const monthDate = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
 
   return (
     <div style={{ paddingTop: 16 }}>
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <h1 style={{ fontSize: 22, fontWeight: 500, color: '#1a1a18', margin: 0 }}>Tasks</h1>
-        <Link href="/capture" style={{ background: '#1a1a18', color: 'white', borderRadius: 10, padding: '7px 14px', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}>+ Add</Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* View toggle */}
+          <div style={{ display: 'flex', gap: 2, background: '#f5f4f0', borderRadius: 9, padding: 3 }}>
+            {(['week', 'month'] as const).map(v => (
+              <button key={v} onClick={() => setView(v)} style={{
+                background: view === v ? 'white' : 'transparent',
+                border: 'none', borderRadius: 7, padding: '4px 10px',
+                fontSize: 11, fontWeight: view === v ? 500 : 400,
+                color: view === v ? '#1a1a18' : '#6b6960', cursor: 'pointer',
+                textTransform: 'capitalize',
+              }}>{v}</button>
+            ))}
+          </div>
+          <Link href="/capture" style={{
+            background: '#1a1a18', color: 'white', borderRadius: 10,
+            padding: '7px 14px', fontSize: 12, fontWeight: 500, textDecoration: 'none',
+          }}>+ Add</Link>
+        </div>
       </div>
-      <Section title="Overdue" items={overdue} color="#E24B4A" />
-      <Section title="Today" items={today} color="#1a1a18" />
-      <Section title="Upcoming" items={upcoming} />
-      <Section title="No date" items={noDue} />
+
+      {/* Month/Week label + nav */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18' }} suppressHydrationWarning>
+          {view === 'week'
+            ? getWeekDays(weekOffset)[0].toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+            : monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+          }
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button
+            onClick={() => view === 'week' ? setWeekOffset(w => w - 1) : setMonthOffset(m => m - 1)}
+            style={{ background: '#f5f4f0', border: 'none', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#6b6960" strokeWidth="1.5"><path d="M7.5 2L3.5 6l4 4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <button
+            onClick={() => { setWeekOffset(0); setMonthOffset(0); setSelectedDate(dateKey(new Date())) }}
+            style={{
+              background: (view === 'week' ? weekOffset : monthOffset) === 0 ? '#1a1a18' : '#f5f4f0',
+              border: 'none', borderRadius: 8, padding: '4px 10px',
+              fontSize: 11, fontWeight: 500,
+              color: (view === 'week' ? weekOffset : monthOffset) === 0 ? 'white' : '#6b6960',
+              cursor: 'pointer',
+            }}
+          >Today</button>
+          <button
+            onClick={() => view === 'week' ? setWeekOffset(w => w + 1) : setMonthOffset(m => m + 1)}
+            style={{ background: '#f5f4f0', border: 'none', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#6b6960" strokeWidth="1.5"><path d="M4.5 2l4 4-4 4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Calendar grid */}
+      {view === 'week'
+        ? <MobileWeekCalendar tasks={tasks} weekOffset={weekOffset} selectedDate={selectedDate} onSelectDay={setSelectedDate} />
+        : <MobileMonthCalendar tasks={tasks} monthOffset={monthOffset} selectedDate={selectedDate} onSelectDay={setSelectedDate} />
+      }
+
+      {/* Selected day task list */}
+      <MobileDayList
+        tasks={tasks}
+        selectedDate={selectedDate}
+        onToggle={onToggle}
+        onAddTask={(date) => setConfirmDate(date)}
+      />
+
+      {confirmDate && (
+        <ConfirmCaptureModal
+          date={confirmDate}
+          onConfirm={() => { setConfirmDate(null); router.push('/capture') }}
+          onCancel={() => setConfirmDate(null)}
+        />
+      )}
     </div>
   )
 }
@@ -340,15 +598,17 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
     }
   }
 
-  function handleDayClick(date: string) {
-    setConfirmDate(date)
-  }
+  function handleDayClick(date: string) { setConfirmDate(date) }
 
   const doneTasks = localTasks.filter(t => t.status === 'done').length
   const totalTasks = localTasks.length
 
-  if (!isDesktop) return <UrgencyList tasks={localTasks} onToggle={toggleTask} />
+  // ── Mobile ─────────────────────────────────────────────────────────────────
+  if (!isDesktop) {
+    return <MobileCalendarView tasks={localTasks} onToggle={toggleTask} />
+  }
 
+  // ── Desktop ────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}>
       {/* Top bar */}
@@ -402,7 +662,6 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
         }
       </div>
 
-      {/* Confirm modal */}
       {confirmDate && (
         <ConfirmCaptureModal
           date={confirmDate}
