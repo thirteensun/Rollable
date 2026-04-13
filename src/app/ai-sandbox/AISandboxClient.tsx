@@ -87,11 +87,16 @@ function healthColor(score: number) {
   return '#E24B4A'
 }
 
+function healthLabel(score: number) {
+  if (score >= 70) return 'Healthy'
+  if (score >= 40) return 'At risk'
+  return 'Critical'
+}
+
 function buildSuggestions(deals: Deal[]): Suggestion[] {
   const suggestions: Suggestion[] = []
   const activeDeals = deals.filter(d => d.stage !== 'closed_won' && d.stage !== 'closed_lost')
 
-  // At-risk deals
   activeDeals
     .filter(d => daysSince(d.updated_at) >= 14)
     .sort((a, b) => daysSince(b.updated_at) - daysSince(a.updated_at))
@@ -100,15 +105,14 @@ function buildSuggestions(deals: Deal[]): Suggestion[] {
       suggestions.push({
         id: `risk-${d.id}`,
         type: 'risk',
-        title: `${d.name} is going silent`,
-        subtitle: `${fmt(d.value)} · ${daysSince(d.updated_at)} days no activity`,
+        title: `${d.name} going silent`,
+        subtitle: `${fmt(d.value)} · ${daysSince(d.updated_at)}d inactive`,
         body: `This deal has been inactive for ${daysSince(d.updated_at)} days at the ${STAGE_LABELS[d.stage]} stage. A short check-in now is much easier than re-engaging a cold deal later.`,
         primaryAction: 'Draft a check-in',
         secondaryAction: 'Add follow-up task',
       })
     })
 
-  // Uninvoiced won deals
   const uninvoiced = deals.filter(
     d => d.stage === 'closed_won' && (!d.payment_status || d.payment_status === 'none')
   )
@@ -117,15 +121,14 @@ function buildSuggestions(deals: Deal[]): Suggestion[] {
     suggestions.push({
       id: 'uninvoiced',
       type: 'action',
-      title: `${fmt(total)} not yet invoiced`,
-      subtitle: `${uninvoiced.length} won deal${uninvoiced.length > 1 ? 's' : ''} missing invoice`,
-      body: `${uninvoiced.map(d => d.name).join(', ')} ${uninvoiced.length > 1 ? 'are' : 'is'} closed but not invoiced. Don't leave revenue sitting — send invoices today.`,
+      title: `${fmt(total)} not invoiced`,
+      subtitle: `${uninvoiced.length} won deal${uninvoiced.length > 1 ? 's' : ''} pending`,
+      body: `${uninvoiced.map(d => d.name).join(', ')} ${uninvoiced.length > 1 ? 'are' : 'is'} closed but not invoiced.`,
       primaryAction: 'Show me which deals',
       secondaryAction: 'Mark as invoiced',
     })
   }
 
-  // High-value deals in late stages — opportunity
   const hotDeals = activeDeals.filter(
     d => ['proposal','negotiation'].includes(d.stage) && daysSince(d.updated_at) < 7
   )
@@ -134,9 +137,9 @@ function buildSuggestions(deals: Deal[]): Suggestion[] {
     suggestions.push({
       id: `opportunity-${d.id}`,
       type: 'opportunity',
-      title: `${d.name} is moving fast`,
-      subtitle: `${fmt(d.value)} · ${STAGE_LABELS[d.stage]} · active ${daysSince(d.updated_at)}d ago`,
-      body: `This deal is in a late stage and was touched recently — momentum is on your side. Strike while intent is high.`,
+      title: `${d.name} has momentum`,
+      subtitle: `${fmt(d.value)} · ${STAGE_LABELS[d.stage]}`,
+      body: `This deal is in a late stage and was touched recently — momentum is on your side.`,
       primaryAction: 'What should I do next?',
       secondaryAction: 'View deal',
     })
@@ -145,76 +148,44 @@ function buildSuggestions(deals: Deal[]): Suggestion[] {
   return suggestions
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function SuggestionCard({
-  s,
-  onAction,
-  dismissed,
-  onDismiss,
+// ─── Suggestion Banner (slim, inline) ────────────────────────────────────────
+function SuggestionBanner({
+  s, onAction, onDismiss,
 }: {
   s: Suggestion
   onAction: (msg: string) => void
-  dismissed: boolean
   onDismiss: () => void
 }) {
-  if (dismissed) return null
-
-  const iconColor = s.type === 'risk' ? '#E24B4A' : s.type === 'opportunity' ? '#1D9E75' : '#EF9F27'
-  const iconBg = s.type === 'risk' ? '#fdeaea' : s.type === 'opportunity' ? '#e8f5f0' : '#fdf3e3'
+  const accent = s.type === 'risk' ? '#E24B4A' : s.type === 'opportunity' ? '#1D9E75' : '#EF9F27'
+  const bg = s.type === 'risk' ? '#fdeaea' : s.type === 'opportunity' ? '#e8f5f0' : '#fdf3e3'
 
   return (
     <div style={{
-      background: 'white',
-      border: '0.5px solid rgba(0,0,0,0.07)',
-      borderRadius: 16,
-      padding: '16px 18px',
+      background: bg,
+      borderRadius: 12,
+      padding: '11px 13px',
+      borderLeft: `2.5px solid ${accent}`,
       display: 'flex',
       flexDirection: 'column',
-      gap: 10,
+      gap: 8,
     }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-        <div style={{
-          width: 32, height: 32, borderRadius: 10,
-          background: iconBg,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-        }}>
-          {s.type === 'risk' && (
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke={iconColor} strokeWidth="1.4">
-              <path d="M7.5 2v5M7.5 10v1.5" strokeLinecap="round"/>
-              <circle cx="7.5" cy="7.5" r="6.5"/>
-            </svg>
-          )}
-          {s.type === 'opportunity' && (
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke={iconColor} strokeWidth="1.4">
-              <path d="M7.5 1L9.3 5.5H14L10.3 8.3L11.8 13L7.5 10.3L3.2 13L4.7 8.3L1 5.5H5.7Z" strokeLinejoin="round"/>
-            </svg>
-          )}
-          {s.type === 'action' && (
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke={iconColor} strokeWidth="1.4">
-              <path d="M2 8.5c2-4 7-6 11-4" strokeLinecap="round"/>
-              <path d="M9 2l4 2.5-2.5 4" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          )}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18', marginBottom: 2 }}>{s.title}</div>
-          <div style={{ fontSize: 11, color: '#9b9890' }}>{s.subtitle}</div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18', marginBottom: 1 }}>{s.title}</div>
+          <div style={{ fontSize: 11, color: '#6b6960' }}>{s.subtitle}</div>
         </div>
         <button onClick={onDismiss} style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: '#9b9890', fontSize: 16, lineHeight: 1, padding: '0 2px',
-          flexShrink: 0,
+          color: '#9b9890', fontSize: 14, lineHeight: 1,
+          padding: 0, flexShrink: 0, marginTop: 1,
         }}>×</button>
       </div>
-      <div style={{ fontSize: 12, color: '#6b6960', lineHeight: 1.6 }}>{s.body}</div>
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 5 }}>
         <button
-          onClick={() => onAction(s.primaryAction + ` (about: ${s.title})`)}
+          onClick={() => onAction(`${s.primaryAction} (about: ${s.title})`)}
           style={{
-            background: '#1a1a18', color: 'white', border: 'none',
-            borderRadius: 9, padding: '7px 12px',
+            background: accent, color: 'white', border: 'none',
+            borderRadius: 7, padding: '5px 10px',
             fontSize: 11, fontWeight: 500, cursor: 'pointer',
           }}
         >
@@ -222,11 +193,10 @@ function SuggestionCard({
         </button>
         {s.secondaryAction && (
           <button
-            onClick={() => onAction(s.secondaryAction! + ` (about: ${s.title})`)}
+            onClick={() => onAction(`${s.secondaryAction} (about: ${s.title})`)}
             style={{
-              background: '#f5f4f0', color: '#6b6960',
-              border: '0.5px solid rgba(0,0,0,0.07)',
-              borderRadius: 9, padding: '7px 12px',
+              background: 'rgba(0,0,0,0.06)', color: '#6b6960',
+              border: 'none', borderRadius: 7, padding: '5px 10px',
               fontSize: 11, cursor: 'pointer',
             }}
           >
@@ -234,6 +204,94 @@ function SuggestionCard({
           </button>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─── Deal Health Scoreboard ───────────────────────────────────────────────────
+function HealthScoreboard({ deals }: { deals: (Deal & { score: number })[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const visible = expanded ? deals : deals.slice(0, 4)
+
+  return (
+    <div style={{
+      background: 'white',
+      border: '0.5px solid rgba(0,0,0,0.07)',
+      borderRadius: 14,
+      overflow: 'hidden',
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '11px 14px',
+        borderBottom: '0.5px solid rgba(0,0,0,0.06)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18' }}>Deal health</span>
+        <span style={{ fontSize: 11, color: '#9b9890' }}>{deals.length} active</span>
+      </div>
+
+      {/* Score rows */}
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {visible.map((d, i) => {
+          const color = healthColor(d.score)
+          const label = healthLabel(d.score)
+          return (
+            <div key={d.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '9px 14px',
+              borderBottom: i < visible.length - 1 ? '0.5px solid rgba(0,0,0,0.05)' : 'none',
+            }}>
+              {/* Score chip */}
+              <div style={{
+                width: 36, height: 22, borderRadius: 6, flexShrink: 0,
+                background: `${color}18`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 600, color,
+              }}>
+                {d.score}
+              </div>
+
+              {/* Deal info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 12, fontWeight: 500, color: '#1a1a18',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  {d.name}
+                </div>
+                <div style={{ fontSize: 10, color: '#9b9890' }}>
+                  {STAGE_LABELS[d.stage]} · {daysSince(d.updated_at)}d ago
+                </div>
+              </div>
+
+              {/* Status dot + label */}
+              <div style={{
+                fontSize: 10, fontWeight: 500, color,
+                background: `${color}18`,
+                borderRadius: 5, padding: '2px 7px',
+                flexShrink: 0,
+              }}>
+                {label}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Show more */}
+      {deals.length > 4 && (
+        <button
+          onClick={() => setExpanded(e => !e)}
+          style={{
+            width: '100%', background: '#f9f9f8',
+            border: 'none', borderTop: '0.5px solid rgba(0,0,0,0.06)',
+            padding: '8px', fontSize: 11, color: '#9b9890',
+            cursor: 'pointer', textAlign: 'center',
+          }}
+        >
+          {expanded ? 'Show less' : `Show ${deals.length - 4} more`}
+        </button>
+      )}
     </div>
   )
 }
@@ -246,6 +304,7 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const [activeTab, setActiveTab] = useState<'suggestions' | 'health'>('suggestions')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -253,9 +312,8 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
   const activeDeals = deals.filter(d => d.stage !== 'closed_won' && d.stage !== 'closed_lost')
   const healthScores = activeDeals
     .map(d => ({ ...d, score: dealHealthScore(d) }))
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => a.score - b.score) // worst first
 
-  // Build pipeline context string to prime the assistant
   const pipelineContext = [
     `Active deals: ${activeDeals.length}`,
     `Pipeline value: ${fmt(activeDeals.reduce((s, d) => s + (d.value ?? 0), 0))}`,
@@ -273,7 +331,6 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
 
   async function sendMessage(text: string) {
     if (!text.trim() || loading) return
-
     const userMsg: Message = { role: 'user', content: text }
     setMessages(prev => [...prev, userMsg])
     setInput('')
@@ -316,6 +373,8 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
     'Draft a follow-up for my oldest deal',
   ]
 
+  const activeSuggestions = suggestions.filter(s => !dismissed.has(s.id))
+
   return (
     <div style={{
       display: 'flex',
@@ -352,9 +411,7 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
             </svg>
           </div>
           <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>AI Sandbox</span>
-          <span style={{ fontSize: 12, color: '#9b9890', marginLeft: 4 }}>
-            · pipeline loaded
-          </span>
+          <span style={{ fontSize: 12, color: '#9b9890' }}>· pipeline loaded</span>
         </div>
 
         {/* Messages */}
@@ -493,93 +550,88 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        background: '#f5f4f0',
       }}>
 
-        {/* Right header */}
+        {/* Tab bar */}
         <div style={{
           height: 50, flexShrink: 0,
           borderBottom: '0.5px solid rgba(0,0,0,0.07)',
           background: 'white',
           display: 'flex', alignItems: 'center',
-          padding: '0 18px',
+          padding: '0 14px', gap: 4,
         }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>
-            Suggestions
-          </span>
-          {suggestions.filter(s => !dismissed.has(s.id)).length > 0 && (
-            <span style={{
-              marginLeft: 8,
-              background: '#E24B4A', color: 'white',
-              fontSize: 10, fontWeight: 500,
-              borderRadius: 10, padding: '1px 6px',
-            }}>
-              {suggestions.filter(s => !dismissed.has(s.id)).length}
-            </span>
-          )}
+          {([
+            { key: 'suggestions', label: 'Signals', badge: activeSuggestions.length },
+            { key: 'health', label: 'Health', badge: healthScores.filter(d => d.score < 40).length },
+          ] as const).map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              style={{
+                background: activeTab === tab.key ? '#f5f4f0' : 'transparent',
+                border: 'none', borderRadius: 8,
+                padding: '5px 10px',
+                fontSize: 12, fontWeight: activeTab === tab.key ? 500 : 400,
+                color: activeTab === tab.key ? '#1a1a18' : '#9b9890',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 5,
+              }}
+            >
+              {tab.label}
+              {tab.badge > 0 && (
+                <span style={{
+                  background: tab.key === 'health' ? '#E24B4A' : '#1a1a18',
+                  color: 'white', fontSize: 9, fontWeight: 600,
+                  borderRadius: 8, padding: '1px 5px',
+                }}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
+        {/* Panel content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-          {/* Suggestion cards */}
-          {suggestions.map(s => (
-            <SuggestionCard
-              key={s.id}
-              s={s}
-              dismissed={dismissed.has(s.id)}
-              onDismiss={() => setDismissed(prev => {
-                const newSet = new Set(prev)
-                newSet.add(s.id)
-                return newSet
-              })}
-              onAction={msg => sendMessage(msg)}
-            />
-          ))}
-
-          {suggestions.filter(s => !dismissed.has(s.id)).length === 0 && (
-            <div style={{ fontSize: 12, color: '#9b9890', padding: '8px 0' }}>
-              No suggestions right now. Pipeline looks healthy.
-            </div>
-          )}
-
-          {/* Deal health scores */}
-          {healthScores.length > 0 && (
-            <div style={{
-              background: 'white',
-              border: '0.5px solid rgba(0,0,0,0.07)',
-              borderRadius: 16,
-              padding: '16px 18px',
-              marginTop: 4,
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18', marginBottom: 12 }}>
-                Deal health
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {healthScores.map(d => (
-                  <div key={d.id}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, color: '#1a1a18', fontWeight: 500 }}>{d.name}</span>
-                      <span style={{ fontSize: 12, fontWeight: 500, color: healthColor(d.score) }}>
-                        {d.score}
-                      </span>
-                    </div>
-                    <div style={{ height: 4, background: '#f5f4f0', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%',
-                        width: `${d.score}%`,
-                        background: healthColor(d.score),
-                        borderRadius: 2,
-                        transition: 'width 0.4s ease',
-                      }} />
-                    </div>
-                    <div style={{ fontSize: 10, color: '#9b9890', marginTop: 2 }}>
-                      {STAGE_LABELS[d.stage]} · {daysSince(d.updated_at)}d ago
-                    </div>
+          {activeTab === 'suggestions' && (
+            <>
+              {activeSuggestions.length === 0 ? (
+                <div style={{
+                  background: 'white', borderRadius: 14,
+                  padding: '20px 16px', textAlign: 'center',
+                }}>
+                  <div style={{ fontSize: 20, marginBottom: 8 }}>✓</div>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18', marginBottom: 4 }}>
+                    Pipeline looks healthy
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div style={{ fontSize: 11, color: '#9b9890' }}>No signals right now.</div>
+                </div>
+              ) : (
+                activeSuggestions.map(s => (
+                  <SuggestionBanner
+                    key={s.id}
+                    s={s}
+                    onDismiss={() => setDismissed(prev => new Set([...prev, s.id]))}
+                    onAction={msg => sendMessage(msg)}
+                  />
+                ))
+              )}
+            </>
           )}
 
+          {activeTab === 'health' && (
+            <>
+              {healthScores.length === 0 ? (
+                <div style={{ fontSize: 12, color: '#9b9890', padding: '8px 0' }}>
+                  No active deals to score.
+                </div>
+              ) : (
+                <HealthScoreboard deals={healthScores} />
+              )}
+            </>
+          )}
         </div>
       </div>
 
