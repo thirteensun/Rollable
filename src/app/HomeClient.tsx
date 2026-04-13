@@ -143,7 +143,8 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
             <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               Today's focus
             </p>
-            <Link href="/planning" style={{ fontSize: '13px', color: '#9b9890', textDecoration: 'none' }}>
+            {/* Fixed: was /planning (legacy), now /tasks */}
+            <Link href="/tasks" style={{ fontSize: '13px', color: '#9b9890', textDecoration: 'none' }}>
               See all
             </Link>
           </div>
@@ -159,28 +160,31 @@ export default function HomeClient({ name, initials, tasks, events, orgName, use
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {tasks.map((task, i) => (
-                <div key={task.id} className="animate-fade-in-up" style={{
-                  background: 'white', borderRadius: '14px',
-                  border: '0.5px solid rgba(0,0,0,0.07)',
-                  padding: '13px 14px', display: 'flex',
-                  alignItems: 'center', gap: '12px', cursor: 'pointer',
-                  animationDelay: `${i * 0.05}s`,
-                }}>
-                  <div style={{
-                    width: '8px', height: '8px', borderRadius: '50%',
-                    background: getTaskUrgency(task), flexShrink: 0,
-                  }} />
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>{task.title}</p>
-                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890' }}>
-                      {task.contacts?.full_name || task.deals?.name || ''}
-                      {task.due_date && ` · ${new Date(task.due_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`}
-                    </p>
+                // Fixed: was a plain div with cursor:pointer, now wrapped in Link
+                <Link key={task.id} href={`/tasks/${task.id}`} style={{ textDecoration: 'none' }}>
+                  <div className="animate-fade-in-up" style={{
+                    background: 'white', borderRadius: '14px',
+                    border: '0.5px solid rgba(0,0,0,0.07)',
+                    padding: '13px 14px', display: 'flex',
+                    alignItems: 'center', gap: '12px', cursor: 'pointer',
+                    animationDelay: `${i * 0.05}s`,
+                  }}>
+                    <div style={{
+                      width: '8px', height: '8px', borderRadius: '50%',
+                      background: getTaskUrgency(task), flexShrink: 0,
+                    }} />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>{task.title}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890' }}>
+                        {task.contacts?.full_name || task.deals?.name || ''}
+                        {task.due_date && ` · ${new Date(task.due_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`}
+                      </p>
+                    </div>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.3" strokeLinecap="round" />
+                    </svg>
                   </div>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                    <path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.3" strokeLinecap="round" />
-                  </svg>
-                </div>
+                </Link>
               ))}
             </div>
           )}

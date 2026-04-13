@@ -157,58 +157,65 @@ const TABS: { key: Tab; label: string }[] = [
 
 export default function TrackingClient({ deals, contacts, companies }: Props) {
   const isDesktop = useIsDesktop()
-  const scrollRef = useRef<HTMLDivElement>(null)
   const [tab, setTab] = useState<Tab>('deals')
-  const [canScrollLeft, setCanScrollLeft] = useState(false)
-  const [canScrollRight, setCanScrollRight] = useState(true)
 
-  function checkScroll() {
-    const el = scrollRef.current
-    if (!el) return
-    setCanScrollLeft(el.scrollLeft > 0)
-    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
-  }
-
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    checkScroll()
-    el.addEventListener('scroll', checkScroll)
-    window.addEventListener('resize', checkScroll)
-    return () => {
-      el.removeEventListener('scroll', checkScroll)
-      window.removeEventListener('resize', checkScroll)
-    }
-  }, [isDesktop])
-
-  function scrollKanban(amount: number) {
-    scrollRef.current?.scrollBy({ left: amount, behavior: 'smooth' })
-  }
-
-  // ── Desktop: Kanban ──────────────────────────────────────────────────────
+  // ── Desktop: full-width fixed Kanban ─────────────────────────────────────
+  // Breaks out of layout.tsx wrapper — sidebar is 210px wide
   if (isDesktop) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <>
+        {/* Spacer so layout doesn't collapse — Kanban is position:fixed */}
+        <div style={{ height: '100vh' }} />
+
         <div style={{
-          height: 50, background: 'white',
-          borderBottom: '0.5px solid rgba(0,0,0,0.07)',
-          display: 'flex', alignItems: 'center',
-          padding: '0 20px', gap: 12, flexShrink: 0,
+          position: 'fixed',
+          top: 0,
+          left: 210, // sidebar width
+          right: 0,
+          bottom: 0,
+          background: '#f5f4f0',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 10,
         }}>
-          <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', flex: 1 }}>Pipeline</span>
-          
-          <Link href="/capture" style={{ background: '#1a1a18', color: 'white', borderRadius: 10, padding: '7px 14px', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}>
-            + Add Deal
-          </Link>
+          {/* Toolbar */}
+          <div style={{
+            height: 52,
+            background: 'white',
+            borderBottom: '0.5px solid rgba(0,0,0,0.07)',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 20px',
+            gap: 12,
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', flex: 1 }}>Pipeline</span>
+            <Link
+              href="/capture"
+              style={{
+                background: '#1a1a18',
+                color: 'white',
+                borderRadius: 10,
+                padding: '7px 14px',
+                fontSize: 12,
+                fontWeight: 500,
+                textDecoration: 'none',
+              }}
+            >
+              + Add Deal
+            </Link>
+          </div>
+
+          {/* Kanban fills remaining height */}
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <KanbanBoard deals={deals} />
+          </div>
         </div>
-        <div ref={scrollRef} style={{ overflowX: 'auto', overflowY: 'hidden', flex: 1 }} className="no-scrollbar">
-          <KanbanBoard deals={deals} />
-        </div>
-      </div>
+      </>
     )
   }
 
-  // ── Mobile: tabbed list ──────────────────────────────────────────────────
+  // ── Mobile: tabbed list ───────────────────────────────────────────────────
   return (
     <div style={{ paddingTop: 16 }}>
       <div style={{ paddingBottom: 16 }}>
