@@ -124,3 +124,66 @@ S4 Apr 9: Dynamic model selection, fixed cookies/voice/capture bugs, improved ca
 S5 Apr 10: Deal/contact/company detail pages, tabbed tracking, assistant confirm card, event logging, switched capture to Haiku, AI nudges, search modal
 S6 Apr 11: Full desktop — SidebarNav, NavVisibilityWrapper, Kanban board, analytics page, AI sandbox, task scheduler, responsive layout system
 S7 Apr 12: Desktop layout polish — removed 390px app-shell constraint, layout.tsx padding/centering, stripped mobile paddingBottom from all clients, HomeClient 2-col desktop grid, fixed sidebar isActive bugs, tracking ?tab= param, removed events tab
+
+Here's the full session summary to add to your CRM context:
+
+---
+
+**S8 Apr 13: Full desktop layout + CRM structure**
+
+**Layout fixes**
+- Removed `max-width: 390px` from `.app-shell` in globals.css
+- Added desktop padding/centering to layout.tsx wrapper
+- Removed all `paddingBottom: '90px'` inline styles from Client components
+- HomeClient: removed hardcoded 24px side padding, added 2-col desktop grid
+- Home loading.tsx skeleton updated to match
+
+**Navigation**
+- Fixed `isActive('/')` bug (was matching everything)
+- Fixed ai-sandbox active check
+- Added Deals, Contacts, Companies as standalone sidebar links
+- Real user name/role in sidebar via service role key in layout.tsx
+
+**Pipeline / Tracking**
+- Tracking page: desktop = Kanban only, mobile = tabs (Deals/Contacts/Companies)
+- Removed Events tab from mobile tracking
+- Kanban horizontal scroll with no-scrollbar class
+- `+ Add Deal` button links to Capture
+
+**Standalone CRM pages**
+- `/deals` — deals list with Capture button
+- `/contacts` — contacts list with Capture button  
+- `/companies` — companies list with Capture button
+- All detail pages updated with merged Activity + Tasks timeline
+
+**Tasks**
+- Calendar with week/month toggle, month default
+- Day click → confirm modal → Capture
+- Task chips link to task detail page
+- Task detail: status/priority/edit + searchable deal/contact link/unlink UI
+- Added `priority` and `status` columns to tasks table in Supabase
+- Seeded 50 simulated tasks
+
+**Activity & Tasks timeline**
+- Deal, Contact, Company detail pages all show merged events + tasks
+- Tasks show checkbox state, priority badge, due date, link to task detail
+- Tasks fetched via relationships (contact_id, deal_id, company → deals → tasks)
+
+**Invite system**
+- Settings invite form: role picker (Manager/Member), seat limit check, duplicate check
+- Auth callback: auto-activates pending invite on first login, new users → onboarding
+- Team list shows "Invite pending" for uninvited members
+
+**Role system**
+- Three roles: Admin, Manager, Member (renamed from rep)
+- DB updated: `UPDATE organisation_members SET role = 'member' WHERE role = 'rep'`
+- Role display fixed in sidebar using service role key
+
+**What to build next (updated)**
+1. Org-scoped data queries for Manager/Admin (currently all user_id scoped)
+2. Role change UI in settings (Admin can promote/demote)
+3. Kanban persist — wire drag-drop to Supabase
+4. Stripe billing — per seat (Free/Pro/Business)
+5. Onboarding Q&A — AI learns the business
+6. Company enrichment — Apollo/Google Places
+7. React Native app
