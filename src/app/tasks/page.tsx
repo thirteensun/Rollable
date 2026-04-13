@@ -1,27 +1,34 @@
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { redirect } from 'next/navigation'
+import { getUserContext } from '@/lib/org-scope'
 import TaskSchedulerClient from './TaskSchedulerClient'
 
 export default async function TasksPage() {
-  const supabase = await createServerSupabaseClient()
+  const ctx = await getUserContext()
+  if (!ctx) redirect('/login')
 
-  const { data: tasks } = await supabase
-    .from('tasks')
-    .select('id, title, status, due_date, priority, deal_id, contact_id, created_at')
-    .order('due_date', { ascending: true })
+  const { anon } = ctx
 
-  const { data: deals } = await supabase
-    .from('deals')
-    .select('id, name, stage')
+  // All data queries use anon client — RLS handles scoping
+  const [tasksRes, dealsRes, contactsRes] = await Promise.all([
+    anon
+      .from('tasks')
+      .select('id, title, status, due_date, priority, deal_id, contact_id, created_at')
+      .order('due_date', { ascending: true }),
 
-  const { data: contacts } = await supabase
-    .from('contacts')
-    .select('id, full_name')
+    anon
+      .from('deals')
+      .select('id, name, stage'),
+
+    anon
+      .from('contacts')
+      .select('id, full_name'),
+  ])
 
   return (
     <TaskSchedulerClient
-      tasks={tasks ?? []}
-      deals={deals ?? []}
-      contacts={contacts ?? []}
+      tasks={tasksRes.data ?? []}
+      deals={dealsRes.data ?? []}
+      contacts={contactsRes.data ?? []}
     />
   )
 }

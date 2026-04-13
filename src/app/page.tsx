@@ -1,64 +1,54 @@
-import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { createClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
+import { getUserContext } from '@/lib/org-scope'
 import HomeClient from './HomeClient'
 
 export default async function HomePage() {
-  const supabase = createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const ctx = await getUserContext()
+  if (!ctx) redirect('/login')
 
-  if (!user) redirect('/login')
+  const { user, anon, admin, orgId, role } = ctx
 
-  const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
-  const { data: profile } = await admin
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
-  // Get org membership
-  const { data: orgMembership } = await admin
-    .from('organisation_members')
-    .select('org_id, role')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .limit(1)
-    .maybeSingle()
-
-  const userRole = orgMembership?.role || 'rep'
-
-  // Get org name directly
-  const { data: orgData } = orgMembership?.org_id
-    ? await admin.from('organisations').select('name').eq('id', orgMembership.org_id).single()
+  // Org name — service role (cross-user lookup)
+  const { data: orgData } = orgId
+    ? await admin.from('organisations').select('name').eq('id', orgId).single()
     : { data: null }
 
-  const orgName = orgData?.name || null
+  // User profile — service role (users table)
+  const { data: profile } = await admin
+    .from('users')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
 
   const today = new Date()
   today.setHours(23, 59, 59, 999)
 
-  const { data: tasks } = await admin
+  // Data queries — anon client, RLS handles org/user scoping
+  const { data: tasks } = await anon
     .from('tasks')
     .select('*, contacts(full_name), deals(name)')
-    .eq('user_id', user.id)
     .eq('done', false)
     .lte('due_date', today.toISOString())
     .order('due_date', { ascending: true })
     .limit(5)
 
-  const { data: events } = await admin
+  const { data: events } = await anon
     .from('events')
     .select('*, contacts(full_name), deals(name), companies(name)')
-    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(5)
 
   const name = profile?.full_name || user.email?.split('@')[0] || 'there'
   const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
 
-  return <HomeClient name={name} initials={initials} tasks={tasks || []} events={events || []} orgName={orgName} userRole={userRole} />
+  return (
+    <HomeClient
+      name={name}
+      initials={initials}
+      tasks={tasks ?? []}
+      events={events ?? []}
+      orgName={orgData?.name ?? null}
+      userRole={role}
+    />
+  )
 }
