@@ -1,9 +1,9 @@
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createAnonSupabaseClient } from '@/lib/org-scope'
 import { notFound } from 'next/navigation'
 import ContactDetailClient from './ContactDetailClient'
 
 export default async function ContactDetailPage({ params }: { params: { id: string } }) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createAnonSupabaseClient()
 
   const { data: contact, error } = await supabase
     .from('contacts')
@@ -22,10 +22,24 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
   const dealIds = deals.map((d: any) => d.id)
 
   const [{ data: events }, { data: contactTasks }, { data: dealTasks }] = await Promise.all([
-    supabase.from('events').select('id, type, summary, created_at, metadata').eq('contact_id', params.id).order('created_at', { ascending: false }).limit(30),
-    supabase.from('tasks').select('id, title, done, status, priority, due_date, created_at, deal_id').eq('contact_id', params.id).order('created_at', { ascending: false }),
+    supabase
+      .from('events')
+      .select('id, type, summary, created_at, metadata')
+      .eq('contact_id', params.id)
+      .order('created_at', { ascending: false })
+      .limit(30),
+    supabase
+      .from('tasks')
+      .select('id, title, done, status, priority, due_date, created_at, deal_id')
+      .eq('contact_id', params.id)
+      .order('created_at', { ascending: false }),
     dealIds.length > 0
-      ? supabase.from('tasks').select('id, title, done, status, priority, due_date, created_at, deal_id').in('deal_id', dealIds).is('contact_id', null).order('created_at', { ascending: false })
+      ? supabase
+          .from('tasks')
+          .select('id, title, done, status, priority, due_date, created_at, deal_id')
+          .in('deal_id', dealIds)
+          .is('contact_id', null)
+          .order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
   ])
 

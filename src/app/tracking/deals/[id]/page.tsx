@@ -1,9 +1,9 @@
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createAnonSupabaseClient } from '@/lib/org-scope'
 import { notFound } from 'next/navigation'
 import DealDetailClient from './DealDetailClient'
 
 export default async function DealDetailPage({ params }: { params: { id: string } }) {
-  const supabase = await createServerSupabaseClient()
+  const supabase = createAnonSupabaseClient()
 
   const { data: deal, error } = await supabase
     .from('deals')
