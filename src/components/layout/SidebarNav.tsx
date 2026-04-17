@@ -39,9 +39,13 @@ export default function SidebarNav({ userName, userInitials, userRole }: Props) 
 
       {/* Nav */}
       <div style={{ padding: '0 10px', flex: 1 }}>
+
+        {/* Workspace group */}
         <div style={{ fontSize: 10, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 8px', marginBottom: 4 }}>Workspace</div>
 
         <NavItem href="/" active={pathname === '/'} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M1.5 6.5L7.5 1.5L13.5 6.5V13H9.5V9.5H5.5V13H1.5V6.5Z" strokeLinejoin="round"/></svg>}>Home</NavItem>
+
+        <NavItem href="/capture" active={isActive('/capture')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><circle cx="7.5" cy="7.5" r="6"/><path d="M7.5 4.5v6M4.5 7.5h6" strokeLinecap="round"/></svg>}>Capture</NavItem>
 
         <NavItem href="/tracking" active={isActive('/tracking')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="1" y="2" width="4" height="11" rx="1.5"/><rect x="6" y="2" width="4" height="7" rx="1.5"/><rect x="11" y="2" width="3" height="9" rx="1.5"/></svg>}>Pipeline</NavItem>
 
@@ -51,7 +55,8 @@ export default function SidebarNav({ userName, userInitials, userRole }: Props) 
 
         <NavItem href="/ai-sandbox" active={isActive('/ai-sandbox')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M7.5 1.5a6 6 0 100 12 6 6 0 000-12z"/><path d="M7.5 5v3.5l2 2" strokeLinecap="round" strokeLinejoin="round"/></svg>}>AI Sandbox</NavItem>
 
-        <div style={{ fontSize: 10, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 8px', margin: '16px 0 4px' }}>CRM</div>
+        {/* Records group */}
+        <div style={{ fontSize: 10, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 8px', margin: '16px 0 4px' }}>Records</div>
 
         <NavItem href="/deals" active={isActive('/deals')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M1.5 7.5h12M7.5 1.5l6 6-6 6" strokeLinecap="round" strokeLinejoin="round"/></svg>}>Deals</NavItem>
 
@@ -59,9 +64,8 @@ export default function SidebarNav({ userName, userInitials, userRole }: Props) 
 
         <NavItem href="/companies" active={isActive('/companies')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="1.5" y="5" width="12" height="8.5" rx="2"/><path d="M5 5V3.5a2.5 2.5 0 015 0V5" strokeLinecap="round"/></svg>}>Companies</NavItem>
 
-        <NavItem href="/capture" active={isActive('/capture')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><circle cx="7.5" cy="7.5" r="6"/><path d="M7.5 4.5v6M4.5 7.5h6" strokeLinecap="round"/></svg>}>Capture</NavItem>
-
         <NavItem href="/settings" active={isActive('/settings')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><circle cx="7.5" cy="7.5" r="2.5"/><path d="M7.5 1.5v1M7.5 12.5v1M1.5 7.5h1M12.5 7.5h1M3.1 3.1l.7.7M11.2 11.2l.7.7M11.2 3.1l-.7.7M3.8 11.2l-.7.7" strokeLinecap="round"/></svg>}>Settings</NavItem>
+
       </div>
 
       {/* User row */}
@@ -77,7 +81,10 @@ export default function SidebarNav({ userName, userInitials, userRole }: Props) 
         </Link>
       </div>
 
-      <style>{`.sidebar-user-row:hover { background: #f5f4f0; }`}</style>
+      <style>{`
+        .sidebar-user-row:hover { background: #f5f4f0; }
+        .sidebar-nav-item:hover { background: #f5f4f0 !important; color: #1a1a18 !important; }
+      `}</style>
     </aside>
   )
 }
@@ -103,7 +110,6 @@ function NavItem({ href, active, icon, badge, badgeColor, children }: {
           {badge}
         </span>
       )}
-      <style>{`.sidebar-nav-item:hover { background: #f5f4f0 !important; color: #1a1a18 !important; }`}</style>
     </Link>
   )
 }
