@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,8 +27,7 @@ type Props = {
   quota: Quota | null; stageConversion: StageConversion[]
 }
 
-type Category = 'all' | 'deals' | 'contacts' | 'companies'
-type Focus = 'all' | 'dynamic' | 'history' | 'performance' | 'potential' | 'problems'
+type ActiveTag = string // tag-based filtering
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STAGES = ['lead','qualified','demo','proposal','negotiation','closed_won','closed_lost']
@@ -99,7 +98,7 @@ function StatStrip({ stats }: { stats: { label: string; value: string; sub?: str
           borderRight: i < stats.length - 1 ? `0.5px solid ${C.border}` : 'none',
         }}>
           <div style={{ fontSize: 10, fontWeight: 600, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{s.label}</div>
-          <div style={{ fontSize: 28, fontWeight: 500, color: s.color || C.dark, letterSpacing: '-0.03em', lineHeight: 1 }}>{s.value}</div>
+          <div style={{ fontSize: 22, fontWeight: 500, color: s.color || C.dark, letterSpacing: '-0.03em', lineHeight: 1 }}>{s.value}</div>
           {s.sub && <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{s.sub}</div>}
         </div>
       ))}
@@ -221,24 +220,26 @@ function RevenueBarChart({ deals }: { deals: Deal[] }) {
     months.push({ label, value })
   }
   const maxVal = Math.max(...months.map(m => m.value), 1)
-  const chartH = 80
+  const VW = 300; const VH = 120; const chartH = 90; const barW = 34; const gap = 14; const padL = 4
 
   return (
     <div>
-      <svg width="100%" height={chartH + 24} viewBox={`0 0 ${months.length * 44} ${chartH + 24}`} preserveAspectRatio="none">
+      <svg width="100%" viewBox={`0 0 ${VW} ${VH}`} style={{ display: 'block' }}>
         {months.map((m, i) => {
-          const barH = maxVal > 0 ? (m.value / maxVal) * chartH : 2
-          const x = i * 44 + 4; const w = 36
+          const barH = m.value > 0 ? Math.max((m.value / maxVal) * chartH, 3) : 0
+          const x = padL + i * (barW + gap)
           return (
             <g key={i}>
-              <rect x={x} y={chartH - barH} width={w} height={barH}
-                fill={m.value > 0 ? C.dark : C.bg} rx={4} />
+              <rect x={x} y={0} width={barW} height={chartH} fill={C.bg} rx={5} />
+              {barH > 0 && (
+                <rect x={x} y={chartH - barH} width={barW} height={barH} fill={C.dark} rx={5} />
+              )}
               {m.value > 0 && (
-                <text x={x + w/2} y={chartH - barH - 4} textAnchor="middle" fontSize={8} fill={C.muted}>
+                <text x={x + barW/2} y={chartH - barH - 5} textAnchor="middle" fontSize={7} fill={C.muted} fontWeight="500">
                   {fmt(m.value)}
                 </text>
               )}
-              <text x={x + w/2} y={chartH + 16} textAnchor="middle" fontSize={9} fill={C.faint}>{m.label}</text>
+              <text x={x + barW/2} y={VH - 2} textAnchor="middle" fontSize={8} fill={C.faint}>{m.label}</text>
             </g>
           )
         })}
@@ -268,7 +269,7 @@ function VelocityHeatmap({ stageVelocity }: { stageVelocity: StageVelocity[] }) 
           <div key={stage} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 80, fontSize: 11, color: C.muted }}>{STAGE_LABELS[stage]}</div>
             <div style={{
-              flex: 1, height: 28, background: bg, borderRadius: 6,
+              flex: 1, height: 32, background: bg, borderRadius: 6,
               display: 'flex', alignItems: 'center', paddingLeft: 10, gap: 8,
               transition: 'background 0.3s',
             }}>
@@ -290,29 +291,29 @@ function DealAgeScatter({ deals }: { deals: Deal[] }) {
   const active = deals.filter(d => !['closed_won','closed_lost'].includes(d.stage) && d.value)
   if (active.length === 0) return <div style={{ fontSize: 12, color: C.faint }}>No active deals</div>
 
-  const W = 300; const H = 120
+  const W = 500; const H = 200
   const maxAge = Math.max(...active.map(d => daysSince(d.created_at)), 1)
   const maxVal = Math.max(...active.map(d => d.value || 0), 1)
 
   return (
     <div style={{ position: 'relative' }}>
-      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
         {/* Axes */}
-        <line x1={24} y1={H-16} x2={W-4} y2={H-16} stroke={C.border} strokeWidth={1} />
-        <line x1={24} y1={4} x2={24} y2={H-16} stroke={C.border} strokeWidth={1} />
+        <line x1={36} y1={H-20} x2={W-8} y2={H-20} stroke={C.border} strokeWidth={1} />
+        <line x1={36} y1={8} x2={36} y2={H-20} stroke={C.border} strokeWidth={1} />
         {/* Axis labels */}
-        <text x={W/2} y={H-2} textAnchor="middle" fontSize={8} fill={C.faint}>Age (days)</text>
-        <text x={8} y={H/2} textAnchor="middle" fontSize={8} fill={C.faint} transform={`rotate(-90 8 ${H/2})`}>Value</text>
+        <text x={W/2} y={H-4} textAnchor="middle" fontSize={9} fill={C.faint}>Age (days)</text>
+        <text x={10} y={H/2} textAnchor="middle" fontSize={9} fill={C.faint} transform={`rotate(-90 10 ${H/2})`}>Value</text>
         {/* Points */}
         {active.map(d => {
-          const x = 24 + ((daysSince(d.created_at) / maxAge) * (W - 32))
-          const y = (H - 20) - ((d.value! / maxVal) * (H - 28))
+          const x = 36 + ((daysSince(d.created_at) / maxAge) * (W - 48))
+          const y = (H - 24) - ((d.value! / maxVal) * (H - 40))
           const atRisk = daysSince(d.last_activity_at) > 14
           const color = atRisk ? C.red : STAGE_COLOR[d.stage] || C.dark
           return (
             <g key={d.id}>
-              <circle cx={x} cy={y} r={5} fill={color} opacity={0.75} />
-              <circle cx={x} cy={y} r={5} fill="none" stroke={color} strokeWidth={1} opacity={0.4} />
+              <circle cx={x} cy={y} r={7} fill={color} opacity={0.75} />
+              <circle cx={x} cy={y} r={10} fill="none" stroke={color} strokeWidth={1} opacity={0.2} />
             </g>
           )
         })}
@@ -346,43 +347,50 @@ function RevenueWaterfall({ deals, quota }: { deals: Deal[]; quota: Quota | null
 
   const total = confirmed + bars.reduce((s, b) => s + b.value, 0)
   const maxVal = Math.max(total, quota?.quota || 0, 1)
-  const H = 90; const barW = 32; const gap = 12
+
+  // SVG waterfall - proper scaling
+  const allBars = [
+    ...(confirmed > 0 ? [{ label: 'Confirmed', value: confirmed, color: C.green, isConfirmed: true }] : []),
+    ...bars.map(b => ({ ...b, isConfirmed: false })),
+  ]
+  const VW = 300; const VH = 140; const chartH = 100
+  const bW = Math.min(36, (VW - 20) / (allBars.length + (quota?.quota ? 1 : 0)) - 8)
+  const totalBars = allBars.length + (quota?.quota ? 1 : 0)
+  const spacing = (VW - 10) / totalBars
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: gap, height: H + 32 }}>
-        {/* Confirmed */}
-        {confirmed > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <div style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}>{fmt(confirmed)}</div>
-            <div style={{
-              width: barW, background: C.green, borderRadius: '4px 4px 0 0',
-              height: (confirmed / maxVal) * H,
-            }} />
-            <div style={{ fontSize: 9, color: C.faint, maxWidth: barW+8, textAlign: 'center' }}>Confirmed</div>
-          </div>
-        )}
-        {/* Weighted by stage */}
-        {bars.map((b, i) => (
-          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <div style={{ fontSize: 9, color: C.muted, fontWeight: 600 }}>{fmt(b.value)}</div>
-            <div style={{
-              width: barW, background: b.color, borderRadius: '4px 4px 0 0', opacity: 0.7,
-              height: (b.value / maxVal) * H,
-            }} />
-            <div style={{ fontSize: 9, color: C.faint, maxWidth: barW+8, textAlign: 'center' }}>{b.label}</div>
-          </div>
-        ))}
-        {/* Quota line marker */}
-        {quota?.quota && (
-          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <div style={{ fontSize: 9, color: C.amber, fontWeight: 600 }}>{fmt(quota.quota)}</div>
-            <div style={{ width: barW, height: (quota.quota / maxVal) * H, background: 'transparent', borderTop: `2px dashed ${C.amber}`, position: 'relative' }}>
-            </div>
-            <div style={{ fontSize: 9, color: C.amber, maxWidth: barW+8, textAlign: 'center' }}>Quota</div>
-          </div>
-        )}
-      </div>
+      <svg width="100%" viewBox={`0 0 ${VW} ${VH}`} style={{ display: 'block' }}>
+        {allBars.map((b, i) => {
+          const barH = Math.max((b.value / maxVal) * chartH, 3)
+          const cx = 10 + i * spacing + spacing / 2
+          const x = cx - bW / 2
+          return (
+            <g key={i}>
+              <rect x={x} y={0} width={bW} height={chartH} fill={C.bg} rx={4} />
+              <rect x={x} y={chartH - barH} width={bW} height={barH}
+                fill={b.color} opacity={b.isConfirmed ? 1 : 0.75} rx={4} />
+              <text x={cx} y={chartH - barH - 4} textAnchor="middle" fontSize={7} fill={C.muted} fontWeight="600">
+                {fmt(b.value)}
+              </text>
+              <text x={cx} y={VH - 2} textAnchor="middle" fontSize={8} fill={C.faint}>{b.label}</text>
+            </g>
+          )
+        })}
+        {quota?.quota && (() => {
+          const qi = allBars.length
+          const cx = 10 + qi * spacing + spacing / 2
+          const qY = chartH - (quota.quota / maxVal) * chartH
+          return (
+            <g>
+              <line x1={cx - bW/2} y1={qY} x2={cx + bW/2} y2={qY}
+                stroke={C.amber} strokeWidth={2} strokeDasharray="4 3" />
+              <text x={cx} y={qY - 5} textAnchor="middle" fontSize={7} fill={C.amber} fontWeight="600">{fmt(quota.quota)}</text>
+              <text x={cx} y={VH - 2} textAnchor="middle" fontSize={8} fill={C.amber}>Quota</text>
+            </g>
+          )
+        })()}
+      </svg>
     </div>
   )
 }
@@ -394,27 +402,31 @@ function ConversionWaterfall({ stageConversion }: { stageConversion: StageConver
     return <div style={{ fontSize: 12, color: C.faint }}>Populates as deals progress</div>
   }
 
+  const VW = 300; const VH = 130; const chartH = 90
+  const bW = 34; const spacing = VW / stages.length
+
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
+    <svg width="100%" viewBox={`0 0 ${VW} ${VH}`} style={{ display: 'block' }}>
       {stages.map((stage, i) => {
         const row = stageConversion.find(s => s.stage === stage)
-        const rate = row ? Math.round((row.deals_advanced / Math.max(row.deals_entered,1)) * 100) : 0
+        const rate = row ? Math.round((row.deals_advanced / Math.max(row.deals_entered, 1)) * 100) : 0
         const color = rate >= 60 ? C.green : rate >= 35 ? C.amber : C.red
-        const H = 80
+        const barH = Math.max((rate / 100) * chartH, 2)
+        const cx = i * spacing + spacing / 2
+        const x = cx - bW / 2
         return (
-          <div key={stage} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-            <div style={{ fontSize: 9, fontWeight: 600, color }}>{rate}%</div>
-            <div style={{ width: '80%', background: C.bg, borderRadius: 4, height: H, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', overflow: 'hidden' }}>
-              <div style={{ width: '100%', background: color, opacity: 0.8, height: `${rate}%`, borderRadius: 4, transition: 'height 0.5s ease' }} />
-            </div>
-            <div style={{ fontSize: 9, color: C.faint, textAlign: 'center' }}>{STAGE_LABELS[stage].slice(0,4)}</div>
+          <g key={stage}>
+            <rect x={x} y={0} width={bW} height={chartH} fill={C.bg} rx={5} />
+            <rect x={x} y={chartH - barH} width={bW} height={barH} fill={color} opacity={0.8} rx={5} />
+            <text x={cx} y={chartH - barH - 4} textAnchor="middle" fontSize={8} fontWeight="600" fill={color}>{rate}%</text>
+            <text x={cx} y={VH - 10} textAnchor="middle" fontSize={8} fill={C.faint}>{STAGE_LABELS[stage].slice(0,5)}</text>
             {row && row.deals_lost_here > 0 && (
-              <div style={{ fontSize: 8, color: C.red }}>−{row.deals_lost_here}</div>
+              <text x={cx} y={VH - 1} textAnchor="middle" fontSize={7} fill={C.red}>−{row.deals_lost_here}</text>
             )}
-          </div>
+          </g>
         )
       })}
-    </div>
+    </svg>
   )
 }
 
@@ -689,7 +701,7 @@ function UninvoicedTable({ deals }: { deals: Deal[] }) {
 
   return (
     <div>
-      <div style={{ fontSize: 22, fontWeight: 600, color: C.red, letterSpacing: '-0.02em', marginBottom: 12 }}>{fmt(total)}</div>
+      <div style={{ fontSize: 18, fontWeight: 600, color: C.red, letterSpacing: '-0.02em', marginBottom: 12 }}>{fmt(total)}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
         {uninvoiced.map((d, i) => (
           <Link key={d.id} href={`/tracking/deals/${d.id}`} style={{ textDecoration: 'none' }}>
@@ -716,7 +728,7 @@ function QuotaProgress({ quota }: { quota: Quota }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-        <span style={{ fontSize: 28, fontWeight: 600, color, letterSpacing: '-0.03em' }}>{pct.toFixed(1)}%</span>
+        <span style={{ fontSize: 24, fontWeight: 600, color, letterSpacing: '-0.03em' }}>{pct.toFixed(1)}%</span>
         <span style={{ fontSize: 12, color: C.faint }}>{quota.quota_period} quota</span>
       </div>
       {/* Stacked bar: confirmed + weighted pipeline */}
@@ -745,65 +757,13 @@ function QuotaProgress({ quota }: { quota: Quota }) {
   )
 }
 
-// ─── Filter pills ─────────────────────────────────────────────────────────────
-const CATS: { key: Category; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'deals', label: 'Deals' },
-  { key: 'contacts', label: 'Contacts' },
-  { key: 'companies', label: 'Companies' },
-]
-const FOCI: { key: Focus; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'dynamic', label: 'Live' },
-  { key: 'performance', label: 'Performance' },
-  { key: 'potential', label: 'Forecast' },
-  { key: 'history', label: 'History' },
-  { key: 'problems', label: 'Problems' },
-]
-
-// ─── Card visibility map ──────────────────────────────────────────────────────
-type CardDef = {
-  id: string
-  category: Category | Category[]
-  focus: Focus | Focus[]
-}
-const CARD_MAP: CardDef[] = [
-  { id: 'quota',        category: 'deals',    focus: ['performance','potential','all'] },
-  { id: 'top-stats',    category: 'all',      focus: 'all' },
-  { id: 'funnel',       category: 'deals',    focus: ['dynamic','performance','all'] },
-  { id: 'win-loss',     category: 'deals',    focus: ['history','performance','all'] },
-  { id: 'revenue-bars', category: 'deals',    focus: ['history','dynamic','all'] },
-  { id: 'waterfall',    category: 'deals',    focus: ['potential','performance','all'] },
-  { id: 'conversion',   category: 'deals',    focus: ['performance','all'] },
-  { id: 'velocity',     category: 'deals',    focus: ['performance','all'] },
-  { id: 'age-scatter',  category: 'deals',    focus: ['dynamic','all'] },
-  { id: 'age-dist',     category: 'deals',    focus: ['dynamic','history','all'] },
-  { id: 'at-risk',      category: 'deals',    focus: ['problems','dynamic','all'] },
-  { id: 'closing-soon', category: 'deals',    focus: ['potential','dynamic','all'] },
-  { id: 'uninvoiced',   category: 'deals',    focus: ['problems','all'] },
-  { id: 'loss-reasons', category: 'deals',    focus: ['history','problems','all'] },
-  { id: 'followup-cal', category: 'contacts', focus: ['dynamic','all'] },
-  { id: 'tasks',        category: 'all',      focus: ['problems','dynamic','all'] },
-  { id: 'treemap',      category: 'companies',focus: ['potential','all'] },
-]
-
-function isVisible(def: CardDef, cat: Category, focus: Focus) {
-  const cats = Array.isArray(def.category) ? def.category : [def.category]
-  const foci = Array.isArray(def.focus) ? def.focus : [def.focus]
-  const catMatch = cat === 'all' || cats.includes('all') || cats.includes(cat)
-  const focusMatch = focus === 'all' || foci.includes('all') || foci.includes(focus)
-  return catMatch && focusMatch
-}
+// ─── Tag nav ──────────────────────────────────────────────────────────────────
+// Each card declares tags. Nav filters by tag. 'all' shows everything.
+const ALL_TAGS = ['deals','contacts','companies','performance','forecast','history','problems','live','tasks']
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function AnalyticsClient({ deals, contacts, companies, tasks, stageVelocity, quota, stageConversion }: Props) {
-  const [cat, setCat] = useState<Category>('all')
-  const [focus, setFocus] = useState<Focus>('all')
-
-  const vis = useMemo(() => {
-    const set = new Set(CARD_MAP.filter(c => isVisible(c, cat, focus)).map(c => c.id))
-    return set
-  }, [cat, focus])
+  const [activeTag, setActiveTag] = useState<string>('all')
 
   const active = deals.filter(d => !['closed_won','closed_lost'].includes(d.stage))
   const won = deals.filter(d => d.stage === 'closed_won')
@@ -824,48 +784,35 @@ export default function AnalyticsClient({ deals, contacts, companies, tasks, sta
         <div style={{ fontSize: 12, color: C.faint }}>{today}</div>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-        <div style={{ display: 'flex', gap: 5 }}>
-          {CATS.map(c => (
-            <button key={c.key} onClick={() => setCat(c.key)} style={{
-              padding: '6px 14px', borderRadius: 20, fontSize: 12, cursor: 'pointer',
-              border: `0.5px solid ${cat === c.key ? C.dark : 'rgba(0,0,0,0.1)'}`,
-              background: cat === c.key ? C.dark : C.card,
-              color: cat === c.key ? 'white' : C.muted,
-              fontWeight: cat === c.key ? 500 : 400,
-              fontFamily: 'inherit', transition: 'all 0.15s',
-            }}>{c.label}</button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          {FOCI.map(f => (
-            <button key={f.key} onClick={() => setFocus(f.key)} style={{
-              padding: '5px 12px', borderRadius: 20, fontSize: 11, cursor: 'pointer',
-              border: `0.5px solid ${focus === f.key ? C.dark : 'rgba(0,0,0,0.08)'}`,
-              background: focus === f.key ? C.bg : C.card,
-              color: focus === f.key ? C.dark : C.faint,
-              fontWeight: focus === f.key ? 500 : 400,
-              fontFamily: 'inherit', transition: 'all 0.15s',
-            }}>{f.label}</button>
-          ))}
-        </div>
+      {/* Tag nav */}
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 24 }}>
+        {['all', ...ALL_TAGS].map(tag => (
+          <button key={tag} onClick={() => setActiveTag(tag)} style={{
+            padding: '5px 13px', borderRadius: 20, fontSize: 11, cursor: 'pointer',
+            border: `0.5px solid ${activeTag === tag ? C.dark : 'rgba(0,0,0,0.09)'}`,
+            background: activeTag === tag ? C.dark : C.card,
+            color: activeTag === tag ? 'white' : C.muted,
+            fontWeight: activeTag === tag ? 500 : 400,
+            fontFamily: 'inherit', transition: 'all 0.15s',
+            textTransform: 'capitalize',
+          }}>{tag === 'all' ? 'All' : tag}</button>
+        ))}
       </div>
 
       {/* Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
 
         {/* Quota progress — full width */}
-        {vis.has('quota') && quota?.quota && (
+        {(activeTag === 'all' || ['deals','forecast','performance'].includes(activeTag)) && quota?.quota && (
           <div style={{ gridColumn: 'span 2' }}>
-            <Card title="Quota attainment" subtitle={quota.quota_period} tags={['revenue']}>
+            <Card title="Quota attainment" subtitle={quota.quota_period} tags={['forecast','performance']}>
               <QuotaProgress quota={quota} />
             </Card>
           </div>
         )}
 
         {/* Top stats strip — full width */}
-        {vis.has('top-stats') && (
+        {activeTag === 'all' && (
           <div style={{ gridColumn: 'span 2', background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 18, overflow: 'hidden' }}>
             <StatStrip stats={[
               { label: 'Pipeline value', value: fmt(pipelineVal), sub: `${active.length} active deals` },
@@ -878,105 +825,105 @@ export default function AnalyticsClient({ deals, contacts, companies, tasks, sta
         )}
 
         {/* Pipeline funnel */}
-        {vis.has('funnel') && (
-          <Card title="Pipeline funnel" subtitle="active stages" tags={['deals']}>
+        {(activeTag === 'all' || ['deals','performance'].includes(activeTag)) && (
+          <Card title="Pipeline funnel" subtitle="active stages" tags={['deals','performance']}>
             <FunnelChart deals={deals} stageConversion={stageConversion} />
           </Card>
         )}
 
         {/* Win/loss donut */}
-        {vis.has('win-loss') && (
+        {(activeTag === 'all' || ['deals','history'].includes(activeTag)) && (
           <Card title="Win / loss" subtitle="all time" tags={['deals','history']}>
             <WinLossDonut deals={deals} />
           </Card>
         )}
 
         {/* Revenue bars */}
-        {vis.has('revenue-bars') && (
+        {(activeTag === 'all' || ['deals','history'].includes(activeTag)) && (
           <Card title="Revenue closed" subtitle="last 6 months" tags={['deals','history']}>
             <RevenueBarChart deals={deals} />
           </Card>
         )}
 
         {/* Weighted waterfall */}
-        {vis.has('waterfall') && (
-          <Card title="Revenue forecast" subtitle="weighted by stage" tags={['forecast']}>
+        {(activeTag === 'all' || ['forecast','deals'].includes(activeTag)) && (
+          <Card title="Revenue forecast" subtitle="weighted by stage" tags={['forecast','deals']}>
             <RevenueWaterfall deals={deals} quota={quota} />
           </Card>
         )}
 
         {/* Conversion rates */}
-        {vis.has('conversion') && (
+        {(activeTag === 'all' || activeTag === 'performance') && (
           <Card title="Stage conversion" subtitle="advance rate per stage" tags={['performance']}>
             <ConversionWaterfall stageConversion={stageConversion} />
           </Card>
         )}
 
         {/* Velocity heatmap */}
-        {vis.has('velocity') && (
+        {(activeTag === 'all' || activeTag === 'performance') && (
           <Card title="Stage velocity" subtitle="avg days spent" tags={['performance']}>
             <VelocityHeatmap stageVelocity={stageVelocity} />
           </Card>
         )}
 
         {/* Deal age scatter */}
-        {vis.has('age-scatter') && (
+        {(activeTag === 'all' || ['deals','live'].includes(activeTag)) && (
           <Card title="Deal age vs value" subtitle="active pipeline" tags={['deals','live']} span={2}>
             <DealAgeScatter deals={deals} />
           </Card>
         )}
 
         {/* Age distribution */}
-        {vis.has('age-dist') && (
-          <Card title="Deal age distribution" subtitle="how old are active deals" tags={['deals']}>
+        {(activeTag === 'all' || ['deals','history'].includes(activeTag)) && (
+          <Card title="Deal age distribution" subtitle="how old are active deals" tags={['deals','history']}>
             <DealAgeDistribution deals={deals} />
           </Card>
         )}
 
         {/* Loss reasons */}
-        {vis.has('loss-reasons') && (
+        {(activeTag === 'all' || activeTag === 'history') && (
           <Card title="Loss reasons" subtitle="why deals were lost" tags={['history']}>
             <LossReasons deals={deals} />
           </Card>
         )}
 
         {/* At-risk */}
-        {vis.has('at-risk') && (
-          <Card title="At-risk deals" subtitle="no activity 14+ days" tags={['problems']}>
+        {(activeTag === 'all' || ['problems','live'].includes(activeTag)) && (
+          <Card title="At-risk deals" subtitle="no activity 14+ days" tags={['problems','live']}>
             <AtRiskTable deals={deals} />
           </Card>
         )}
 
         {/* Closing soon */}
-        {vis.has('closing-soon') && (
-          <Card title="Closing soon" subtitle="expected in 30 days" tags={['forecast']}>
+        {(activeTag === 'all' || ['forecast','live'].includes(activeTag)) && (
+          <Card title="Closing soon" subtitle="expected in 30 days" tags={['forecast','live']}>
             <ClosingSoonTable deals={deals} />
           </Card>
         )}
 
         {/* Uninvoiced */}
-        {vis.has('uninvoiced') && (
+        {(activeTag === 'all' || activeTag === 'problems') && (
           <Card title="Revenue not invoiced" subtitle="won deals pending" tags={['problems']}>
             <UninvoicedTable deals={deals} />
           </Card>
         )}
 
         {/* Follow-up calendar */}
-        {vis.has('followup-cal') && (
+        {(activeTag === 'all' || activeTag === 'contacts') && (
           <Card title="Follow-up calendar" subtitle="next 14 days" tags={['contacts']} span={2}>
             <FollowupCalendar contacts={contacts} />
           </Card>
         )}
 
         {/* Tasks gauge */}
-        {vis.has('tasks') && (
+        {(activeTag === 'all' || ['tasks','problems'].includes(activeTag)) && (
           <Card title="Task completion" subtitle="all tasks" tags={['tasks']}>
             <TaskGauge tasks={tasks} />
           </Card>
         )}
 
         {/* Company treemap */}
-        {vis.has('treemap') && (
+        {(activeTag === 'all' || activeTag === 'companies') && (
           <Card title="Pipeline by company" subtitle="active deal value" tags={['companies']} span={2}>
             <CompanyTreemap deals={deals} companies={companies} />
           </Card>
@@ -984,11 +931,7 @@ export default function AnalyticsClient({ deals, contacts, companies, tasks, sta
 
       </div>
 
-      {vis.size === 0 && (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: C.faint, fontSize: 13 }}>
-          No charts match this combination. Try adjusting the filters.
-        </div>
-      )}
+
 
       <style>{`
         button { font-family: inherit; }
