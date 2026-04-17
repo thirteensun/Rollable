@@ -464,24 +464,56 @@ Today's date: ${today}`
 You have access to ${isElevated ? 'the full organisation pipeline' : 'your own deals'}.
 Be direct and lead with the insight. Use numbers. If something looks bad, say so.
 For actions like adding contacts or updating stages, tell the user they can just ask you directly.
-Today's date: ${today}`
+Today's date: ${today}
+
+CHARTS: When your answer is inherently visual (pipeline breakdown, revenue over time, win/loss ratio, stage comparison), append a JSON block after your text response using this exact format:
+
+\`\`\`chart
+{"type":"funnel","title":"Pipeline funnel","data":[{"label":"Lead","count":5,"value":50000},{"label":"Qualified","count":3,"value":30000}]}
+\`\`\`
+
+Chart types available:
+- funnel: data=[{label,count,value}] — for pipeline stage breakdown
+- bar: data=[{label,value,color?}] — for monthly revenue or comparisons  
+- donut: segments=[{label,value,color}] — for win/loss ratio or proportions
+- stages: data=[{label,value,count,color?}] — for horizontal stage value bars
+
+Only include a chart when it genuinely adds value. Never include one for simple factual answers.
+Proactively suggest a chart when the user asks about pipeline, revenue, or performance — even if they didn't ask for a chart.`
 
       const result = await runAgentLoop(model, system, analyticsTools, agentMessages, user.id, org_id, role, admin)
       reply = result.reply
     }
 
+    // Parse chart JSON from reply if present
+    let chartData = null
+    let cleanReply = reply
+    const chartMatch = reply.match(/```chart\n([\s\S]*?)\n```/)
+    if (chartMatch) {
+      try {
+        chartData = JSON.parse(chartMatch[1].trim())
+        cleanReply = reply.replace(/```chart\n[\s\S]*?\n```/, '').trim()
+      } catch { /* ignore parse errors */ }
+    }
+
     // New agent history for next turn (rolling window of what we just sent + reply)
     updatedAgentHistory = [
-      ...(agentHistory || []).slice(-(AGENT_WINDOW - 2)), // keep last N-2 previous
+      ...(agentHistory || []).slice(-(AGENT_WINDOW - 2)),
       { role: 'user' as const, content: message },
-      { role: 'assistant' as const, content: reply },
+      { role: 'assistant' as const, content: cleanReply },
     ]
 
     // Persist full display conversation to Supabase
+    const assistantMsg: any = {
+      role: 'assistant', content: cleanReply,
+      id: `a-${Date.now()}`, agent: intent,
+    }
+    if (chartData) assistantMsg.chart = chartData
+
     const newDisplayMessages = [
       ...(displayMessages || []),
       { role: 'user', content: message, id: `u-${Date.now()}` },
-      { role: 'assistant', content: reply, id: `a-${Date.now()}`, agent: intent },
+      assistantMsg,
     ]
 
     let convId = conversationId
@@ -508,8 +540,9 @@ Today's date: ${today}`
     }
 
     return NextResponse.json({
-      reply,
+      reply: cleanReply,
       agent: intent,
+      chart: chartData,
       agentHistory: updatedAgentHistory,
       conversationId: convId,
       displayMessages: newDisplayMessages,
