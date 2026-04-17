@@ -40,7 +40,6 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
   const [dragId, setDragId] = useState<string | null>(null)
   const [overStage, setOverStage] = useState<string | null>(null)
   const [localDeals, setLocalDeals] = useState<Deal[]>(deals)
-  // Track which deal IDs have pending stage changes: { dealId -> newStage }
   const [pendingChanges, setPendingChanges] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -61,13 +60,10 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
     if (!dragId) return
     const deal = localDeals.find(d => d.id === dragId)
     if (!deal) return
-
-    // Only track as pending if stage actually changed
     if (deal.stage !== stage) {
       setLocalDeals(prev => prev.map(d => d.id === dragId ? { ...d, stage } : d))
       setPendingChanges(prev => ({ ...prev, [dragId]: stage }))
     }
-
     setDragId(null)
     setOverStage(null)
   }
@@ -77,10 +73,8 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
   }
 
   function handleDiscard() {
-    // Revert localDeals back to original deal stages
     setLocalDeals(prev => prev.map(d => {
       if (pendingChanges[d.id]) {
-        // Find original stage from the deals prop
         const original = deals.find(od => od.id === d.id)
         return original ? { ...d, stage: original.stage } : d
       }
@@ -94,9 +88,7 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
     if (!hasPending || saving) return
     setSaving(true)
     setSaveError(null)
-
     try {
-      // Fire all updates in parallel
       const updates = Object.entries(pendingChanges).map(([id, stage]) =>
         fetch(`/api/deals/${id}/stage`, {
           method: 'PATCH',
@@ -106,7 +98,6 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
           if (!res.ok) throw new Error(`Failed to update deal ${id}`)
         })
       )
-
       await Promise.all(updates)
       setPendingChanges({})
     } catch (err) {
@@ -120,7 +111,7 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-      {/* Save bar — appears only when there are unsaved changes */}
+      {/* Save bar */}
       {hasPending && (
         <div style={{
           display: 'flex',
@@ -133,54 +124,29 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
           flexShrink: 0,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{
-              width: 6, height: 6, borderRadius: '50%',
-              background: '#EF9F27',
-            }} />
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF9F27' }} />
             <span style={{ fontSize: 12, color: '#6b6960' }}>
               {Object.keys(pendingChanges).length} unsaved {Object.keys(pendingChanges).length === 1 ? 'change' : 'changes'}
             </span>
-            {saveError && (
-              <span style={{ fontSize: 12, color: '#E24B4A' }}>{saveError}</span>
-            )}
+            {saveError && <span style={{ fontSize: 12, color: '#E24B4A' }}>{saveError}</span>}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={handleDiscard}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 20,
-                border: '0.5px solid rgba(0,0,0,0.12)',
-                background: 'transparent',
-                fontSize: 12,
-                color: '#6b6960',
-                cursor: 'pointer',
-              }}
-            >
-              Discard
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                padding: '6px 16px',
-                borderRadius: 20,
-                border: 'none',
-                background: saving ? '#9b9890' : '#1a1a18',
-                color: 'white',
-                fontSize: 12,
-                fontWeight: 500,
-                cursor: saving ? 'not-allowed' : 'pointer',
-                transition: 'background 0.15s',
-              }}
-            >
-              {saving ? 'Saving…' : 'Save changes'}
-            </button>
+            <button onClick={handleDiscard} style={{
+              padding: '6px 14px', borderRadius: 20,
+              border: '0.5px solid rgba(0,0,0,0.12)',
+              background: 'transparent', fontSize: 12, color: '#6b6960', cursor: 'pointer',
+            }}>Discard</button>
+            <button onClick={handleSave} disabled={saving} style={{
+              padding: '6px 16px', borderRadius: 20, border: 'none',
+              background: saving ? '#9b9890' : '#1a1a18',
+              color: 'white', fontSize: 12, fontWeight: 500,
+              cursor: saving ? 'not-allowed' : 'pointer', transition: 'background 0.15s',
+            }}>{saving ? 'Saving…' : 'Save changes'}</button>
           </div>
         </div>
       )}
 
-      {/* Kanban columns */}
+      {/* Kanban columns — centered when content is narrower than viewport */}
       <div style={{
         display: 'flex',
         gap: 10,
@@ -189,6 +155,8 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
         overflowY: 'hidden',
         flex: 1,
         alignItems: 'flex-start',
+        justifyContent: 'center',  // ← centers columns when there's spare space
+        minWidth: 'max-content',   // ← prevents wrapping when viewport is narrow
       }}>
         {STAGES.map(stage => {
           const cards = grouped[stage.key] ?? []
@@ -206,18 +174,15 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
               {/* Column header */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 4px' }}>
                 <span style={{
-                  fontSize: 11,
-                  fontWeight: 500,
+                  fontSize: 11, fontWeight: 500,
                   color: isWon ? '#1D9E75' : isLost ? '#E24B4A' : '#6b6960',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase', letterSpacing: '0.04em',
                 }}>
                   {stage.label}
                 </span>
                 <span style={{
                   width: 18, height: 18, borderRadius: '50%',
-                  background: '#f5f4f0',
-                  border: '0.5px solid rgba(0,0,0,0.07)',
+                  background: '#f5f4f0', border: '0.5px solid rgba(0,0,0,0.07)',
                   fontSize: 10, color: '#9b9890',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
@@ -232,11 +197,8 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
 
               {/* Drop zone + cards */}
               <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                minHeight: 80,
-                borderRadius: 14,
+                display: 'flex', flexDirection: 'column', gap: 6,
+                minHeight: 80, borderRadius: 14,
                 padding: isOver ? 4 : 0,
                 background: isOver ? 'rgba(0,0,0,0.03)' : 'transparent',
                 border: isOver ? '1.5px dashed rgba(0,0,0,0.12)' : '1.5px solid transparent',
@@ -257,13 +219,10 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
                       onDragEnd={handleDragEnd}
                       style={{
                         background: 'white',
-                        border: atRisk
-                          ? '0.5px solid rgba(0,0,0,0.07)'
-                          : '0.5px solid rgba(0,0,0,0.07)',
+                        border: '0.5px solid rgba(0,0,0,0.07)',
                         borderLeft: atRisk ? '2.5px solid #EF9F27' : undefined,
                         outline: isPending ? '1.5px solid rgba(239,159,39,0.4)' : undefined,
-                        borderRadius: 12,
-                        padding: '11px 12px',
+                        borderRadius: 12, padding: '11px 12px',
                         cursor: 'grab',
                         opacity: isDragging ? 0.4 : isWon || isLost ? 0.65 : 1,
                         transition: 'opacity 0.15s, transform 0.1s, border-color 0.15s',
@@ -302,18 +261,13 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
                             {tag && (
                               <span style={{
                                 fontSize: 10, fontWeight: 500,
-                                padding: '2px 6px', borderRadius: 6,
-                                ...tag.style,
+                                padding: '2px 6px', borderRadius: 6, ...tag.style,
                               }}>
                                 {tag.label}
                               </span>
                             )}
-                            {isWon && (
-                              <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 6, background: '#e8f5f0', color: '#1D9E75' }}>Won</span>
-                            )}
-                            {isLost && (
-                              <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 6, background: '#fdeaea', color: '#E24B4A' }}>Lost</span>
-                            )}
+                            {isWon && <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 6, background: '#e8f5f0', color: '#1D9E75' }}>Won</span>}
+                            {isLost && <span style={{ fontSize: 10, fontWeight: 500, padding: '2px 6px', borderRadius: 6, background: '#fdeaea', color: '#E24B4A' }}>Lost</span>}
                           </div>
                         </div>
                       </Link>
@@ -321,22 +275,15 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
                   )
                 })}
 
-                {/* Add deal button */}
                 {stage.key !== 'closed_won' && stage.key !== 'closed_lost' && (
                   <button style={{
                     background: 'transparent',
                     border: '0.5px dashed rgba(0,0,0,0.1)',
-                    borderRadius: 12,
-                    padding: '9px 12px',
-                    cursor: 'pointer',
-                    fontSize: 11,
-                    color: '#9b9890',
-                    textAlign: 'left',
-                    width: '100%',
+                    borderRadius: 12, padding: '9px 12px',
+                    cursor: 'pointer', fontSize: 11, color: '#9b9890',
+                    textAlign: 'left', width: '100%',
                     transition: 'border-color 0.15s, color 0.15s',
-                  }}
-                    className="add-deal-btn"
-                  >
+                  }} className="add-deal-btn">
                     + Add deal
                   </button>
                 )}
