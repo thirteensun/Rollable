@@ -8,37 +8,38 @@ export default async function HomePage() {
 
   const { user, anon, admin, orgId, role } = ctx
 
-  const [
-    { data: orgData },
-    { data: profile },
-    { data: tasks },
-    { data: events },
-    { data: deals },
-  ] = await Promise.all([
-    orgId
-      ? admin.from('organisations').select('name').eq('id', orgId).single()
-      : Promise.resolve({ data: null }),
+  const { data: orgData } = orgId
+    ? await admin.from('organisations').select('name').eq('id', orgId).single()
+    : { data: null }
 
-    admin.from('users').select('full_name').eq('id', user.id).single(),
+  const { data: profile } = await admin
+    .from('users')
+    .select('full_name')
+    .eq('id', user.id)
+    .single()
 
+  const today = new Date()
+  today.setHours(23, 59, 59, 999)
+
+  const [{ data: tasks }, { data: events }, { data: deals }] = await Promise.all([
     // Tasks due today or overdue — exclude cancelled and postponed
     anon
       .from('tasks')
       .select('*, contacts(full_name), deals(name)')
       .eq('done', false)
       .not('status', 'in', '("cancelled","postponed")')
-      .lte('due_date', new Date(new Date().setHours(23, 59, 59, 999)).toISOString())
+      .lte('due_date', today.toISOString())
       .order('due_date', { ascending: true })
-      .limit(10),
+      .limit(5),
 
-    // Events for last 91 days — used for activity chart
+    // Events last 91 days — for activity chart
     anon
       .from('events')
       .select('id, created_at, type')
       .gte('created_at', new Date(Date.now() - 91 * 86400000).toISOString())
       .order('created_at', { ascending: false }),
 
-    // Active deals for pipeline pulse
+    // Active deals — for pipeline pulse / what's next (kept for future use)
     anon
       .from('deals')
       .select('id, name, stage, value, last_activity_at')
