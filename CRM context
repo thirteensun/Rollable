@@ -187,3 +187,122 @@ Here's the full session summary to add to your CRM context:
 5. Onboarding Q&A — AI learns the business
 6. Company enrichment — Apollo/Google Places
 7. React Native app
+
+
+Here's the full session summary:
+
+---
+
+**S9 Apr 16: Kanban persist, org scoping, RLS, UI polish**
+
+**Kanban persist**
+- Wired drag-drop stage changes to Supabase via new PATCH `/api/deals/[id]/stage/route.ts`
+- Added save/discard bar with pending change count and amber dot
+- Pending cards get subtle amber outline
+- Discard reverts board to original positions
+
+**Full-width Kanban**
+- `TrackingClient.tsx` desktop view now uses `position: fixed` from `left: 210px` to full viewport
+- Escapes layout wrapper `max-w` constraint entirely
+- Mobile tabbed view unchanged
+
+**Home task links fixed**
+- "See all" → `/tasks` (was `/planning`)
+- Task cards now link to `/tasks/${id}` (were dead `div`s)
+
+**Legacy planning removed**
+- Deleted `src/app/planning/` entirely
+
+**Mobile task calendar**
+- Added week/month toggle on mobile matching desktop
+- Task count badges on each day (red if overdue, green otherwise)
+- Tapping a day shows that day's task list below the calendar
+- Overdue banner shown when today is selected
+
+**Analytics fix**
+- Fixed events query: `type` not `event_type`
+
+**Org-scoped queries + RLS**
+- Created `src/lib/org-scope.ts` with `getUserContext()` returning both `anon` and `admin` clients
+- Anon client for all data queries (deals, contacts, companies, tasks, events) — RLS enforces scoping
+- Service role only for users table and organisation_members lookups
+- Updated RLS policies on all 5 data tables + deal_contacts:
+  - Members: `user_id = auth.uid()`
+  - Managers/Admins: `org_id = get_user_org_id() AND is_manager_or_admin()`
+- Applied consistently to: home, tracking, tasks, analytics, all detail pages
+- Removed all hardcoded `user_id` filters from app code
+
+**Detail pages**
+- All 4 detail pages (`deals/[id]`, `tasks/[id]`, `contacts/[id]`, `companies/[id]`) migrated to `createAnonSupabaseClient`
+- Removed hardcoded `.eq('user_id', user.id)` from task detail page
+
+**AI Sandbox redesign**
+- Right panel now tabbed: Signals + Health
+- Signals: slim banners with colored left border, dismissible
+- Health: compact scoreboard table — score chip, deal name, status label
+- Worst deals shown first, expand/collapse if >4 deals
+- Badges on tabs show count of issues
+
+**What to build next (updated)**
+1. Assistant org-scoping — search_crm and get_pipeline_summary should see full org for managers/admins
+2. Kanban `days_since_activity` — verify field is computed correctly
+3. Invite system end-to-end test
+4. Stripe billing
+5. Onboarding Q&A
+6. React Native app
+
+Here's the session summary to add to your CRM context:
+
+---
+
+**S10 Apr 17: SDM Landing Page**
+
+**New repo**
+- Created `github.com/thirteensun/sdm-landing` — separate static repo, no Supabase needed
+- Deployed to `sdm-landing.vercel.app` via Vercel (auto-detects static site)
+- 4 files in root: `index.html`, `screenshot-pipeline.png`, `screenshot-capture.png`, `bg-texture.png`
+
+**Design decisions**
+- White background (`#ffffff`), warm-neutral grey cards (`#eeede9` / `#f4f3f1`)
+- Inter 300/400/500 — slim weight, no decorative serif
+- Vintage grain photography (AI-generated) used as background in bento photo cards and final CTA
+- Real app screenshots embedded in bento grid (easy to swap — just replace the PNGs, same filenames)
+
+**Page structure**
+- Nav — fixed, blurred, Log in + Start free
+- Hero — two-col, poetic headline, no screenshot block
+- Trust strip — "Built for" audience types
+- Bento grid — Pipeline (2-col screenshot card) + Capture + 3 photo texture cards
+- Editorial demo section — 4 tabbed scenes (Capture, Pipeline, Analytics, AI Signals), fixed 540px height, auto-rotates every 12s
+- Agents section — sticky left text + 3 agent cards (Agent 01/02/03) with SVG icons
+- Pricing — Solo (free) / Pro (€29/user) / Business (€79 flat/10 users)
+- CTA — full texture background with dark overlay
+- Footer
+
+**Demo animation (cinematic, no user interaction)**
+- Capture scene: voice waveform → text resolves → photo attachment → fields typewriter in → success state
+- Pipeline scene: kanban renders → AI nudge slides in → voice command moves deal → board updates
+- Analytics scene: stat cards count up, SVG revenue trend line draws, sales funnel animates, deal health bars fill
+- Signals scene: 4 AI nudge cards slide in sequentially with icons and timestamps
+- All scenes loop; tab buttons switch manually or auto-rotate
+
+**Copy direction**
+- Hero: "Your team deserves better than filling in forms"
+- CTA: "Less admin. More selling."
+- Agents framing: "Deploy agents that capture, analyse, and take action"
+
+S11: Three-agent architecture
+
+Split monolithic /api/assistant into two agents:
+
+Action Agent /api/assistant — 8 tools, user-scoped writes, confirm card preview unchanged
+Analytics Agent /api/analytics-agent — 5 tools, org-scoped reads, used by AI Sandbox
+
+
+Added deal_stage_history table — full stage transition log with entered_at, exited_at, days_in_stage
+Added fields: deals.closed_at, deals.stage_entered_at, deals.expected_close_date, deals.loss_reason, organisation_members.quota/quota_period, contacts.next_followup_date
+Trigger handle_stage_change auto-stamps history on every stage change
+Three DB views: deal_stage_velocity, deal_stage_conversion, rep_quota_attainment
+Analytics Agent tools: get_pipeline_summary, get_deal_velocity, get_stage_conversion, get_revenue_forecast, get_rep_performance
+Seeded realistic stage history, quotas, close dates, loss reasons, followup dates for existing data
+AISandboxClient pointed to /api/analytics-agent, quick prompts updated
