@@ -375,12 +375,14 @@ function CopyButton({ text }: { text: string }) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function AISandboxClient({ deals, contacts, tasks }: Props) {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [history, setHistory] = useState<unknown[]>([])
+  const [messages, setMessages] = useState<Message[]>([])       // display messages
+  const [agentHistory, setAgentHistory] = useState<unknown[]>([]) // rolling window for agent
+  const [conversationId, setConversationId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingSession, setLoadingSession] = useState(true)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
-  const [activeTab, setActiveTab] = useState<'signals' | 'questions' | 'history'>('signals')
+  const [activeTab, setActiveTab] = useState<'signals' | 'questions'>('signals')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -397,6 +399,28 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
       ? `Open tasks: ${tasks.slice(0, 10).map(t => t.title).filter(Boolean).join(', ')}`
       : '',
   ].filter(Boolean).join('. ')
+
+  // Load last conversation on mount
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const res = await fetch('/api/sandbox')
+        const data = await res.json()
+        if (data.conversation) {
+          setMessages(data.conversation.messages || [])
+          setConversationId(data.conversation.id)
+          // Rebuild agent history from last 6 display messages
+          const agentMsgs = (data.conversation.messages || [])
+            .slice(-6)
+            .map((m: Message) => ({ role: m.role, content: m.content }))
+          setAgentHistory(agentMsgs)
+        }
+      } catch { /* silent fail */ } finally {
+        setLoadingSession(false)
+      }
+    }
+    loadSession()
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -417,11 +441,17 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
       const res = await fetch('/api/sandbox', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: contextualMessage, history }),
+        body: JSON.stringify({
+          message: contextualMessage,
+          agentHistory,
+          conversationId,
+          displayMessages: messages,
+        }),
       })
       const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply, id: newId(), agent: data.agent }])
-      setHistory(data.history)
+      setMessages(data.displayMessages || [])
+      setAgentHistory(data.agentHistory || [])
+      setConversationId(data.conversationId || null)
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.', id: newId() }])
     } finally {
@@ -476,7 +506,7 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
             <span style={{ fontSize: 11, color: C.faint, marginLeft: -4 }}>live</span>
             <div style={{ flex: 1 }} />
             {messages.length > 0 && (
-              <button onClick={() => { setMessages([]); setHistory([]) }} style={{
+              <button onClick={() => { setMessages([]); setAgentHistory([]); setConversationId(null) }} style={{
                 background: C.bg, border: 'none', borderRadius: 7,
                 padding: '4px 10px', fontSize: 11, color: C.faint,
                 cursor: 'pointer', fontFamily: 'inherit',
@@ -487,8 +517,15 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
           {/* Messages — scrollable */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 8px' }}>
 
+            {/* Loading session */}
+            {loadingSession && (
+              <div style={{ paddingTop: 40, textAlign: 'center' }}>
+                <div style={{ fontSize: 12, color: C.faint }}>Loading session…</div>
+              </div>
+            )}
+
             {/* Empty state */}
-            {messages.length === 0 && (
+            {!loadingSession && messages.length === 0 && (
               <div style={{ paddingTop: 24 }}>
                 <div style={{ marginBottom: 28 }}>
                   <div style={{ fontSize: 20, fontWeight: 500, color: C.dark, marginBottom: 6, letterSpacing: '-0.02em' }}>
@@ -677,7 +714,6 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
             {([
               { key: 'signals' as const,   label: 'Signals',   badge: activeSignals.length },
               { key: 'questions' as const, label: 'Questions', badge: 0 },
-              { key: 'history' as const,   label: 'History',   badge: messages.filter(m => m.role === 'user').length },
             ]).map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
                 background: activeTab === tab.key ? C.bg : 'transparent',
@@ -726,12 +762,6 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
               <QuestionsPanel onSend={msg => { sendMessage(msg) }} />
             )}
 
-            {activeTab === 'history' && (
-              <HistoryPanel
-                messages={messages}
-                onRestore={msg => setInput(msg)}
-              />
-            )}
 
           </div>
         </div>

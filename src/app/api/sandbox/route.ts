@@ -375,6 +375,17 @@ async function runAgentLoop(
   return { reply: textBlock?.text || 'Done.', updatedMessages: extra }
 }
 
+// ─── Rolling window — only last 6 messages sent to agent ─────────────────────
+const AGENT_WINDOW = 6
+
+function rollingWindow(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  // Always keep an even number (user+assistant pairs) to avoid broken context
+  const windowed = messages.slice(-AGENT_WINDOW)
+  // Ensure first message is user role (agents expect user first)
+  const firstUser = windowed.findIndex(m => m.role === 'user')
+  return firstUser > 0 ? windowed.slice(firstUser) : windowed
+}
+
 // ─── POST handler ─────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   try {
@@ -401,7 +412,10 @@ export async function POST(request: NextRequest) {
     const org_id = membership?.org_id || null
     const role = membership?.role || 'member'
 
-    const { message, history } = await request.json()
+    const { message, agentHistory, conversationId, displayMessages } = await request.json()
+    // agentHistory: rolling window of MessageParam[] for the agent (max 6)
+    // displayMessages: full UI message array [{role, content, id, agent}] for saving to DB
+    // conversationId: existing conversation to update, or null to create new
 
     // Classify intent in parallel with model fetch
     const [intent, model] = await Promise.all([
@@ -409,12 +423,15 @@ export async function POST(request: NextRequest) {
       getLatestSonnetModel(),
     ])
 
-    const messages: Anthropic.MessageParam[] = [
-      ...(history || []),
+    // Build agent messages — rolling window only, never full history
+    const agentMessages: Anthropic.MessageParam[] = rollingWindow([
+      ...(agentHistory || []),
       { role: 'user', content: message },
-    ]
+    ])
 
     const today = new Date().toISOString().split('T')[0]
+    let reply = ''
+    let updatedAgentHistory: Anthropic.MessageParam[] = []
 
     if (intent === 'action') {
       const system = `You are an AI sales assistant. Help the user manage their CRM — add contacts, create deals, update stages, log tasks, and search records.
@@ -423,11 +440,12 @@ Be concise and confirm every action you take in plain English.
 For pipeline analysis or performance questions, let the user know those are better answered in the Analytics view.
 Today's date: ${today}`
 
-      const { reply, updatedMessages } = await runAgentLoop(model, system, actionTools, messages, user.id, org_id, role, admin)
+      const result = await runAgentLoop(model, system, actionTools, agentMessages, user.id, org_id, role, admin)
+      reply = result.reply
 
       // Log write events
       const writeTools = ['add_contact', 'add_deal', 'add_task', 'add_company', 'update_deal_stage', 'update_deal_financials']
-      const usedWrites = updatedMessages
+      const usedWrites = result.updatedMessages
         .flatMap((m: any) => Array.isArray(m.content) ? m.content : [])
         .filter((b: any) => b.type === 'tool_use' && writeTools.includes(b.name))
 
@@ -439,14 +457,7 @@ Today's date: ${today}`
         })
       }
 
-      return NextResponse.json({
-        reply,
-        agent: 'action',
-        history: [...messages, { role: 'assistant', content: reply }],
-      })
-
     } else {
-      // Analytics
       const isElevated = role === 'manager' || role === 'admin'
       const system = `You are a sales analytics assistant. Help the user understand their pipeline, performance, and what to focus on.
 
@@ -455,17 +466,95 @@ Be direct and lead with the insight. Use numbers. If something looks bad, say so
 For actions like adding contacts or updating stages, tell the user they can just ask you directly.
 Today's date: ${today}`
 
-      const { reply } = await runAgentLoop(model, system, analyticsTools, messages, user.id, org_id, role, admin)
-
-      return NextResponse.json({
-        reply,
-        agent: 'analytics',
-        history: [...messages, { role: 'assistant', content: reply }],
-      })
+      const result = await runAgentLoop(model, system, analyticsTools, agentMessages, user.id, org_id, role, admin)
+      reply = result.reply
     }
+
+    // New agent history for next turn (rolling window of what we just sent + reply)
+    updatedAgentHistory = [
+      ...(agentHistory || []).slice(-(AGENT_WINDOW - 2)), // keep last N-2 previous
+      { role: 'user' as const, content: message },
+      { role: 'assistant' as const, content: reply },
+    ]
+
+    // Persist full display conversation to Supabase
+    const newDisplayMessages = [
+      ...(displayMessages || []),
+      { role: 'user', content: message, id: `u-${Date.now()}` },
+      { role: 'assistant', content: reply, id: `a-${Date.now()}`, agent: intent },
+    ]
+
+    let convId = conversationId
+    const title = (displayMessages?.length === 0 || !displayMessages)
+      ? message.slice(0, 60)  // first message becomes title
+      : undefined
+
+    if (convId) {
+      // Update existing conversation
+      await admin.from('conversations').update({
+        messages: newDisplayMessages,
+        ...(title ? { title } : {}),
+      }).eq('id', convId).eq('user_id', user.id)
+    } else {
+      // Create new conversation
+      const { data: newConv } = await admin.from('conversations').insert({
+        user_id: user.id,
+        org_id,
+        source: 'sandbox',
+        title: title || message.slice(0, 60),
+        messages: newDisplayMessages,
+      }).select('id').maybeSingle()
+      convId = newConv?.id || null
+    }
+
+    return NextResponse.json({
+      reply,
+      agent: intent,
+      agentHistory: updatedAgentHistory,
+      conversationId: convId,
+      displayMessages: newDisplayMessages,
+    })
 
   } catch (error: any) {
     console.error('Sandbox router error:', error)
     return NextResponse.json({ error: error.message || 'Sandbox failed' }, { status: 500 })
+  }
+}
+
+// ─── GET handler — load last conversation on mount ────────────────────────────
+export async function GET(request: NextRequest) {
+  try {
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: { get(name: string) { return cookieStore.get(name)?.value }, set() {}, remove() {} } }
+    )
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+    // Load most recent sandbox conversation
+    const { data: conv } = await admin
+      .from('conversations')
+      .select('id, title, messages, updated_at')
+      .eq('user_id', user.id)
+      .eq('source', 'sandbox')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!conv) return NextResponse.json({ conversation: null })
+
+    // Only restore if updated within last 24 hours
+    const age = (Date.now() - new Date(conv.updated_at).getTime()) / 3600000
+    if (age > 24) return NextResponse.json({ conversation: null })
+
+    return NextResponse.json({ conversation: conv })
+
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
