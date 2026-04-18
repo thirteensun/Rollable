@@ -111,11 +111,11 @@ const SHORTCUTS = [
 
 // ─── Activity Chart ───────────────────────────────────────────────────────────
 const CHART_COLOR_BASE = [74, 122, 138] // teal from image
+const TOTAL_WEEKS = 52
 
 function activityColor(intensity: number): string {
   if (intensity === 0) return 'rgba(0,0,0,0.06)'
   const [r, g, b] = CHART_COLOR_BASE
-  // light → dark teal
   const lr = Math.round(r + (1 - intensity) * 148)
   const lg = Math.round(g + (1 - intensity) * 98)
   const lb = Math.round(b + (1 - intensity) * 80)
@@ -144,11 +144,9 @@ function ActivityChart({ events }: { events: Event[] }) {
     return map
   }, [events])
 
-  // Build 16-week grid ending today, aligned to Monday
   const { weeks, monthLabels } = useMemo(() => {
     const today = new Date(); today.setHours(0,0,0,0)
     const todayStr = today.toISOString().split('T')[0]
-    const TOTAL_WEEKS = 16
 
     const start = new Date(today)
     start.setDate(start.getDate() - TOTAL_WEEKS * 7)
@@ -169,7 +167,6 @@ function ActivityChart({ events }: { events: Event[] }) {
       weeksArr.push(col)
     }
 
-    // Month labels
     const labels: { label: string; col: number }[] = []
     let lastMonth = -1
     weeksArr.forEach((col, ci) => {
@@ -200,62 +197,68 @@ function ActivityChart({ events }: { events: Event[] }) {
           <span style={{ fontSize: 11, color: '#9b9890' }}>{totalEvents} actions · {activeDays} active days</span>
         </div>
 
-        {/* Month labels row */}
-        <div style={{ display: 'flex', marginBottom: 4, paddingLeft: 20 }}>
-          {weeks.map((col, ci) => {
-            const ml = monthLabels.find(m => m.col === ci)
-            return (
-              <div key={ci} style={{ width: CELL + GAP, flexShrink: 0, fontSize: 9, color: '#9b9890' }}>
-                {ml ? ml.label : ''}
-              </div>
-            )
-          })}
-        </div>
+        {/* Scrollable chart area */}
+        <div style={{ overflowX: 'auto', overflowY: 'hidden', paddingBottom: 4 }}>
+          <div style={{ width: 'max-content' }}>
 
-        {/* Grid */}
-        <div style={{ display: 'flex', gap: GAP }}>
-          {/* Day labels */}
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: 1, paddingBottom: 1, width: 16, flexShrink: 0 }}>
-            {['M','','W','','F','',''].map((d, i) => (
-              <div key={i} style={{ height: CELL, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 3 }}>
-                <span style={{ fontSize: 8, color: '#9b9890' }}>{d}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Cells */}
-          {weeks.map((col, ci) => (
-            <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
-              {col.map((cell, ri) => {
-                const intensity = cell.count === 0 ? 0 : Math.max(0.2, Math.min(1, cell.count / maxCount))
-                const isSelected = selectedDate === cell.date
+            {/* Month labels row */}
+            <div style={{ display: 'flex', marginBottom: 4, paddingLeft: 20 }}>
+              {weeks.map((col, ci) => {
+                const ml = monthLabels.find(m => m.col === ci)
                 return (
-                  <div
-                    key={ri}
-                    onClick={() => setSelectedDate(isSelected ? null : cell.date)}
-                    title={`${cell.date}: ${cell.count} action${cell.count !== 1 ? 's' : ''}`}
-                    style={{
-                      width: CELL, height: CELL, borderRadius: 3,
-                      background: activityColor(intensity),
-                      border: cell.isToday
-                        ? '1.5px solid #4a7a8a'
-                        : isSelected
-                          ? '1.5px solid #1a1a18'
-                          : 'none',
-                      boxSizing: 'border-box',
-                      cursor: cell.count > 0 ? 'pointer' : 'default',
-                      flexShrink: 0,
-                      transition: 'transform 0.1s',
-                    }}
-                  />
+                  <div key={ci} style={{ width: CELL + GAP, flexShrink: 0, fontSize: 9, color: '#9b9890' }}>
+                    {ml ? ml.label : ''}
+                  </div>
                 )
               })}
-              {/* Pad short columns */}
-              {Array.from({ length: 7 - col.length }).map((_, i) => (
-                <div key={`pad-${i}`} style={{ width: CELL, height: CELL, flexShrink: 0 }} />
+            </div>
+
+            {/* Grid */}
+            <div style={{ display: 'flex', gap: GAP }}>
+              {/* Day labels */}
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: 1, paddingBottom: 1, width: 16, flexShrink: 0 }}>
+                {['M','','W','','F','',''].map((d, i) => (
+                  <div key={i} style={{ height: CELL, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 3 }}>
+                    <span style={{ fontSize: 8, color: '#9b9890' }}>{d}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Cells */}
+              {weeks.map((col, ci) => (
+                <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
+                  {col.map((cell, ri) => {
+                    const intensity = cell.count === 0 ? 0 : Math.max(0.2, Math.min(1, cell.count / maxCount))
+                    const isSelected = selectedDate === cell.date
+                    return (
+                      <div
+                        key={ri}
+                        onClick={() => setSelectedDate(isSelected ? null : cell.date)}
+                        title={`${cell.date}: ${cell.count} action${cell.count !== 1 ? 's' : ''}`}
+                        style={{
+                          width: CELL, height: CELL, borderRadius: 3,
+                          background: activityColor(intensity),
+                          border: cell.isToday
+                            ? '1.5px solid #4a7a8a'
+                            : isSelected
+                              ? '1.5px solid #1a1a18'
+                              : 'none',
+                          boxSizing: 'border-box',
+                          cursor: cell.count > 0 ? 'pointer' : 'default',
+                          flexShrink: 0,
+                          transition: 'transform 0.1s',
+                        }}
+                      />
+                    )
+                  })}
+                  {Array.from({ length: 7 - col.length }).map((_, i) => (
+                    <div key={`pad-${i}`} style={{ width: CELL, height: CELL, flexShrink: 0 }} />
+                  ))}
+                </div>
               ))}
             </div>
-          ))}
+
+          </div>
         </div>
 
         {/* Legend */}
@@ -354,8 +357,8 @@ export default function HomeClient({ name, initials, tasks, events, deals, orgNa
       {/* AI Nudges */}
       <AIProactiveNudges />
 
-      {/* Shortcuts — white cards, coloured icons */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, marginBottom: 28 }}>
+      {/* Shortcuts — 3 cols mobile, 6 cols desktop */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-7">
         {SHORTCUTS.map(s => (
           <Link key={s.href} href={s.href} style={{ textDecoration: 'none' }}>
             <div style={{
@@ -426,9 +429,6 @@ export default function HomeClient({ name, initials, tasks, events, deals, orgNa
 
       <style>{`
         .shortcut-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08) !important; transform: translateY(-1px); }
-        @media (max-width: 768px) {
-          .shortcuts-grid { grid-template-columns: repeat(3, 1fr) !important; }
-        }
       `}</style>
     </div>
   )

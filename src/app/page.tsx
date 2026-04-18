@@ -32,11 +32,11 @@ export default async function HomePage() {
       .order('due_date', { ascending: true })
       .limit(5),
 
-    // Events last 91 days — for activity chart + click detail
+    // Events last 365 days — for activity chart + click detail
     anon
       .from('events')
       .select('id, created_at, type, summary, contacts(full_name), deals(name), companies(name)')
-      .gte('created_at', new Date(Date.now() - 112 * 86400000).toISOString())
+      .gte('created_at', new Date(Date.now() - 365 * 86400000).toISOString())
       .order('created_at', { ascending: false }),
 
     // Active deals — for pipeline pulse / what's next (kept for future use)
