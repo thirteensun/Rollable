@@ -306,3 +306,65 @@ Three DB views: deal_stage_velocity, deal_stage_conversion, rep_quota_attainment
 Analytics Agent tools: get_pipeline_summary, get_deal_velocity, get_stage_conversion, get_revenue_forecast, get_rep_performance
 Seeded realistic stage history, quotas, close dates, loss reasons, followup dates for existing data
 AISandboxClient pointed to /api/analytics-agent, quick prompts updated
+
+Here's the full session summary to add to your CRM context:
+
+---
+
+**S12 Apr 18: Agent architecture, analytics, home page, task statuses**
+
+**Three-agent architecture**
+- Split monolithic `/api/assistant` into:
+  - **Action Agent** `/api/assistant` — 8 write tools, user-scoped, confirm card unchanged
+  - **Analytics Agent** `/api/analytics-agent` — 5 read tools, org-scoped, used by AI Sandbox
+  - **Sandbox Router** `/api/sandbox` — Haiku classifies intent → routes to Action or Analytics. Returns `agent` label shown in chat UI
+- `AISandboxClient` updated: dark→white chat, Signals + Questions + History tabs, inline charts, copy button, session persistence via Supabase `conversations` table
+- `/api/sandbox/history` — GET list + GET single conversation
+
+**Analytics Agent tools (5)**
+- `get_pipeline_summary` — by stage, at-risk, closing soon, by rep (elevated only)
+- `get_deal_velocity` — avg days per stage from `deal_stage_velocity` view
+- `get_stage_conversion` — advance rate % per stage from `deal_stage_conversion` view
+- `get_revenue_forecast` — weighted pipeline, quota attainment, gap, closing soon
+- `get_rep_performance` — managers/admins only, sortable by 4 metrics
+
+**Analytics Agent inline charts**
+- Agent returns `\`\`\`chart\`\`\`` JSON block when answer is visual
+- Sandbox client parses and renders inline: `funnel`, `bar`, `donut`, `stages`
+- Agent proactively suggests charts for pipeline/revenue/performance questions
+
+**DB migrations (run in order)**
+- `analytics-migrations.sql` — new deal fields (`closed_at`, `stage_entered_at`, `expected_close_date`, `loss_reason`), quota fields on org members, `next_followup_date` on contacts, `deal_stage_history` table, trigger `handle_stage_change`, 3 views (`deal_stage_velocity`, `deal_stage_conversion`, `rep_quota_attainment`)
+- `analytics-seed.sql` — seeded realistic stage history, quotas, close dates, loss reasons, followup dates
+- `conversations-migration.sql` — `conversations` table for sandbox session persistence
+- `task-status-migration.sql` — added `cancelled`, `postponed` statuses, `postponed_until` field, backfilled all existing to `todo`
+
+**Token strategy**
+- Agent gets rolling 6-message window only — never full history
+- Full conversation saved to Supabase `conversations` table for display
+- Session restores on mount if updated within 24h
+
+**Navigation**
+- `SidebarNav`: Capture moved into Workspace group (after Home), "CRM" renamed to "Records", Capture removed from Records group
+- `BottomNav`: unchanged (Capture already centre pulse button)
+
+**Home page rebuilt**
+- Removed: recent activity feed
+- Added: GitHub-style activity chart (click day → see events), 6 shortcut cards (white bg, coloured icons from project image palette), kept: today's focus, AI nudges
+- Activity chart: teal color from project image (`#4a7a8a`), CSS flex grid (stable, no SVG scaling issues), click any active day to see events inline below chart
+- `page.tsx`: fetches deals + 112 days of events with full detail (summary, contacts, deals, companies)
+
+**Task statuses**
+- 5 statuses: `todo | in_progress | done | cancelled | postponed`
+- `TaskDetailClient`: 2-row status picker, postponed shows date picker, cancelled gets strikethrough + fade
+- `TaskSchedulerClient`: cancelled excluded from counts/overdue, postponed shown blue, toggle uses `todo` not `pending`
+- Home and tasks page queries exclude `cancelled` and `postponed` from active views
+
+**Kanban improvements**
+- Pending cards: amber background tint + border (was invisible outline)
+- Stage column headers: low-saturation washi palette — coloured dot + tinted header bg per stage (lead/qualified/demo/proposal/negotiation/won/lost)
+- Centering: `justifyContent: 'center'` + `minWidth: 'max-content'`
+
+**Analytics page rebuilt**
+- `AnalyticsClient`: 12 SVG charts, tag-based nav filter, all rendering fixes (no `preserveAspectRatio="none"`)
+- `analytics/page.tsx`: fetches deals, contacts, companies, tasks, stage velocity, quota, stage conversion

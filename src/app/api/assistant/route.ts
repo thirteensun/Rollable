@@ -151,7 +151,8 @@ async function executeTool(
   toolInput: any,
   userId: string,
   orgId: string | null,
-  admin: any
+  admin: any,
+  isElevated: boolean
 ): Promise<string> {
   switch (toolName) {
     case 'add_contact': {
@@ -185,7 +186,9 @@ async function executeTool(
     }
 
     case 'find_contact': {
-      let query = admin.from('contacts').select('full_name, role, email, phone, companies(name)').eq('user_id', userId)
+      let query = admin.from('contacts').select('full_name, role, email, phone, companies(name)')
+      // Elevated users can find anyone in the org
+      query = isElevated && orgId ? query.eq('org_id', orgId) : query.eq('user_id', userId)
       if (toolInput.name) query = query.ilike('full_name', `%${toolInput.name}%`)
       if (toolInput.company) query = query.ilike('companies.name', `%${toolInput.company}%`)
       const { data } = await query.limit(5)
@@ -230,30 +233,39 @@ async function executeTool(
     case 'search_crm': {
       const results: string[] = []
       const searchType = toolInput.type || 'all'
+
       if (searchType === 'all' || searchType === 'contacts') {
-        const { data } = await admin.from('contacts').select('full_name, role, email, phone, companies(name)').eq('user_id', userId).ilike('full_name', `%${toolInput.query}%`).limit(3)
+        let q = admin.from('contacts').select('full_name, role, email, phone, companies(name)').ilike('full_name', `%${toolInput.query}%`).limit(3)
+        q = isElevated && orgId ? q.eq('org_id', orgId) : q.eq('user_id', userId)
+        const { data } = await q
         if (data?.length) results.push(`Contacts: ${data.map((c: any) => `${c.full_name}${c.companies?.name ? ` at ${c.companies.name}` : ''}`).join(', ')}`)
       }
       if (searchType === 'all' || searchType === 'companies') {
-        const { data } = await admin.from('companies').select('name, industry').eq('user_id', userId).ilike('name', `%${toolInput.query}%`).limit(3)
+        let q = admin.from('companies').select('name, industry').ilike('name', `%${toolInput.query}%`).limit(3)
+        q = isElevated && orgId ? q.eq('org_id', orgId) : q.eq('user_id', userId)
+        const { data } = await q
         if (data?.length) results.push(`Companies: ${data.map((c: any) => c.name).join(', ')}`)
       }
       if (searchType === 'all' || searchType === 'deals') {
-        const { data } = await admin.from('deals').select('name, stage, value').eq('user_id', userId).ilike('name', `%${toolInput.query}%`).limit(3)
+        let q = admin.from('deals').select('name, stage, value').ilike('name', `%${toolInput.query}%`).limit(3)
+        q = isElevated && orgId ? q.eq('org_id', orgId) : q.eq('user_id', userId)
+        const { data } = await q
         if (data?.length) results.push(`Deals: ${data.map((d: any) => `${d.name} (${d.stage}${d.value ? `, €${d.value.toLocaleString()}` : ''})`).join(', ')}`)
       }
       return results.length ? results.join('\n') : `No results found for "${toolInput.query}".`
     }
 
     case 'get_pipeline_summary': {
-      const { data: deals } = await admin.from('deals').select('name, stage, value, last_activity_at').eq('user_id', userId).not('stage', 'in', '("closed_won","closed_lost")')
-      if (!deals?.length) return 'No active deals in your pipeline.'
+      let q = admin.from('deals').select('name, stage, value, last_activity_at').not('stage', 'in', '("closed_won","closed_lost")')
+      q = isElevated && orgId ? q.eq('org_id', orgId) : q.eq('user_id', userId)
+      const { data: deals } = await q
+      if (!deals?.length) return 'No active deals in the pipeline.'
       const total = deals.reduce((s: number, d: any) => s + (d.value || 0), 0)
       const atRisk = deals.filter((d: any) => {
         const days = (Date.now() - new Date(d.last_activity_at || d.created_at).getTime()) / 86400000
         return days > 14
       })
-      return `You have ${deals.length} active deals worth €${total.toLocaleString()} total. ${atRisk.length > 0 ? `${atRisk.length} deal${atRisk.length > 1 ? 's' : ''} at risk: ${atRisk.map((d: any) => d.name).join(', ')}.` : 'No deals at risk.'}`
+      return `${isElevated ? 'Org pipeline' : 'Your pipeline'}: ${deals.length} active deals worth €${total.toLocaleString()} total. ${atRisk.length > 0 ? `${atRisk.length} at risk: ${atRisk.map((d: any) => d.name).join(', ')}.` : 'No deals at risk.'}`
     }
 
     case 'update_deal_stage': {
@@ -301,8 +313,17 @@ export async function POST(request: NextRequest) {
 
     const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-    const { data: membership } = await admin.from('organisation_members').select('org_id').eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle()
+    const { data: membership } = await admin
+      .from('organisation_members')
+      .select('org_id, role')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle()
+
     const org_id = membership?.org_id || null
+    const role = membership?.role || 'member'
+    const isElevated = role === 'manager' || role === 'admin'
 
     const { message, history } = await request.json()
 
@@ -314,6 +335,9 @@ export async function POST(request: NextRequest) {
     const systemPrompt = `You are an AI sales assistant built into a CRM app. You help salespeople manage their contacts, companies, deals and tasks through natural conversation.
 
 Be concise and friendly — like a smart colleague, not a formal assistant. Always confirm what you did in plain English.
+
+You have access to ${isElevated ? 'the full organisation pipeline and all team data' : 'your own contacts, deals, and tasks'}.
+User role: ${role}
 
 When users ask you to:
 - Add/update contacts or companies → use add_contact or add_company tools
@@ -345,7 +369,7 @@ Today's date: ${new Date().toISOString().split('T')[0]}`
       const toolResults: Anthropic.ToolResultBlockParam[] = []
 
       for (const toolUse of toolUseBlocks) {
-        const result = await executeTool(toolUse.name, toolUse.input, user.id, org_id, admin)
+        const result = await executeTool(toolUse.name, toolUse.input, user.id, org_id, admin, isElevated)
         toolResults.push({ type: 'tool_result', tool_use_id: toolUse.id, content: result })
       }
 
