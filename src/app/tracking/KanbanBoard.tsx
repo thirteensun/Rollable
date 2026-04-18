@@ -13,6 +13,26 @@ const STAGES = [
   { key: 'closed_lost', label: 'Lost' },
 ]
 
+// ── Stage colors — low saturation, washi paper tones ─────────────────────────
+const STAGE_BG: Record<string, string> = {
+  lead:        'rgba(180,174,164,0.12)', // warm grey — paper
+  qualified:   'rgba(130,155,170,0.12)', // slate blue — calm
+  demo:        'rgba(115,145,160,0.14)', // deeper slate
+  proposal:    'rgba(160,140,100,0.12)', // warm ochre — attention
+  negotiation: 'rgba(170,115,100,0.12)', // terracotta — close
+  closed_won:  'rgba(90,145,120,0.13)',  // sage green — success
+  closed_lost: 'rgba(160,100,100,0.08)', // faded red — neutral
+}
+const STAGE_DOT: Record<string, string> = {
+  lead:        '#9b9890',
+  qualified:   '#7a9aaa',
+  demo:        '#5d8899',
+  proposal:    '#a08840',
+  negotiation: '#a06050',
+  closed_won:  '#4a8a6a',
+  closed_lost: '#c0a0a0',
+}
+
 type Deal = {
   id: string
   name: string
@@ -218,10 +238,9 @@ export default function KanbanBoard({ deals }: { deals: Deal[] }) {
                       onDragStart={() => handleDragStart(deal.id)}
                       onDragEnd={handleDragEnd}
                       style={{
-                        background: 'white',
-                        border: '0.5px solid rgba(0,0,0,0.07)',
-                        borderLeft: atRisk ? '2.5px solid #EF9F27' : undefined,
-                        outline: isPending ? '1.5px solid rgba(239,159,39,0.4)' : undefined,
+                        background: isPending ? 'rgba(239,159,39,0.07)' : 'white',
+                        border: isPending ? '1px solid rgba(239,159,39,0.35)' : '0.5px solid rgba(0,0,0,0.07)',
+                        borderLeft: atRisk && !isPending ? '2.5px solid #EF9F27' : isPending ? '2.5px solid #EF9F27' : undefined,
                         borderRadius: 12, padding: '11px 12px',
                         cursor: 'grab',
                         opacity: isDragging ? 0.4 : isWon || isLost ? 0.65 : 1,

@@ -64,16 +64,28 @@ function ActivityChart({ events }: { events: Event[] }) {
     today.setHours(0, 0, 0, 0)
     const todayStr = today.toISOString().split('T')[0]
 
-    // Go back 13 weeks, aligned to Monday
-    const start = new Date(today)
-    start.setDate(start.getDate() - 90)
+    // Find earliest event date, cap at 16 weeks ago
+    const dates = Object.keys(countByDate).sort()
+    const earliest = dates.length > 0 ? new Date(dates[0]) : new Date(today)
+    const maxBack = new Date(today)
+    maxBack.setDate(maxBack.getDate() - 112) // 16 weeks max
+    const startBase = earliest < maxBack ? maxBack : earliest
+
+    // Align start to Monday, go back one extra week for padding
+    const start = new Date(startBase)
+    start.setDate(start.getDate() - 7) // one week padding before first event
     const dow = start.getDay()
     start.setDate(start.getDate() - (dow === 0 ? 6 : dow - 1))
+
+    // Calculate weeks needed to reach today
+    const msPerWeek = 7 * 86400000
+    const weeksNeeded = Math.ceil((today.getTime() - start.getTime()) / msPerWeek) + 1
+    const weeks = Math.min(Math.max(weeksNeeded, 6), 16) // min 6, max 16 weeks
 
     const grid: { date: string; count: number; isToday: boolean; isFuture: boolean }[][] = []
     const current = new Date(start)
 
-    for (let week = 0; week < 14; week++) {
+    for (let week = 0; week < weeks; week++) {
       const col = []
       for (let day = 0; day < 7; day++) {
         const dateStr = current.toISOString().split('T')[0]
