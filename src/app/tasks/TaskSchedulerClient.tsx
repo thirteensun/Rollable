@@ -39,10 +39,7 @@ function useIsDesktop() {
 }
 
 function dateKey(d: Date) {
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return d.toISOString().slice(0, 10)
 }
 
 function isToday(d: Date) {
@@ -52,25 +49,21 @@ function isToday(d: Date) {
 function isPast(d: Date) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-
-  const compare = new Date(d)
-  compare.setHours(0, 0, 0, 0)
-
-  return compare < today
+  return d < today
 }
 
 function taskDateKey(task: Task) {
   return task.due_date ? task.due_date.slice(0, 10) : null
 }
 
-// Exclude cancelled/postponed from overdue
+// ── Exclude cancelled/postponed from overdue ──────────────────────────────────
 function isOverdue(task: Task) {
   if (!task.due_date) return false
   if (['done', 'cancelled', 'postponed'].includes(task.status ?? '')) return false
   return task.due_date.slice(0, 10) < dateKey(new Date())
 }
 
-// Active = not cancelled (done and postponed still show)
+// ── Active = not cancelled (done and postponed still show) ────────────────────
 function isActive(task: Task) {
   return task.status !== 'cancelled'
 }
@@ -78,10 +71,7 @@ function isActive(task: Task) {
 function getWeekDays(offset = 0): Date[] {
   const now = new Date()
   const monday = new Date(now)
-  const day = now.getDay()
-  const diffToMonday = day === 0 ? -6 : 1 - day
-
-  monday.setDate(now.getDate() + diffToMonday + offset * 7)
+  monday.setDate(now.getDate() - now.getDay() + 1 + offset * 7)
   monday.setHours(0, 0, 0, 0)
 
   return Array.from({ length: 7 }, (_, i) => {
@@ -110,6 +100,7 @@ const PRIORITY_COLOR: Record<string, string> = {
   low: '#9b9890',
 }
 
+// ── Confirm Modal ──────────────────────────────────────────────────────────────
 function ConfirmCaptureModal({
   date,
   onConfirm,
@@ -131,7 +122,7 @@ function ConfirmCaptureModal({
         position: 'fixed',
         inset: 0,
         zIndex: 100,
-        background: 'rgba(0,0,0,0.22)',
+        background: 'rgba(0,0,0,0.3)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -147,7 +138,6 @@ function ConfirmCaptureModal({
           display: 'flex',
           flexDirection: 'column',
           gap: 16,
-          border: '0.5px solid rgba(0,0,0,0.07)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -162,7 +152,7 @@ function ConfirmCaptureModal({
           >
             Add task
           </div>
-          <div style={{ fontSize: 13, color: '#6b6960', lineHeight: 1.45 }}>
+          <div style={{ fontSize: 13, color: '#6b6960' }}>
             Go to Capture to add a new task for <strong>{formatted}</strong>?
           </div>
         </div>
@@ -182,7 +172,6 @@ function ConfirmCaptureModal({
           >
             Cancel
           </button>
-
           <button
             onClick={onConfirm}
             style={{
@@ -204,6 +193,7 @@ function ConfirmCaptureModal({
   )
 }
 
+// ── Task Chip ──────────────────────────────────────────────────────────────────
 function TaskChip({
   task,
   onToggle,
@@ -219,34 +209,40 @@ function TaskChip({
   const overdue = isOverdue(task)
   const priorityColor = task.priority ? PRIORITY_COLOR[task.priority] : undefined
 
+  const bgColor = cancelled
+    ? 'transparent'
+    : postponed
+      ? 'rgba(61,125,228,0.06)'
+      : overdue
+        ? '#fdeaea'
+        : done
+          ? 'transparent'
+          : '#f5f4f0'
+
   const textColor = cancelled
     ? '#9b9890'
     : postponed
-      ? '#6b6960'
+      ? '#3d7de4'
       : overdue
-        ? '#C45857'
+        ? '#E24B4A'
         : done
           ? '#9b9890'
           : '#1a1a18'
 
-  const background = overdue
-    ? 'rgba(226,75,74,0.06)'
-    : compact
-      ? 'transparent'
-      : '#f8f7f4'
-
   return (
     <div
       style={{
-        background,
-        borderRadius: compact ? 0 : 8,
-        padding: compact ? '4px 0 4px 8px' : '7px 8px',
+        background: bgColor,
+        borderRadius: 8,
+        padding: compact ? '4px 7px' : '7px 9px',
         display: 'flex',
         alignItems: 'flex-start',
-        gap: 8,
+        gap: 6,
         borderLeft:
-          priorityColor && !done && !cancelled ? `1.5px solid ${priorityColor}` : '1.5px solid transparent',
-        opacity: done || cancelled ? 0.56 : 1,
+          priorityColor && !done && !cancelled
+            ? `2px solid ${priorityColor}`
+            : '2px solid transparent',
+        opacity: done || cancelled ? 0.5 : 1,
         transition: 'opacity 0.2s',
         marginBottom: 3,
       }}
@@ -258,13 +254,13 @@ function TaskChip({
           height: 13,
           borderRadius: 4,
           flexShrink: 0,
-          marginTop: 2,
+          marginTop: 1,
           border: done
             ? 'none'
             : cancelled
               ? '1.5px solid rgba(0,0,0,0.1)'
-              : '1.5px solid rgba(0,0,0,0.18)',
-          background: done ? '#1a1a18' : cancelled ? 'rgba(0,0,0,0.05)' : 'white',
+              : '1.5px solid rgba(0,0,0,0.2)',
+          background: done ? '#1D9E75' : cancelled ? 'rgba(0,0,0,0.06)' : 'white',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -298,7 +294,7 @@ function TaskChip({
         href={`/tasks/${task.id}`}
         style={{
           fontSize: compact ? 12 : 13,
-          lineHeight: 1.45,
+          lineHeight: 1.4,
           flex: 1,
           color: textColor,
           textDecoration: done || cancelled ? 'line-through' : 'none',
@@ -307,8 +303,15 @@ function TaskChip({
       >
         {task.title ?? 'Untitled'}
         {postponed && (
-          <span style={{ fontSize: 10, marginLeft: 5, color: '#9b9890', fontWeight: 500 }}>
-            postponed
+          <span
+            style={{
+              fontSize: 10,
+              marginLeft: 5,
+              color: '#3d7de4',
+              fontWeight: 500,
+            }}
+          >
+            → postponed
           </span>
         )}
       </Link>
@@ -316,6 +319,7 @@ function TaskChip({
   )
 }
 
+// ── Week View (desktop) ────────────────────────────────────────────────────────
 function WeekView({
   tasks,
   weekOffset,
@@ -331,15 +335,16 @@ function WeekView({
   const overdueTasks = tasks.filter(isOverdue)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'hidden',
+      }}
+    >
       <div
-        style={{
-          padding: '14px 18px 8px',
-          fontSize: 12,
-          color: '#9b9890',
-          flexShrink: 0,
-          letterSpacing: '0.01em',
-        }}
+        style={{ padding: '10px 16px 6px', fontSize: 12, color: '#9b9890', flexShrink: 0 }}
         suppressHydrationWarning
       >
         {days[0].toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
@@ -348,23 +353,15 @@ function WeekView({
       {overdueTasks.length > 0 && weekOffset === 0 && (
         <div
           style={{
-            margin: '0 18px 12px',
-            background: 'rgba(226,75,74,0.05)',
-            border: '0.5px solid rgba(226,75,74,0.12)',
-            borderRadius: 16,
-            padding: '12px 14px',
+            margin: '0 16px 10px',
+            background: '#fdeaea',
+            border: '0.5px solid rgba(226,75,74,0.2)',
+            borderRadius: 12,
+            padding: '10px 14px',
             flexShrink: 0,
           }}
         >
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 500,
-              color: '#C45857',
-              marginBottom: 8,
-              letterSpacing: '0.01em',
-            }}
-          >
+          <div style={{ fontSize: 12, fontWeight: 500, color: '#E24B4A', marginBottom: 6 }}>
             Overdue · {overdueTasks.length}
           </div>
           {overdueTasks.map((t) => (
@@ -376,8 +373,8 @@ function WeekView({
       <div
         style={{
           display: 'flex',
-          gap: 10,
-          padding: '0 18px 18px',
+          gap: 8,
+          padding: '0 16px 16px',
           flex: 1,
           overflow: 'hidden',
         }}
@@ -394,38 +391,38 @@ function WeekView({
               onClick={() => onDayClick(key)}
               style={{
                 flex: 1,
-                background: '#ffffff',
-                border: today ? '1px solid rgba(0,0,0,0.12)' : '0.5px solid rgba(0,0,0,0.06)',
-                borderRadius: 16,
-                padding: '14px 12px',
+                background: today ? 'white' : 'transparent',
+                border: today
+                  ? '0.5px solid rgba(0,0,0,0.1)'
+                  : '0.5px solid rgba(0,0,0,0.06)',
+                borderRadius: 14,
+                padding: '12px 10px',
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
-                opacity: past && !today ? 0.68 : 1,
+                opacity: past && !today ? 0.6 : 1,
                 cursor: 'pointer',
               }}
             >
-              <div style={{ marginBottom: 12, flexShrink: 0 }}>
+              <div style={{ marginBottom: 10, flexShrink: 0 }}>
                 <div
                   style={{
                     fontSize: 10,
                     fontWeight: 500,
                     color: '#9b9890',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    marginBottom: 4,
+                    letterSpacing: '0.05em',
+                    marginBottom: 2,
                   }}
                   suppressHydrationWarning
                 >
                   {day.toLocaleDateString('en-US', { weekday: 'short' })}
                 </div>
-
                 <div
                   style={{
                     fontSize: 20,
-                    fontWeight: today ? 600 : 500,
-                    color: '#1a1a18',
-                    letterSpacing: '-0.02em',
+                    fontWeight: 500,
+                    color: today ? '#1D9E75' : '#1a1a18',
                   }}
                   suppressHydrationWarning
                 >
@@ -438,6 +435,10 @@ function WeekView({
                   <TaskChip key={t.id} task={t} onToggle={onToggle} compact />
                 ))}
               </div>
+
+              <div style={{ fontSize: 10, color: '#c8c5be', marginTop: 4, flexShrink: 0 }}>
+                + Add
+              </div>
             </div>
           )
         })}
@@ -446,6 +447,7 @@ function WeekView({
   )
 }
 
+// ── Month View (desktop) ───────────────────────────────────────────────────────
 function MonthView({
   tasks,
   monthOffset,
@@ -465,16 +467,15 @@ function MonthView({
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <div
-        style={{
-          padding: '14px 18px 10px',
-          fontSize: 12,
-          color: '#9b9890',
-          flexShrink: 0,
-          letterSpacing: '0.01em',
-        }}
-      >
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ padding: '10px 16px 8px', fontSize: 12, color: '#9b9890', flexShrink: 0 }}>
         {date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
       </div>
 
@@ -482,8 +483,8 @@ function MonthView({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: 6,
-          padding: '0 18px 8px',
+          gap: 4,
+          padding: '0 16px 6px',
           flexShrink: 0,
         }}
       >
@@ -496,7 +497,7 @@ function MonthView({
               color: '#9b9890',
               textAlign: 'center',
               textTransform: 'uppercase',
-              letterSpacing: '0.06em',
+              letterSpacing: '0.05em',
             }}
           >
             {d}
@@ -508,8 +509,8 @@ function MonthView({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: 6,
-          padding: '0 18px 18px',
+          gap: 4,
+          padding: '0 16px 16px',
           flex: 1,
           overflow: 'hidden',
         }}
@@ -528,13 +529,15 @@ function MonthView({
               key={key}
               onClick={() => onDayClick(key)}
               style={{
-                background: '#ffffff',
-                border: today ? '1px solid rgba(0,0,0,0.12)' : '0.5px solid rgba(0,0,0,0.05)',
-                borderRadius: 12,
-                padding: '10px 8px',
+                background: today ? 'white' : 'transparent',
+                border: today
+                  ? '0.5px solid rgba(0,0,0,0.1)'
+                  : '0.5px solid rgba(0,0,0,0.06)',
+                borderRadius: 10,
+                padding: '8px 6px',
                 display: 'flex',
                 flexDirection: 'column',
-                opacity: past && !today ? 0.58 : 1,
+                opacity: past && !today ? 0.5 : 1,
                 cursor: 'pointer',
                 overflow: 'hidden',
               }}
@@ -542,10 +545,9 @@ function MonthView({
               <div
                 style={{
                   fontSize: 12,
-                  fontWeight: today ? 600 : 500,
-                  color: '#1a1a18',
-                  marginBottom: 6,
-                  letterSpacing: '-0.01em',
+                  fontWeight: today ? 600 : 400,
+                  color: today ? '#1D9E75' : '#1a1a18',
+                  marginBottom: 4,
                 }}
                 suppressHydrationWarning
               >
@@ -556,28 +558,36 @@ function MonthView({
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 3,
+                  gap: 2,
                   flex: 1,
                   overflow: 'hidden',
                 }}
               >
-                {activeDayTasks.slice(0, 2).map((t) => (
+                {activeDayTasks.slice(0, 3).map((t) => (
                   <Link
                     key={t.id}
                     href={`/tasks/${t.id}`}
                     onClick={(e) => e.stopPropagation()}
                     style={{
                       fontSize: 11,
-                      padding: '3px 6px',
-                      borderRadius: 6,
-                      background: isOverdue(t) ? 'rgba(226,75,74,0.06)' : '#f8f7f4',
-                      color: isOverdue(t)
-                        ? '#C45857'
-                        : t.status === 'done'
-                          ? '#9b9890'
-                          : t.status === 'postponed'
-                            ? '#6b6960'
-                            : '#1a1a18',
+                      padding: '2px 5px',
+                      borderRadius: 4,
+                      background:
+                        t.status === 'postponed'
+                          ? 'rgba(61,125,228,0.08)'
+                          : isOverdue(t)
+                            ? '#fdeaea'
+                            : t.status === 'done'
+                              ? '#f5f4f0'
+                              : '#e8f5f0',
+                      color:
+                        t.status === 'postponed'
+                          ? '#3d7de4'
+                          : isOverdue(t)
+                            ? '#E24B4A'
+                            : t.status === 'done'
+                              ? '#9b9890'
+                              : '#1D9E75',
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
@@ -588,9 +598,9 @@ function MonthView({
                   </Link>
                 ))}
 
-                {activeDayTasks.length > 2 && (
+                {activeDayTasks.length > 3 && (
                   <div style={{ fontSize: 11, color: '#9b9890', paddingLeft: 4 }}>
-                    +{activeDayTasks.length - 2} more
+                    +{activeDayTasks.length - 3} more
                   </div>
                 )}
               </div>
@@ -602,6 +612,7 @@ function MonthView({
   )
 }
 
+// ── Mobile Week Calendar ───────────────────────────────────────────────────────
 function MobileWeekCalendar({
   tasks,
   weekOffset,
@@ -656,14 +667,14 @@ function MobileWeekCalendar({
                 width: 34,
                 height: 34,
                 borderRadius: '50%',
-                background: selected ? '#1a1a18' : today ? '#ffffff' : 'transparent',
-                border: today && !selected ? '1px solid rgba(0,0,0,0.1)' : 'none',
+                background: selected ? '#1a1a18' : today ? '#f5f4f0' : 'transparent',
+                border: today && !selected ? '1.5px solid rgba(0,0,0,0.12)' : 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: 14,
                 fontWeight: selected || today ? 600 : 400,
-                color: selected ? 'white' : '#1a1a18',
+                color: selected ? 'white' : today ? '#1D9E75' : '#1a1a18',
                 transition: 'all 0.15s',
               }}
               suppressHydrationWarning
@@ -671,14 +682,14 @@ function MobileWeekCalendar({
               {day.getDate()}
             </div>
 
-            {count > 0 ? (
+            {count > 0 && (
               <div
                 style={{
                   minWidth: 18,
                   height: 18,
                   borderRadius: 9,
-                  background: hasOverdue ? '#C45857' : selected ? '#1a1a18' : '#dcd9d1',
-                  color: hasOverdue || selected ? 'white' : '#6b6960',
+                  background: hasOverdue ? '#E24B4A' : selected ? '#1a1a18' : '#1D9E75',
+                  color: 'white',
                   fontSize: 10,
                   fontWeight: 600,
                   display: 'flex',
@@ -689,9 +700,9 @@ function MobileWeekCalendar({
               >
                 {count}
               </div>
-            ) : (
-              <div style={{ height: 18 }} />
             )}
+
+            {count === 0 && <div style={{ height: 18 }} />}
           </div>
         )
       })}
@@ -699,6 +710,7 @@ function MobileWeekCalendar({
   )
 }
 
+// ── Mobile Month Calendar ──────────────────────────────────────────────────────
 function MobileMonthCalendar({
   tasks,
   monthOffset,
@@ -768,14 +780,14 @@ function MobileMonthCalendar({
                   width: 32,
                   height: 32,
                   borderRadius: '50%',
-                  background: selected ? '#1a1a18' : today ? '#ffffff' : 'transparent',
-                  border: today && !selected ? '1px solid rgba(0,0,0,0.1)' : 'none',
+                  background: selected ? '#1a1a18' : today ? '#f5f4f0' : 'transparent',
+                  border: today && !selected ? '1.5px solid rgba(0,0,0,0.12)' : 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: 13,
                   fontWeight: selected || today ? 600 : 400,
-                  color: selected ? 'white' : '#1a1a18',
+                  color: selected ? 'white' : today ? '#1D9E75' : '#1a1a18',
                   transition: 'all 0.15s',
                 }}
                 suppressHydrationWarning
@@ -789,8 +801,8 @@ function MobileMonthCalendar({
                     minWidth: 16,
                     height: 16,
                     borderRadius: 8,
-                    background: hasOverdue ? '#C45857' : selected ? '#6b6960' : '#dcd9d1',
-                    color: hasOverdue || selected ? 'white' : '#6b6960',
+                    background: hasOverdue ? '#E24B4A' : selected ? '#6b6960' : '#1D9E75',
+                    color: 'white',
                     fontSize: 9,
                     fontWeight: 600,
                     display: 'flex',
@@ -812,6 +824,7 @@ function MobileMonthCalendar({
   )
 }
 
+// ── Mobile Day Task List ───────────────────────────────────────────────────────
 function MobileDayList({
   tasks,
   selectedDate,
@@ -839,24 +852,16 @@ function MobileDayList({
       {isSelectedToday && overdueTasks.length > 0 && (
         <div
           style={{
-            background: 'rgba(226,75,74,0.05)',
-            border: '0.5px solid rgba(226,75,74,0.12)',
+            background: '#fdeaea',
+            border: '0.5px solid rgba(226,75,74,0.15)',
             borderRadius: 14,
             padding: '12px 14px',
             marginBottom: 12,
           }}
         >
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 500,
-              color: '#C45857',
-              marginBottom: 8,
-            }}
-          >
+          <div style={{ fontSize: 12, fontWeight: 500, color: '#E24B4A', marginBottom: 8 }}>
             Overdue · {overdueTasks.length}
           </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {overdueTasks.map((t) => (
               <TaskChip key={t.id} task={t} onToggle={onToggle} />
@@ -869,7 +874,7 @@ function MobileDayList({
         style={{
           background: 'white',
           border: '0.5px solid rgba(0,0,0,0.07)',
-          borderRadius: 16,
+          borderRadius: 14,
           padding: '14px',
           marginBottom: 12,
         }}
@@ -883,7 +888,6 @@ function MobileDayList({
           }}
         >
           <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>{formatted}</div>
-
           <button
             onClick={() => onAddTask(selectedDate)}
             style={{
@@ -896,19 +900,12 @@ function MobileDayList({
               cursor: 'pointer',
             }}
           >
-            Add
+            + Add
           </button>
         </div>
 
         {dayTasks.length === 0 ? (
-          <div
-            style={{
-              fontSize: 13,
-              color: '#9b9890',
-              textAlign: 'center',
-              padding: '12px 0',
-            }}
-          >
+          <div style={{ fontSize: 13, color: '#9b9890', textAlign: 'center', padding: '12px 0' }}>
             No tasks for this day
           </div>
         ) : (
@@ -923,6 +920,7 @@ function MobileDayList({
   )
 }
 
+// ── Mobile Calendar View ───────────────────────────────────────────────────────
 function MobileCalendarView({
   tasks,
   onToggle,
@@ -1112,6 +1110,7 @@ function MobileCalendarView({
   )
 }
 
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
   const isDesktop = useIsDesktop()
   const router = useRouter()
@@ -1120,10 +1119,6 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
   const [monthOffset, setMonthOffset] = useState(0)
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks)
   const [confirmDate, setConfirmDate] = useState<string | null>(null)
-
-  useEffect(() => {
-    setLocalTasks(tasks)
-  }, [tasks])
 
   async function toggleTask(id: string, done: boolean) {
     setLocalTasks((prev) =>
@@ -1147,6 +1142,7 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
     setConfirmDate(date)
   }
 
+  // Progress — exclude cancelled from counts
   const activeTasks = localTasks.filter((t) => t.status !== 'cancelled')
   const doneTasks = activeTasks.filter((t) => t.status === 'done').length
   const totalTasks = activeTasks.length
@@ -1159,10 +1155,10 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}>
       <div
         style={{
-          height: 56,
+          height: 50,
           flexShrink: 0,
           background: 'white',
-          borderBottom: '0.5px solid rgba(0,0,0,0.06)',
+          borderBottom: '0.5px solid rgba(0,0,0,0.07)',
           display: 'flex',
           alignItems: 'center',
           padding: '0 20px',
@@ -1176,7 +1172,7 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
             style={{
               width: 80,
               height: 4,
-              background: '#f1efea',
+              background: '#f5f4f0',
               borderRadius: 2,
               overflow: 'hidden',
             }}
@@ -1185,7 +1181,7 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
               style={{
                 height: '100%',
                 borderRadius: 2,
-                background: '#1a1a18',
+                background: '#1D9E75',
                 transition: 'width 0.3s',
                 width: totalTasks > 0 ? `${Math.round((doneTasks / totalTasks) * 100)}%` : '0%',
               }}
