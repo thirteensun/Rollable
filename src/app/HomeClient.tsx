@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import AIProactiveNudges from '@/components/AIProactiveNudges'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -16,7 +16,11 @@ interface Task {
 interface Event {
   id: string
   type: string
+  summary: string | null
   created_at: string
+  contacts: { full_name: string }[] | null
+  deals: { name: string }[] | null
+  companies: { name: string }[] | null
 }
 
 interface Deal {
@@ -48,11 +52,79 @@ function getTaskUrgency(task: Task): string {
   return '#1D9E75'
 }
 
+const EVENT_LABEL: Record<string, string> = {
+  meeting: 'Meeting', call: 'Call', email: 'Email',
+  whatsapp: 'WhatsApp', note: 'Note', card_scan: 'Card scan',
+  voice_memo: 'Voice memo', other: 'Activity',
+}
+
+// ─── Shortcuts ────────────────────────────────────────────────────────────────
+const SHORTCUTS = [
+  {
+    href: '/capture', label: 'Capture',
+    color: '#4a7a8a',
+    icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <circle cx="11" cy="11" r="9" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M11 6v10M6 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>,
+  },
+  {
+    href: '/tracking', label: 'Pipeline',
+    color: '#4a7a8a',
+    icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <rect x="1.5" y="4" width="5.5" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="8.5" y="4" width="5.5" height="9" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+      <rect x="15.5" y="4" width="5" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+    </svg>,
+  },
+  {
+    href: '/tasks', label: 'Tasks',
+    color: '#4a8a6a',
+    icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <rect x="2" y="2" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M7 11l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>,
+  },
+  {
+    href: '/ai-sandbox', label: 'AI Sandbox',
+    color: '#a08840',
+    icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <path d="M2 11h3.5L8 5l4 12 3-6h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>,
+  },
+  {
+    href: '/analytics', label: 'Analytics',
+    color: '#a06050',
+    icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <path d="M2 17L7 10l4.5 3.5L16 6l4 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>,
+  },
+  {
+    href: '/contacts', label: 'Contacts',
+    color: '#7a6aaa',
+    icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+      <circle cx="11" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/>
+      <path d="M3 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>,
+  },
+]
+
 // ─── Activity Chart ───────────────────────────────────────────────────────────
-// Color drawn from project image: deep slate teal from the ocean
-const CHART_COLOR = '#4a7a8a'
+const CHART_COLOR_BASE = [74, 122, 138] // teal from image
+
+function activityColor(intensity: number): string {
+  if (intensity === 0) return 'rgba(0,0,0,0.06)'
+  const [r, g, b] = CHART_COLOR_BASE
+  // light → dark teal
+  const lr = Math.round(r + (1 - intensity) * 148)
+  const lg = Math.round(g + (1 - intensity) * 98)
+  const lb = Math.round(b + (1 - intensity) * 80)
+  return `rgb(${lr},${lg},${lb})`
+}
 
 function ActivityChart({ events }: { events: Event[] }) {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+
   const countByDate = useMemo(() => {
     const map: Record<string, number> = {}
     events.forEach(e => {
@@ -62,41 +134,46 @@ function ActivityChart({ events }: { events: Event[] }) {
     return map
   }, [events])
 
-  // Always show exactly 16 weeks ending today — fills the card reliably
-  const { cells, monthLabels } = useMemo(() => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const todayStr = today.toISOString().split('T')[0]
-    const WEEKS = 16
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, Event[]> = {}
+    events.forEach(e => {
+      const date = e.created_at.split('T')[0]
+      if (!map[date]) map[date] = []
+      map[date].push(e)
+    })
+    return map
+  }, [events])
 
-    // Start 16 weeks ago aligned to Monday
+  // Build 16-week grid ending today, aligned to Monday
+  const { weeks, monthLabels } = useMemo(() => {
+    const today = new Date(); today.setHours(0,0,0,0)
+    const todayStr = today.toISOString().split('T')[0]
+    const TOTAL_WEEKS = 16
+
     const start = new Date(today)
-    start.setDate(start.getDate() - WEEKS * 7)
+    start.setDate(start.getDate() - TOTAL_WEEKS * 7)
     const dow = start.getDay()
     start.setDate(start.getDate() - (dow === 0 ? 6 : dow - 1))
 
-    const grid: { date: string; count: number; isToday: boolean; isFuture: boolean }[][] = []
     const cur = new Date(start)
-
-    for (let w = 0; w < WEEKS; w++) {
+    const weeksArr: { date: string; count: number; isToday: boolean }[][] = []
+    for (let w = 0; w < TOTAL_WEEKS; w++) {
       const col = []
       for (let d = 0; d < 7; d++) {
         const dateStr = cur.toISOString().split('T')[0]
-        col.push({
-          date: dateStr,
-          count: countByDate[dateStr] || 0,
-          isToday: dateStr === todayStr,
-          isFuture: cur > today,
-        })
+        if (cur <= today) {
+          col.push({ date: dateStr, count: countByDate[dateStr] || 0, isToday: dateStr === todayStr })
+        }
         cur.setDate(cur.getDate() + 1)
       }
-      grid.push(col)
+      weeksArr.push(col)
     }
 
     // Month labels
     const labels: { label: string; col: number }[] = []
     let lastMonth = -1
-    grid.forEach((col, ci) => {
+    weeksArr.forEach((col, ci) => {
+      if (!col[0]) return
       const month = new Date(col[0].date + 'T12:00:00').getMonth()
       if (month !== lastMonth) {
         labels.push({ label: new Date(col[0].date + 'T12:00:00').toLocaleString('default', { month: 'short' }), col: ci })
@@ -104,110 +181,128 @@ function ActivityChart({ events }: { events: Event[] }) {
       }
     })
 
-    return { cells: grid, monthLabels: labels }
+    return { weeks: weeksArr, monthLabels: labels }
   }, [countByDate])
 
   const maxCount = useMemo(() => Math.max(...Object.values(countByDate), 1), [countByDate])
   const totalEvents = events.length
   const activeDays = Object.keys(countByDate).length
 
-  // Use SVG for precise, responsive rendering — no flex width issues
-  const COLS = cells.length
-  const ROWS = 7
-  const CELL = 11
-  const GAP = 3
-  const LABEL_W = 12
-  const LABEL_H = 14
-  const W = LABEL_W + COLS * (CELL + GAP) - GAP
-  const H = LABEL_H + ROWS * (CELL + GAP) - GAP
+  const selectedEvents = selectedDate ? (eventsByDate[selectedDate] || []) : []
+
+  const CELL = 13; const GAP = 3
 
   return (
-    <div style={{ background: 'white', borderRadius: '14px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-        <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-          Activity
-        </p>
-        <span style={{ fontSize: 11, color: '#9b9890' }}>{totalEvents} actions · {activeDays} active days</span>
-      </div>
+    <div style={{ background: 'white', borderRadius: '14px', border: '0.5px solid rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+      <div style={{ padding: '16px 18px 12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+          <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Activity</p>
+          <span style={{ fontSize: 11, color: '#9b9890' }}>{totalEvents} actions · {activeDays} active days</span>
+        </div>
 
-      <svg
-        width="100%"
-        viewBox={`0 0 ${W} ${H}`}
-        style={{ display: 'block', overflow: 'visible' }}
-      >
-        {/* Month labels */}
-        {monthLabels.map(({ label, col }) => (
-          <text
-            key={col}
-            x={LABEL_W + col * (CELL + GAP)}
-            y={10}
-            fontSize={8}
-            fill="#9b9890"
-          >{label}</text>
-        ))}
-
-        {/* Day labels: Mon, Wed, Fri */}
-        {['M','','W','','F','',''].map((d, i) => d ? (
-          <text
-            key={i}
-            x={LABEL_W - 3}
-            y={LABEL_H + i * (CELL + GAP) + CELL * 0.75}
-            fontSize={7}
-            fill="#9b9890"
-            textAnchor="end"
-          >{d}</text>
-        ) : null)}
-
-        {/* Cells */}
-        {cells.map((col, ci) =>
-          col.map((cell, ri) => {
-            const x = LABEL_W + ci * (CELL + GAP)
-            const y = LABEL_H + ri * (CELL + GAP)
-            const intensity = cell.isFuture || cell.count === 0
-              ? 0
-              : Math.max(0.18, Math.min(1, cell.count / maxCount))
-
-            let fill = 'rgba(0,0,0,0.05)'
-            if (cell.isFuture) fill = 'none'
-            else if (cell.count > 0) {
-              // Interpolate from light teal to deep teal
-              const r = Math.round(74 + (1 - intensity) * 160)
-              const g = Math.round(122 + (1 - intensity) * 100)
-              const b = Math.round(138 + (1 - intensity) * 80)
-              fill = `rgb(${r},${g},${b})`
-            }
-
+        {/* Month labels row */}
+        <div style={{ display: 'flex', marginBottom: 4, paddingLeft: 20 }}>
+          {weeks.map((col, ci) => {
+            const ml = monthLabels.find(m => m.col === ci)
             return (
-              <g key={`${ci}-${ri}`}>
-                <rect
-                  x={x} y={y}
-                  width={CELL} height={CELL}
-                  rx={2.5}
-                  fill={fill}
-                  stroke={cell.isToday ? CHART_COLOR : 'none'}
-                  strokeWidth={cell.isToday ? 1.5 : 0}
-                />
-                {cell.count > 0 && (
-                  <title>{cell.date}: {cell.count} action{cell.count !== 1 ? 's' : ''}</title>
-                )}
-              </g>
+              <div key={ci} style={{ width: CELL + GAP, flexShrink: 0, fontSize: 9, color: '#9b9890' }}>
+                {ml ? ml.label : ''}
+              </div>
             )
-          })
-        )}
-      </svg>
+          })}
+        </div>
 
-      {/* Legend */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, justifyContent: 'flex-end' }}>
-        <span style={{ fontSize: 8, color: '#9b9890' }}>Less</span>
-        {[0, 0.2, 0.45, 0.7, 1].map((intensity, i) => {
-          const r = Math.round(74 + (1 - intensity) * 160)
-          const g = Math.round(122 + (1 - intensity) * 100)
-          const b = Math.round(138 + (1 - intensity) * 80)
-          const bg = intensity === 0 ? 'rgba(0,0,0,0.05)' : `rgb(${r},${g},${b})`
-          return <div key={i} style={{ width: 9, height: 9, borderRadius: 2, background: bg }} />
-        })}
-        <span style={{ fontSize: 8, color: '#9b9890' }}>More</span>
+        {/* Grid */}
+        <div style={{ display: 'flex', gap: GAP }}>
+          {/* Day labels */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: 1, paddingBottom: 1, width: 16, flexShrink: 0 }}>
+            {['M','','W','','F','',''].map((d, i) => (
+              <div key={i} style={{ height: CELL, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 3 }}>
+                <span style={{ fontSize: 8, color: '#9b9890' }}>{d}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Cells */}
+          {weeks.map((col, ci) => (
+            <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
+              {col.map((cell, ri) => {
+                const intensity = cell.count === 0 ? 0 : Math.max(0.2, Math.min(1, cell.count / maxCount))
+                const isSelected = selectedDate === cell.date
+                return (
+                  <div
+                    key={ri}
+                    onClick={() => setSelectedDate(isSelected ? null : cell.date)}
+                    title={`${cell.date}: ${cell.count} action${cell.count !== 1 ? 's' : ''}`}
+                    style={{
+                      width: CELL, height: CELL, borderRadius: 3,
+                      background: activityColor(intensity),
+                      border: cell.isToday
+                        ? '1.5px solid #4a7a8a'
+                        : isSelected
+                          ? '1.5px solid #1a1a18'
+                          : 'none',
+                      boxSizing: 'border-box',
+                      cursor: cell.count > 0 ? 'pointer' : 'default',
+                      flexShrink: 0,
+                      transition: 'transform 0.1s',
+                    }}
+                  />
+                )
+              })}
+              {/* Pad short columns */}
+              {Array.from({ length: 7 - col.length }).map((_, i) => (
+                <div key={`pad-${i}`} style={{ width: CELL, height: CELL, flexShrink: 0 }} />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Legend */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 10, justifyContent: 'flex-end' }}>
+          <span style={{ fontSize: 8, color: '#9b9890' }}>Less</span>
+          {[0, 0.2, 0.45, 0.7, 1].map((v, i) => (
+            <div key={i} style={{ width: 10, height: 10, borderRadius: 2, background: activityColor(v) }} />
+          ))}
+          <span style={{ fontSize: 8, color: '#9b9890' }}>More</span>
+        </div>
       </div>
+
+      {/* Selected day activity panel */}
+      {selectedDate && (
+        <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.07)', padding: '12px 18px' }}>
+          <div style={{ fontSize: 11, fontWeight: 500, color: '#9b9890', marginBottom: 8 }}>
+            {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
+            {selectedEvents.length === 0 && <span style={{ fontWeight: 400, marginLeft: 8 }}>No activity</span>}
+          </div>
+          {selectedEvents.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {selectedEvents.map(e => {
+                const who = e.contacts?.[0]?.full_name || e.companies?.[0]?.name || e.deals?.[0]?.name || null
+                return (
+                  <div key={e.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <div style={{
+                      width: 6, height: 6, borderRadius: '50%', background: '#4a7a8a',
+                      flexShrink: 0, marginTop: 5,
+                    }} />
+                    <div>
+                      <span style={{ fontSize: 12, color: '#1a1a18', fontWeight: 500 }}>
+                        {EVENT_LABEL[e.type] || 'Activity'}
+                      </span>
+                      {who && <span style={{ fontSize: 12, color: '#6b6960' }}> — {who}</span>}
+                      {e.summary && (
+                        <div style={{ fontSize: 11, color: '#9b9890', marginTop: 2, lineHeight: 1.4 }}>
+                          {e.summary.slice(0, 120)}{e.summary.length > 120 ? '…' : ''}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -228,22 +323,18 @@ export default function HomeClient({ name, initials, tasks, events, deals, orgNa
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
         <div>
-          <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }} suppressHydrationWarning>
+          <p style={{ margin: 0, fontSize: 13, color: '#9b9890' }} suppressHydrationWarning>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
           </p>
-          <p style={{ margin: '4px 0 0', fontSize: '22px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.3 }} suppressHydrationWarning>
+          <p style={{ margin: '4px 0 0', fontSize: 22, fontWeight: 500, color: '#1a1a18', lineHeight: 1.3 }} suppressHydrationWarning>
             {greeting()}
           </p>
           {orgName && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-              <p style={{ margin: 0, fontSize: '13px', color: '#9b9890' }}>{orgName}</p>
-              <span style={{
-                fontSize: '10px', color: '#9b9890',
-                background: 'rgba(0,0,0,0.06)', borderRadius: '4px',
-                padding: '1px 6px', textTransform: 'capitalize',
-              }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+              <p style={{ margin: 0, fontSize: 13, color: '#9b9890' }}>{orgName}</p>
+              <span style={{ fontSize: 10, color: '#9b9890', background: 'rgba(0,0,0,0.06)', borderRadius: 4, padding: '1px 6px', textTransform: 'capitalize' }}>
                 {userRole}
               </span>
             </div>
@@ -251,10 +342,9 @@ export default function HomeClient({ name, initials, tasks, events, deals, orgNa
         </div>
         <Link href="/settings" style={{ textDecoration: 'none' }}>
           <div style={{
-            width: '38px', height: '38px', borderRadius: '50%',
-            background: '#1a1a18', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: '13px', fontWeight: 500,
-            color: '#f5f4f0', cursor: 'pointer',
+            width: 38, height: 38, borderRadius: '50%', background: '#1a1a18',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 13, fontWeight: 500, color: '#f5f4f0', cursor: 'pointer',
           }}>
             {initials}
           </div>
@@ -264,152 +354,61 @@ export default function HomeClient({ name, initials, tasks, events, deals, orgNa
       {/* AI Nudges */}
       <AIProactiveNudges />
 
-      {/* Quick shortcuts — ElevenLabs style square cards */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(6, 1fr)',
-          gap: 10,
-        }} className="shortcuts-grid">
-          {[
-            {
-              href: '/capture',
-              label: 'Capture',
-              bg: '#c8dfe6',
-              icon: (
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <circle cx="14" cy="14" r="11" stroke="#2e6878" strokeWidth="1.6"/>
-                  <path d="M14 8v12M8 14h12" stroke="#2e6878" strokeWidth="1.6" strokeLinecap="round"/>
-                </svg>
-              ),
-            },
-            {
-              href: '/tracking',
-              label: 'Pipeline',
-              bg: '#d6e8ed',
-              icon: (
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <rect x="2" y="5" width="7" height="18" rx="2.5" fill="#2e6878" opacity="0.6"/>
-                  <rect x="11" y="5" width="7" height="12" rx="2.5" fill="#2e6878" opacity="0.8"/>
-                  <rect x="20" y="5" width="6" height="15" rx="2.5" fill="#2e6878"/>
-                </svg>
-              ),
-            },
-            {
-              href: '/tasks',
-              label: 'Tasks',
-              bg: '#d8ebe4',
-              icon: (
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <rect x="3" y="3" width="22" height="22" rx="5" stroke="#4a8a6a" strokeWidth="1.6"/>
-                  <path d="M9 14l4 4 7-7" stroke="#4a8a6a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              ),
-            },
-            {
-              href: '/ai-sandbox',
-              label: 'AI Sandbox',
-              bg: '#eee5d0',
-              icon: (
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <path d="M3 14h4l3-7 4 14 3-7h4l3 4" stroke="#a08840" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              ),
-            },
-            {
-              href: '/analytics',
-              label: 'Analytics',
-              bg: '#dce8ed',
-              icon: (
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <path d="M4 22L10 14l5 4 5-9 4 5" stroke="#a06050" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              ),
-            },
-            {
-              href: '/contacts',
-              label: 'Contacts',
-              bg: '#e2ddd4',
-              icon: (
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <circle cx="14" cy="10" r="5" stroke="#7a6aaa" strokeWidth="1.6"/>
-                  <path d="M4 25c0-5.5 4.5-9 10-9s10 3.5 10 9" stroke="#7a6aaa" strokeWidth="1.6" strokeLinecap="round"/>
-                </svg>
-              ),
-            },
-          ].map((s) => (
-            <Link key={s.href} href={s.href} style={{ textDecoration: 'none' }}>
-              <div style={{
-                background: s.bg,
-                borderRadius: 16,
-                padding: '20px 14px 16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12,
-                cursor: 'pointer',
-                transition: 'transform 0.15s, box-shadow 0.15s',
-                border: '0.5px solid rgba(0,0,0,0.06)',
-                aspectRatio: '1',
-                justifyContent: 'space-between',
-              }} className="shortcut-card">
-                <div>{s.icon}</div>
-                <span style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: '#1a1a18',
-                  lineHeight: 1.2,
-                }}>{s.label}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+      {/* Shortcuts — white cards, coloured icons */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, marginBottom: 28 }}>
+        {SHORTCUTS.map(s => (
+          <Link key={s.href} href={s.href} style={{ textDecoration: 'none' }}>
+            <div style={{
+              background: 'white',
+              border: '0.5px solid rgba(0,0,0,0.07)',
+              borderRadius: 14,
+              padding: '16px 12px 14px',
+              display: 'flex', flexDirection: 'column', gap: 10,
+              transition: 'box-shadow 0.15s, transform 0.15s',
+              cursor: 'pointer',
+            }} className="shortcut-card">
+              <div style={{ color: s.color }}>{s.icon}</div>
+              <span style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18' }}>{s.label}</span>
+            </div>
+          </Link>
+        ))}
       </div>
 
-      {/* Desktop: two columns / Mobile: single column */}
+      {/* Two column grid */}
       <div className="md:grid md:grid-cols-2 md:gap-8">
 
         {/* Today's focus */}
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               Today's focus
             </p>
-            <Link href="/tasks" style={{ fontSize: '13px', color: '#9b9890', textDecoration: 'none' }}>
-              See all
-            </Link>
+            <Link href="/tasks" style={{ fontSize: 13, color: '#9b9890', textDecoration: 'none' }}>See all</Link>
           </div>
 
           {tasks.length === 0 ? (
-            <div style={{
-              background: 'white', borderRadius: '14px',
-              border: '0.5px solid rgba(0,0,0,0.07)',
-              padding: '20px', textAlign: 'center',
-            }}>
-              <p style={{ margin: 0, fontSize: '14px', color: '#9b9890' }}>All caught up — nothing due today</p>
+            <div style={{ background: 'white', borderRadius: 14, border: '0.5px solid rgba(0,0,0,0.07)', padding: 20, textAlign: 'center' }}>
+              <p style={{ margin: 0, fontSize: 14, color: '#9b9890' }}>All caught up — nothing due today</p>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {tasks.map((task, i) => (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {tasks.map(task => (
                 <Link key={task.id} href={`/tasks/${task.id}`} style={{ textDecoration: 'none' }}>
                   <div style={{
-                    background: 'white', borderRadius: '14px',
+                    background: 'white', borderRadius: 14,
                     border: '0.5px solid rgba(0,0,0,0.07)',
-                    padding: '13px 14px', display: 'flex',
-                    alignItems: 'center', gap: '12px', cursor: 'pointer',
+                    padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 12,
                   }}>
-                    <div style={{
-                      width: '8px', height: '8px', borderRadius: '50%',
-                      background: getTaskUrgency(task), flexShrink: 0,
-                    }} />
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: getTaskUrgency(task), flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>{task.title}</p>
-                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890' }}>
+                      <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>{task.title}</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 12, color: '#9b9890' }}>
                         {task.contacts?.full_name || task.deals?.name || ''}
                         {task.due_date && ` · ${new Date(task.due_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`}
                       </p>
                     </div>
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                      <path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.3" strokeLinecap="round" />
+                      <path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.3" strokeLinecap="round"/>
                     </svg>
                   </div>
                 </Link>
@@ -418,16 +417,19 @@ export default function HomeClient({ name, initials, tasks, events, deals, orgNa
           )}
         </div>
 
-        {/* Activity chart — replaces recent activity */}
-        <div style={{ marginBottom: '24px' }}>
+        {/* Activity chart */}
+        <div style={{ marginBottom: 24 }}>
           <ActivityChart events={events} />
         </div>
 
       </div>
-    <style>{`
-      .shortcut-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.08) !important; }
-      @media (max-width: 768px) { .shortcuts-grid { grid-template-columns: repeat(3, 1fr) !important; } }
-    `}</style>
+
+      <style>{`
+        .shortcut-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08) !important; transform: translateY(-1px); }
+        @media (max-width: 768px) {
+          .shortcuts-grid { grid-template-columns: repeat(3, 1fr) !important; }
+        }
+      `}</style>
     </div>
   )
 }
