@@ -167,18 +167,21 @@ function ActivityChart({ events }: { events: Event[] }) {
       weeksArr.push(col)
     }
 
-    const labels: { label: string; col: number }[] = []
-    let lastMonth = -1
-    weeksArr.forEach((col, ci) => {
+    // Reverse so most recent weeks appear on the left
+    const reversed = [...weeksArr].reverse()
+
+    const reversedLabels: { label: string; col: number }[] = []
+    let lastMonthR = -1
+    reversed.forEach((col, ci) => {
       if (!col[0]) return
       const month = new Date(col[0].date + 'T12:00:00').getMonth()
-      if (month !== lastMonth) {
-        labels.push({ label: new Date(col[0].date + 'T12:00:00').toLocaleString('default', { month: 'short' }), col: ci })
-        lastMonth = month
+      if (month !== lastMonthR) {
+        reversedLabels.push({ label: new Date(col[0].date + 'T12:00:00').toLocaleString('default', { month: 'short' }), col: ci })
+        lastMonthR = month
       }
     })
 
-    return { weeks: weeksArr, monthLabels: labels }
+    return { weeks: reversed, monthLabels: reversedLabels }
   }, [countByDate])
 
   const maxCount = useMemo(() => Math.max(...Object.values(countByDate), 1), [countByDate])
