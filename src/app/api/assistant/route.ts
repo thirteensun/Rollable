@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
+import { getOrgContext, formatOrgContextForPrompt } from '@/lib/org-context'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -187,7 +188,6 @@ async function executeTool(
 
     case 'find_contact': {
       let query = admin.from('contacts').select('full_name, role, email, phone, companies(name)')
-      // Elevated users can find anyone in the org
       query = isElevated && orgId ? query.eq('org_id', orgId) : query.eq('user_id', userId)
       if (toolInput.name) query = query.ilike('full_name', `%${toolInput.name}%`)
       if (toolInput.company) query = query.ilike('companies.name', `%${toolInput.company}%`)
@@ -233,7 +233,6 @@ async function executeTool(
     case 'search_crm': {
       const results: string[] = []
       const searchType = toolInput.type || 'all'
-
       if (searchType === 'all' || searchType === 'contacts') {
         let q = admin.from('contacts').select('full_name, role, email, phone, companies(name)').ilike('full_name', `%${toolInput.query}%`).limit(3)
         q = isElevated && orgId ? q.eq('org_id', orgId) : q.eq('user_id', userId)
@@ -325,6 +324,10 @@ export async function POST(request: NextRequest) {
     const role = membership?.role || 'member'
     const isElevated = role === 'manager' || role === 'admin'
 
+    // Fetch org context
+    const orgContext = org_id ? await getOrgContext(org_id) : {}
+    const orgContextBlock = formatOrgContextForPrompt(orgContext)
+
     const { message, history } = await request.json()
 
     const messages: Anthropic.MessageParam[] = [
@@ -338,6 +341,9 @@ Be concise and friendly — like a smart colleague, not a formal assistant. Alwa
 
 You have access to ${isElevated ? 'the full organisation pipeline and all team data' : 'your own contacts, deals, and tasks'}.
 User role: ${role}
+Today's date: ${new Date().toISOString().split('T')[0]}
+
+${orgContextBlock ? `${orgContextBlock}\n\nUse this context to personalise your language — e.g. use their terminology for deals, reference their pipeline stages by name, and flag deals that exceed their at-risk threshold.` : ''}
 
 When users ask you to:
 - Add/update contacts or companies → use add_contact or add_company tools
@@ -349,8 +355,7 @@ When users ask you to:
 - Log invoices, POs, or payments → use update_deal_financials tool
 
 Always use tools to take real action — never just describe what you would do.
-After using a tool, summarise what you did in 1-2 sentences.
-Today's date: ${new Date().toISOString().split('T')[0]}`
+After using a tool, summarise what you did in 1-2 sentences.`
 
     const model = await getLatestSonnetModel()
 

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import OnboardingChat from './OnboardingChat'
 
-type Step = 'choose' | 'create' | 'join'
+type Step = 'choose' | 'create' | 'join' | 'chat'
 
 export default function OnboardingPage() {
   const [step, setStep] = useState<Step>('choose')
@@ -15,7 +16,6 @@ export default function OnboardingPage() {
   const slugify = (text: string) =>
     text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-  // On mount — redirect home if user already has an org
   useEffect(() => {
     const check = async () => {
       const supabase = createClient()
@@ -56,7 +56,8 @@ export default function OnboardingPage() {
 
       await supabase.auth.refreshSession()
       await new Promise(r => setTimeout(r, 500))
-      window.location.href = '/'
+      setLoading(false)
+      setStep('chat')
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.')
       setLoading(false)
@@ -85,16 +86,18 @@ export default function OnboardingPage() {
       padding: '64px 24px 48px',
     }}>
       <div>
-        {/* Logo mark */}
-        <div style={{
-          width: '48px', height: '48px', borderRadius: '14px',
-          background: '#1a1a18', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', marginBottom: '40px',
-        }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </div>
+        {/* Logo mark — hidden on chat step */}
+        {step !== 'chat' && (
+          <div style={{
+            width: '48px', height: '48px', borderRadius: '14px',
+            background: '#1a1a18', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', marginBottom: '40px',
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </div>
+        )}
 
         {/* Step: Choose */}
         {step === 'choose' && (
@@ -152,7 +155,6 @@ export default function OnboardingPage() {
               </button>
             </div>
 
-            {/* Value props */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '36px' }}>
               {[
                 {
@@ -217,6 +219,7 @@ export default function OnboardingPage() {
                     fontSize: '16px', color: '#1a1a18',
                     background: 'white', border: '0.5px solid rgba(0,0,0,0.12)',
                     borderRadius: '14px', outline: 'none', fontFamily: 'inherit',
+                    boxSizing: 'border-box',
                   }}
                 />
               </div>
@@ -279,9 +282,16 @@ export default function OnboardingPage() {
             </div>
           </div>
         )}
+
+        {/* Step: Chat */}
+        {step === 'chat' && (
+          <OnboardingChat onComplete={() => { window.location.href = '/' }} />
+        )}
       </div>
 
-      <p style={{ margin: 0, fontSize: '12px', color: '#c8c5be', textAlign: 'center' }}>SDM Prototype 001</p>
+      {step !== 'chat' && (
+        <p style={{ margin: 0, fontSize: '12px', color: '#c8c5be', textAlign: 'center' }}>SDM Prototype 001</p>
+      )}
     </main>
   )
 }
