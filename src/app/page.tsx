@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getUserContext } from '@/lib/org-scope'
+import { getOrgContext } from '@/lib/org-context'
+import { type HomePriority } from '@/lib/stage-templates'
 import HomeClient from './HomeClient'
 
 export default async function HomePage() {
@@ -8,21 +10,20 @@ export default async function HomePage() {
 
   const { user, anon, admin, orgId, role } = ctx
 
-  const { data: orgData } = orgId
-    ? await admin.from('organisations').select('name').eq('id', orgId).single()
-    : { data: null }
+  const [orgData, profile, orgContext] = await Promise.all([
+    orgId
+      ? admin.from('organisations').select('name').eq('id', orgId).single().then(r => r.data)
+      : null,
+    admin.from('users').select('full_name').eq('id', user.id).single().then(r => r.data),
+    orgId ? getOrgContext(orgId) : {},
+  ])
 
-  const { data: profile } = await admin
-    .from('users')
-    .select('full_name')
-    .eq('id', user.id)
-    .single()
+  const homePriority: HomePriority = (orgContext as any).home_priority || 'tasks'
 
   const today = new Date()
   today.setHours(23, 59, 59, 999)
 
-  const [{ data: tasks }, { data: events }, { data: deals }] = await Promise.all([
-    // Tasks due today or overdue — exclude cancelled and postponed
+  const [{ data: tasks }, { data: events }, { data: deals }, { data: atRiskDeals }] = await Promise.all([
     anon
       .from('tasks')
       .select('*, contacts(full_name), deals(name)')
@@ -32,18 +33,25 @@ export default async function HomePage() {
       .order('due_date', { ascending: true })
       .limit(5),
 
-    // Events last 365 days — for activity chart + click detail
     anon
       .from('events')
       .select('id, created_at, type, summary, contacts(full_name), deals(name), companies(name)')
       .gte('created_at', new Date(Date.now() - 365 * 86400000).toISOString())
       .order('created_at', { ascending: false }),
 
-    // Active deals — for pipeline pulse / what's next (kept for future use)
     anon
       .from('deals')
       .select('id, name, stage, value, last_activity_at')
       .not('stage', 'in', '("closed_won","closed_lost")'),
+
+    // At-risk deals — for at_risk home priority
+    anon
+      .from('deals')
+      .select('id, name, stage, value, last_activity_at')
+      .not('stage', 'in', '("closed_won","closed_lost")')
+      .lt('last_activity_at', new Date(Date.now() - ((orgContext as any).at_risk_days || 14) * 86400000).toISOString())
+      .order('last_activity_at', { ascending: true })
+      .limit(5),
   ])
 
   const name = profile?.full_name || user.email?.split('@')[0] || 'there'
@@ -56,8 +64,10 @@ export default async function HomePage() {
       tasks={tasks ?? []}
       events={events ?? []}
       deals={deals ?? []}
-      orgName={orgData?.name ?? null}
+      atRiskDeals={atRiskDeals ?? []}
+      orgName={(orgData as any)?.name ?? null}
       userRole={role}
+      homePriority={homePriority}
     />
   )
 }

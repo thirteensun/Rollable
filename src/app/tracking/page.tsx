@@ -1,14 +1,17 @@
 import { redirect } from 'next/navigation'
 import { getUserContext } from '@/lib/org-scope'
+import { getOrgContext } from '@/lib/org-context'
 import TrackingClient from './TrackingClient'
 
 export default async function TrackingPage() {
   const ctx = await getUserContext()
   if (!ctx) redirect('/login')
 
-  const { anon } = ctx
+  const { anon, orgId } = ctx
 
-  // All data queries use anon client — RLS handles scoping
+  const orgContext = orgId ? await getOrgContext(orgId) : {}
+  const stageTemplate = (orgContext as any).stage_template || 'other'
+
   const [dealsRes, contactsRes, companiesRes] = await Promise.all([
     anon
       .from('deals')
@@ -34,6 +37,7 @@ export default async function TrackingPage() {
       deals={(dealsRes.data ?? []) as any[]}
       contacts={(contactsRes.data ?? []) as any[]}
       companies={(companiesRes.data ?? []) as any[]}
+      stageTemplate={stageTemplate}
     />
   )
 }

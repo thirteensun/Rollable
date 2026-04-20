@@ -5,10 +5,9 @@ import SettingsClient from './SettingsClient'
 
 export default async function SettingsPage() {
   const supabase = createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await (await supabase).auth.getUser()
   if (!user) redirect('/login')
 
-  // Use service role for all reads — bypasses RLS reliably
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -32,7 +31,7 @@ export default async function SettingsPage() {
   const orgId = membership?.org_id || null
 
   const { data: org } = orgId
-    ? await admin.from('organisations').select('id, name, slug').eq('id', orgId).single()
+    ? await admin.from('organisations').select('id, name, slug, context').eq('id', orgId).single()
     : { data: null }
 
   const { data: membersRaw } = orgId
@@ -64,6 +63,7 @@ export default async function SettingsPage() {
       role={role}
       orgName={org?.name || ''}
       orgId={org?.id || ''}
+      orgContext={org?.context || {}}
       members={members}
       plan={subscription?.plan || 'free'}
       seats={subscription?.seats || 1}

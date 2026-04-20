@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useRef, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import KanbanBoard from './KanbanBoard'
+import { buildStageLabelMap } from '@/lib/stage-templates'
 
 type Deal = {
   id: string
@@ -34,6 +35,7 @@ type Props = {
   contacts: Contact[]
   companies: Company[]
   events: any[]
+  stageTemplate?: string
 }
 
 type Tab = 'deals' | 'contacts' | 'companies'
@@ -50,17 +52,10 @@ function useIsDesktop() {
   return isDesktop
 }
 
-const STAGE_ORDER = ['lead','qualified','demo','proposal','negotiation','closed_won','closed_lost']
-const STAGE_LABELS: Record<string, string> = {
-  lead: 'Lead', qualified: 'Qualified', demo: 'Demo',
-  proposal: 'Proposal', negotiation: 'Negotiation',
-  closed_won: 'Won', closed_lost: 'Lost',
-}
-
 function formatValue(v?: number) {
   if (!v) return '—'
-  if (v >= 1000) return `$${(v / 1000).toFixed(0)}k`
-  return `$${v}`
+  if (v >= 1000) return `€${(v / 1000).toFixed(0)}k`
+  return `€${v}`
 }
 
 function timeAgo(dateStr: string) {
@@ -71,23 +66,22 @@ function timeAgo(dateStr: string) {
   return `${d}d ago`
 }
 
-function DealsList({ deals }: { deals: Deal[] }) {
-  const sorted = [...deals].sort((a, b) =>
-    STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage)
-  )
+function DealsList({ deals, stageTemplate }: { deals: Deal[]; stageTemplate?: string }) {
+  const labelMap = buildStageLabelMap(stageTemplate)
+  const stageOrder = Object.keys(labelMap)
+  const sorted = [...deals].sort((a, b) => {
+    const ai = stageOrder.indexOf(a.stage)
+    const bi = stageOrder.indexOf(b.stage)
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+  })
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {sorted.map(deal => {
-        const atRisk = deal.days_since_activity >= 14 &&
-          deal.stage !== 'closed_won' && deal.stage !== 'closed_lost'
+        const atRisk = deal.days_since_activity >= 14 && deal.stage !== 'closed_won' && deal.stage !== 'closed_lost'
         return (
           <Link key={deal.id} href={`/tracking/deals/${deal.id}`} style={{ textDecoration: 'none' }}>
-            <div style={{
-              background: 'white',
-              border: '0.5px solid rgba(0,0,0,0.07)',
-              borderLeft: atRisk ? '2.5px solid #EF9F27' : undefined,
-              borderRadius: 16, padding: '14px 16px',
-            }}>
+            <div style={{ background: 'white', border: '0.5px solid rgba(0,0,0,0.07)', borderLeft: atRisk ? '2.5px solid #EF9F27' : undefined, borderRadius: 16, padding: '14px 16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', marginBottom: 2 }}>{deal.name}</div>
@@ -97,7 +91,7 @@ function DealsList({ deals }: { deals: Deal[] }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 11, fontWeight: 500, background: '#f5f4f0', color: '#6b6960', padding: '3px 8px', borderRadius: 6 }}>
-                  {STAGE_LABELS[deal.stage] ?? deal.stage}
+                  {labelMap[deal.stage] ?? deal.stage}
                 </span>
                 {atRisk && <span style={{ fontSize: 11, color: '#EF9F27' }}>{deal.days_since_activity}d no activity</span>}
               </div>
@@ -155,67 +149,27 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'companies', label: 'Companies' },
 ]
 
-export default function TrackingClient({ deals, contacts, companies }: Props) {
+export default function TrackingClient({ deals, contacts, companies, stageTemplate }: Props) {
   const isDesktop = useIsDesktop()
   const [tab, setTab] = useState<Tab>('deals')
 
-  // ── Desktop: full-width fixed Kanban ─────────────────────────────────────
-  // Breaks out of layout.tsx wrapper — sidebar is 210px wide
   if (isDesktop) {
     return (
       <>
-        {/* Spacer so layout doesn't collapse — Kanban is position:fixed */}
         <div style={{ height: '100vh' }} />
-
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 210, // sidebar width
-          right: 0,
-          bottom: 0,
-          background: '#f5f4f0',
-          display: 'flex',
-          flexDirection: 'column',
-          zIndex: 10,
-        }}>
-          {/* Toolbar */}
-          <div style={{
-            height: 52,
-            background: 'white',
-            borderBottom: '0.5px solid rgba(0,0,0,0.07)',
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 20px',
-            gap: 12,
-            flexShrink: 0,
-          }}>
+        <div style={{ position: 'fixed', top: 0, left: 210, right: 0, bottom: 0, background: '#f5f4f0', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+          <div style={{ height: 52, background: 'white', borderBottom: '0.5px solid rgba(0,0,0,0.07)', display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12, flexShrink: 0 }}>
             <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', flex: 1 }}>Pipeline</span>
-            <Link
-              href="/capture"
-              style={{
-                background: '#1a1a18',
-                color: 'white',
-                borderRadius: 10,
-                padding: '7px 14px',
-                fontSize: 12,
-                fontWeight: 500,
-                textDecoration: 'none',
-              }}
-            >
-              + Add Deal
-            </Link>
+            <Link href="/capture" style={{ background: '#1a1a18', color: 'white', borderRadius: 10, padding: '7px 14px', fontSize: 12, fontWeight: 500, textDecoration: 'none' }}>+ Add Deal</Link>
           </div>
-
-          {/* Kanban fills remaining height */}
           <div style={{ flex: 1, overflow: 'hidden' }}>
-            <KanbanBoard deals={deals} />
+            <KanbanBoard deals={deals} stageTemplate={stageTemplate} />
           </div>
         </div>
       </>
     )
   }
 
-  // ── Mobile: tabbed list ───────────────────────────────────────────────────
   return (
     <div style={{ paddingTop: 16 }}>
       <div style={{ paddingBottom: 16 }}>
@@ -223,17 +177,10 @@ export default function TrackingClient({ deals, contacts, companies }: Props) {
       </div>
       <div style={{ display: 'flex', gap: 4, paddingBottom: 12, overflowX: 'auto' }} className="no-scrollbar">
         {TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            background: tab === t.key ? '#1a1a18' : 'white',
-            color: tab === t.key ? 'white' : '#6b6960',
-            border: '0.5px solid rgba(0,0,0,0.07)',
-            borderRadius: 20, padding: '6px 14px',
-            fontSize: 13, fontWeight: tab === t.key ? 500 : 400,
-            cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-          }}>{t.label}</button>
+          <button key={t.key} onClick={() => setTab(t.key)} style={{ background: tab === t.key ? '#1a1a18' : 'white', color: tab === t.key ? 'white' : '#6b6960', border: '0.5px solid rgba(0,0,0,0.07)', borderRadius: 20, padding: '6px 14px', fontSize: 13, fontWeight: tab === t.key ? 500 : 400, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>{t.label}</button>
         ))}
       </div>
-      {tab === 'deals'     && <DealsList deals={deals} />}
+      {tab === 'deals'     && <DealsList deals={deals} stageTemplate={stageTemplate} />}
       {tab === 'contacts'  && <ContactsList contacts={contacts} />}
       {tab === 'companies' && <CompaniesList companies={companies} />}
     </div>
