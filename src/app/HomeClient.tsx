@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import AIProactiveNudges from '@/components/AIProactiveNudges'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -124,6 +124,13 @@ function activityColor(intensity: number): string {
 
 function ActivityChart({ events }: { events: Event[] }) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
+    }
+  }, [])
 
   const countByDate = useMemo(() => {
     const map: Record<string, number> = {}
@@ -167,21 +174,18 @@ function ActivityChart({ events }: { events: Event[] }) {
       weeksArr.push(col)
     }
 
-    // Reverse so most recent weeks appear on the left
-    const reversed = [...weeksArr].reverse()
-
-    const reversedLabels: { label: string; col: number }[] = []
-    let lastMonthR = -1
-    reversed.forEach((col, ci) => {
+    const labels: { label: string; col: number }[] = []
+    let lastMonth = -1
+    weeksArr.forEach((col, ci) => {
       if (!col[0]) return
       const month = new Date(col[0].date + 'T12:00:00').getMonth()
-      if (month !== lastMonthR) {
-        reversedLabels.push({ label: new Date(col[0].date + 'T12:00:00').toLocaleString('default', { month: 'short' }), col: ci })
-        lastMonthR = month
+      if (month !== lastMonth) {
+        labels.push({ label: new Date(col[0].date + 'T12:00:00').toLocaleString('default', { month: 'short' }), col: ci })
+        lastMonth = month
       }
     })
 
-    return { weeks: reversed, monthLabels: reversedLabels }
+    return { weeks: weeksArr, monthLabels: labels }
   }, [countByDate])
 
   const maxCount = useMemo(() => Math.max(...Object.values(countByDate), 1), [countByDate])
@@ -201,7 +205,7 @@ function ActivityChart({ events }: { events: Event[] }) {
         </div>
 
         {/* Scrollable chart area */}
-        <div style={{ overflowX: 'auto', overflowY: 'hidden', paddingBottom: 4 }}>
+        <div ref={scrollRef} style={{ overflowX: 'auto', overflowY: 'hidden', paddingBottom: 4 }}>
           <div style={{ width: 'max-content' }}>
 
             {/* Month labels row */}
