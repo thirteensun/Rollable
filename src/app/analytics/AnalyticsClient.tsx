@@ -67,8 +67,7 @@ function useContainerWidth(fallback = 300): [React.RefObject<HTMLDivElement>, nu
 
 // ─── Charts (all unchanged) ───────────────────────────────────────────────────
 
-function StatStrip({ stats }: { stats: { label: string; value: string; sub?: string; color?: string }[] }) {
-  const isDesktop = useIsDesktop()
+function StatStrip({ stats, isDesktop }: { stats: { label: string; value: string; sub?: string; color?: string }[]; isDesktop: boolean }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? `repeat(${stats.length}, 1fr)` : 'repeat(2, 1fr)' }}>
       {stats.map((s, i) => (
@@ -489,7 +488,7 @@ export default function AnalyticsClient({ deals, contacts, companies, tasks, sta
 
   // ── Card definitions ──────────────────────────────────────────────────────
   const allCards: CardDef[] = [
-    { id: 'stats', title: 'Overview', subtitle: `${active.length} active ${dealWord}`, span: 2, tags: ['deals'], miniStat: () => ({ label: 'pipeline', value: fmt(pipelineVal) }), visible: activeTag === 'all' || activeTag === 'deals', render: () => <StatStrip stats={[{ label: 'Pipeline', value: fmt(pipelineVal), sub: `${active.length} ${dealWord}` }, { label: 'Weighted', value: fmt(weighted), sub: 'prob-adj' }, { label: 'Win rate', value: `${winRate}%`, sub: `${won.length}W·${lost.length}L`, color: winRate >= 50 ? C.green : C.amber }, { label: 'Avg deal', value: fmt(avgDeal), sub: 'closed won' }, { label: 'Contacts', value: String(contacts.length), sub: `${followupsDue} due` }]} /> },
+    { id: 'stats', title: 'Overview', subtitle: `${active.length} active ${dealWord}`, span: 2, tags: ['deals'], miniStat: () => ({ label: 'pipeline', value: fmt(pipelineVal) }), visible: activeTag === 'all' || activeTag === 'deals', render: () => <StatStrip isDesktop={isDesktop} stats={[{ label: 'Pipeline', value: fmt(pipelineVal), sub: `${active.length} ${dealWord}` }, { label: 'Weighted', value: fmt(weighted), sub: 'prob-adj' }, { label: 'Win rate', value: `${winRate}%`, sub: `${won.length}W·${lost.length}L`, color: winRate >= 50 ? C.green : C.amber }, { label: 'Avg deal', value: fmt(avgDeal), sub: 'closed won' }, { label: 'Contacts', value: String(contacts.length), sub: `${followupsDue} due` }]} /> },
     ...(quota?.quota ? [{ id: 'quota', title: 'Quota attainment', subtitle: quota.quota_period || '', span: 2 as const, tags: ['forecast', 'performance'], miniStat: () => ({ label: 'attained', value: `${(quota.attainment_pct || 0).toFixed(0)}%`, color: (quota.attainment_pct || 0) >= 75 ? C.green : (quota.attainment_pct || 0) >= 40 ? C.amber : C.red }), visible: activeTag === 'all' || ['deals', 'forecast', 'performance'].includes(activeTag), render: () => <QuotaProgress quota={quota!} /> }] : []),
     { id: 'scatter', title: 'Deal age vs value', subtitle: 'active pipeline', span: 2, tags: ['deals', 'live'], miniStat: () => ({ label: 'active', value: fmt(pipelineVal) }), visible: activeTag === 'all' || ['deals', 'live'].includes(activeTag), render: () => <DealAgeScatter deals={deals} stageLabels={stageLabels} atRiskDays={atRiskDays} /> },
     ...(isElevated && repPerformance?.length ? [{ id: 'team', title: 'Team performance', subtitle: `${repPerformance!.length} reps`, span: 2 as const, tags: ['team', 'performance'], miniStat: () => ({ label: 'reps', value: String(repPerformance!.length) }), visible: activeTag === 'all' || ['team', 'performance'].includes(activeTag), render: () => <RepPerformanceTable repPerformance={repPerformance!} /> }] : []),
