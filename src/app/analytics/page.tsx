@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import AnalyticsClient from './AnalyticsClient'
+import { getOrgContext } from '@/lib/org-context'
 
 export default async function AnalyticsPage() {
   const supabase = await createServerSupabaseClient()
@@ -11,7 +12,7 @@ export default async function AnalyticsPage() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Get current user for quota lookup
+  // Get current user
   const cookieStore = await cookies()
   const authClient = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,6 +20,24 @@ export default async function AnalyticsPage() {
     { cookies: { get(name: string) { return cookieStore.get(name)?.value }, set() {}, remove() {} } }
   )
   const { data: { user } } = await authClient.auth.getUser()
+
+  // Get org membership + role
+  const { data: membership } = user
+    ? await admin
+        .from('organisation_members')
+        .select('org_id, role')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle()
+    : { data: null }
+
+  const orgId = membership?.org_id || null
+  const role = membership?.role || 'member'
+  const isElevated = role === 'manager' || role === 'admin'
+
+  // Fetch org context (stage_template, at_risk_days, industry, etc.)
+  const orgContext = orgId ? await getOrgContext(orgId) : {}
 
   const [
     { data: deals },
@@ -28,6 +47,7 @@ export default async function AnalyticsPage() {
     { data: stageVelocity },
     { data: quotaRow },
     { data: stageConversion },
+    repPerformanceResult,
   ] = await Promise.all([
     supabase
       .from('deals')
@@ -62,7 +82,50 @@ export default async function AnalyticsPage() {
     supabase
       .from('deal_stage_conversion')
       .select('stage, deals_entered, deals_advanced, deals_lost_here, advance_rate_pct'),
+
+    // Rep performance rows — managers/admins only
+    isElevated && orgId
+      ? admin
+          .from('rep_quota_attainment')
+          .select('user_id, role, quota, quota_period, confirmed_revenue, pipeline_value, attainment_pct, gap_to_quota')
+          .eq('org_id', orgId)
+      : Promise.resolve({ data: null }),
   ])
+
+  // Enrich rep rows with email + at-risk count
+  let repPerformance: any[] | null = null
+  if (isElevated && orgId && (repPerformanceResult as any)?.data?.length) {
+    const atRiskDays = (orgContext as any).at_risk_days || 14
+    const now = Date.now()
+
+    const [{ data: members }, { data: atRiskDeals }] = await Promise.all([
+      admin
+        .from('organisation_members')
+        .select('user_id, users(email)')
+        .eq('org_id', orgId)
+        .eq('status', 'active'),
+      admin
+        .from('deals')
+        .select('user_id, last_activity_at')
+        .eq('org_id', orgId)
+        .not('stage', 'in', '("closed_won","closed_lost")'),
+    ])
+
+    const emailMap: Record<string, string> = {}
+    members?.forEach((m: any) => { emailMap[m.user_id] = m.users?.email || m.user_id })
+
+    const atRiskByRep: Record<string, number> = {}
+    atRiskDeals?.forEach((d: any) => {
+      const days = (now - new Date(d.last_activity_at || 0).getTime()) / 86400000
+      if (days > atRiskDays) atRiskByRep[d.user_id] = (atRiskByRep[d.user_id] || 0) + 1
+    })
+
+    repPerformance = (repPerformanceResult as any).data.map((r: any) => ({
+      ...r,
+      email: emailMap[r.user_id] || r.user_id,
+      at_risk_count: atRiskByRep[r.user_id] || 0,
+    }))
+  }
 
   return (
     <AnalyticsClient
@@ -73,6 +136,9 @@ export default async function AnalyticsPage() {
       stageVelocity={stageVelocity ?? []}
       quota={quotaRow ?? null}
       stageConversion={stageConversion ?? []}
+      orgContext={orgContext as any}
+      isElevated={isElevated}
+      repPerformance={repPerformance}
     />
   )
 }

@@ -432,3 +432,43 @@ Kanban org-scoping for managers (tracking/page.tsx)
 Forward-looking nudge ("proposal sent X days ago, no movement")
 Excel → leads in Capture
 Stripe billing
+
+Here's what we've built this session:
+
+**Onboarding Q&A (Parts A, B, C)**
+- `organisations.context` jsonb column in Supabase
+- Haiku-guided chat after workspace creation
+- Saves structured context to DB
+- Context injected into Action Agent, Analytics Agent, Nudges
+
+**Org Context Helper**
+- `src/lib/org-context.ts` — `getOrgContext()` + `formatOrgContextForPrompt()`
+
+**Stage Templates**
+- `src/lib/stage-templates.ts` — 8 industry templates with stable DB keys
+- `suggestTemplate()`, `buildStageLabelMap()`, `getStagesForTemplate()`
+- `HOME_PRIORITY_OPTIONS` — tasks / pipeline / at-risk / revenue
+
+**Kanban**
+- `KanbanBoard` — uses `stageTemplate` prop, builds columns from template
+- `TrackingClient` — passes template down, mobile list uses label map
+- `tracking/page.tsx` — fetches `stage_template` from org context
+
+**Settings Customise Panel**
+- Pipeline tab — 8 template cards replacing free text input
+- Profile tab — home priority picker with 4 options
+- AI tab — pain points + live context summary
+- Preview tab — live Kanban + nudge preview
+- Saves `stage_template` + `home_priority` to `organisations.context`
+
+**Home Page Personalisation**
+- 4 priority sections: Tasks, Pipeline, At-risk, Revenue
+- `homePriority` from org context determines which appears first
+- `page.tsx` fetches at-risk deals using org `at_risk_days` threshold
+
+**Still to do:**
+- Analytics page — stage labels + at-risk threshold from org context
+- Onboarding chat revised to suggest templates + ask home priority
+- `OrgContext` type updated to include `stage_template` + `home_priority`
+
+Ready for analytics page?
