@@ -130,11 +130,57 @@ function DealAgeScatter({ deals, stageLabels, atRiskDays }: { deals: Deal[]; sta
 function RevenueWaterfall({ deals, quota, stageLabels }: { deals: Deal[]; quota: Quota | null; stageLabels: Record<string, string> }) {
   const [ref, W] = useContainerWidth(280)
   const confirmed = quota?.confirmed_revenue || 0
-  const bars = ['lead', 'qualified', 'demo', 'proposal', 'negotiation'].map(s => ({ label: stageLabels[s] || s, value: deals.filter(d => d.stage === s).reduce((a, d) => a + (d.value || 0) * (STAGE_PROB[s] || 0), 0), color: STAGE_COLOR[s] })).filter(b => b.value > 0)
-  const allBars = [...(confirmed > 0 ? [{ label: 'Confirmed', value: confirmed, color: C.green, isConfirmed: true }] : []), ...bars.map(b => ({ ...b, isConfirmed: false }))]
-  const hasQuota = !!quota?.quota; const totalSlots = allBars.length + (hasQuota ? 1 : 0); const maxVal = Math.max(confirmed + bars.reduce((s, b) => s + b.value, 0), quota?.quota || 0, 1)
-  const VH = 130; const chartH = 95; const pad = 6; const slot = totalSlots > 0 ? (W - pad * 2) / totalSlots : 36; const bW = Math.max(slot * 0.58, 6)
-  return (<div ref={ref}><svg width="100%" height={VH} style={{ display: 'block', overflow: 'visible' }}>{allBars.map((b, i) => { const barH = Math.max((b.value / maxVal) * chartH, 3); const cx = pad + i * slot + slot / 2; return (<g key={i}><rect x={cx - bW / 2} y={0} width={bW} height={chartH} fill={C.bg} rx={4} /><motion.rect x={cx - bW / 2} width={bW} rx={4} fill={b.color} opacity={(b as any).isConfirmed ? 1 : 0.75} initial={{ y: chartH, height: 0 }} animate={{ y: chartH - barH, height: barH }} transition={{ duration: 0.6, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }} /><text x={cx} y={chartH - barH - 3} textAnchor="middle" fontSize={6.5} fill={C.muted} fontWeight="600">{fmt(b.value)}</text><text x={cx} y={VH - 1} textAnchor="middle" fontSize={7.5} fill={C.faint}>{b.label.slice(0, 7)}</text></g>) }){hasQuota && (() => { const cx = pad + allBars.length * slot + slot / 2; const qY = chartH - ((quota!.quota! / maxVal) * chartH); return <g><line x1={cx - bW / 2} y1={qY} x2={cx + bW / 2} y2={qY} stroke={C.amber} strokeWidth={2} strokeDasharray="4 3" /><text x={cx} y={qY - 4} textAnchor="middle" fontSize={6.5} fill={C.amber} fontWeight="600">{fmt(quota!.quota)}</text><text x={cx} y={VH - 1} textAnchor="middle" fontSize={7.5} fill={C.amber}>Quota</text></g> })()}</svg></div>)
+  const bars = ['lead', 'qualified', 'demo', 'proposal', 'negotiation']
+    .map(s => ({ label: stageLabels[s] || s, value: deals.filter(d => d.stage === s).reduce((a, d) => a + (d.value || 0) * (STAGE_PROB[s] || 0), 0), color: STAGE_COLOR[s] }))
+    .filter(b => b.value > 0)
+  const allBars = [
+    ...(confirmed > 0 ? [{ label: 'Confirmed', value: confirmed, color: C.green, isConfirmed: true }] : []),
+    ...bars.map(b => ({ ...b, isConfirmed: false })),
+  ]
+  const hasQuota = !!quota?.quota
+  const totalSlots = allBars.length + (hasQuota ? 1 : 0)
+  const maxVal = Math.max(confirmed + bars.reduce((s, b) => s + b.value, 0), quota?.quota || 0, 1)
+  const VH = 130; const chartH = 95; const pad = 6
+  const slot = totalSlots > 0 ? (W - pad * 2) / totalSlots : 36
+  const bW = Math.max(slot * 0.58, 6)
+
+  const quotaEl = hasQuota ? (() => {
+    const cx = pad + allBars.length * slot + slot / 2
+    const qY = chartH - ((quota!.quota! / maxVal) * chartH)
+    return (
+      <g key="quota-line">
+        <line x1={cx - bW / 2} y1={qY} x2={cx + bW / 2} y2={qY} stroke={C.amber} strokeWidth={2} strokeDasharray="4 3" />
+        <text x={cx} y={qY - 4} textAnchor="middle" fontSize={6.5} fill={C.amber} fontWeight="600">{fmt(quota!.quota)}</text>
+        <text x={cx} y={VH - 1} textAnchor="middle" fontSize={7.5} fill={C.amber}>Quota</text>
+      </g>
+    )
+  })() : null
+
+  return (
+    <div ref={ref}>
+      <svg width="100%" height={VH} style={{ display: 'block', overflow: 'visible' }}>
+        {allBars.map((b, i) => {
+          const barH = Math.max((b.value / maxVal) * chartH, 3)
+          const cx = pad + i * slot + slot / 2
+          return (
+            <g key={i}>
+              <rect x={cx - bW / 2} y={0} width={bW} height={chartH} fill={C.bg} rx={4} />
+              <motion.rect
+                x={cx - bW / 2} width={bW} rx={4}
+                fill={b.color} opacity={(b as any).isConfirmed ? 1 : 0.75}
+                initial={{ y: chartH, height: 0 }}
+                animate={{ y: chartH - barH, height: barH }}
+                transition={{ duration: 0.6, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+              />
+              <text x={cx} y={chartH - barH - 3} textAnchor="middle" fontSize={6.5} fill={C.muted} fontWeight="600">{fmt(b.value)}</text>
+              <text x={cx} y={VH - 1} textAnchor="middle" fontSize={7.5} fill={C.faint}>{b.label.slice(0, 7)}</text>
+            </g>
+          )
+        })}
+        {quotaEl}
+      </svg>
+    </div>
+  )
 }
 
 function ConversionWaterfall({ stageConversion, stageLabels }: { stageConversion: StageConversion[]; stageLabels: Record<string, string> }) {
@@ -369,7 +415,7 @@ export default function AnalyticsClient({ deals, contacts, companies, tasks, sta
   const snapshot = useRef<{ left: string[]; right: string[]; collapsed: string[] } | null>(null)
 
   function enterEdit() {
-    snapshot.current = { left: [...leftIds], right: [...rightIds], collapsed: [...collapsed] }
+    snapshot.current = { left: [...leftIds], right: [...rightIds], collapsed: Array.from(collapsed) }
     setEditMode(true)
     setSaveError(null)
   }
@@ -388,7 +434,7 @@ export default function AnalyticsClient({ deals, contacts, companies, tasks, sta
     setSaving(true)
     setSaveError(null)
     try {
-      const layout: AnalyticsLayout = { left: leftIds, right: rightIds, collapsed: [...collapsed] }
+      const layout: AnalyticsLayout = { left: leftIds, right: rightIds, collapsed: Array.from(collapsed) }
       const res = await fetch('/api/analytics-layout', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
