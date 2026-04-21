@@ -1,7 +1,11 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import {
+  motion, AnimatePresence, Reorder,
+  useDragControls, useMotionValue, useSpring,
+} from 'framer-motion'
 import { buildStageLabelMap } from '@/lib/stage-templates'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -71,16 +75,38 @@ const daysSince = (d?: string) => d ? Math.floor((Date.now() - new Date(d).getTi
 const daysUntil = (d?: string) => d ? Math.ceil((new Date(d).getTime() - Date.now()) / 86400000) : null
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
+// ─── useContainerWidth — ResizeObserver hook for responsive SVGs ──────────────
+function useContainerWidth(fallback = 300): [React.RefObject<HTMLDivElement>, number] {
+  const ref = useRef<HTMLDivElement>(null!)
+  const [width, setWidth] = useState(fallback)
+  useEffect(() => {
+    if (!ref.current) return
+    const ro = new ResizeObserver(([entry]) => {
+      setWidth(entry.contentRect.width || fallback)
+    })
+    ro.observe(ref.current)
+    setWidth(ref.current.getBoundingClientRect().width || fallback)
+    return () => ro.disconnect()
+  }, [fallback])
+  return [ref, width]
+}
+
 // ─── Stat strip ───────────────────────────────────────────────────────────────
 function StatStrip({ stats }: { stats: { label: string; value: string; sub?: string; color?: string }[] }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${stats.length}, 1fr)` }}>
       {stats.map((s, i) => (
-        <div key={i} style={{ padding: '18px 20px', borderRight: i < stats.length - 1 ? `0.5px solid ${C.border}` : 'none' }}>
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.06, duration: 0.3 }}
+          style={{ padding: '18px 20px', borderRight: i < stats.length - 1 ? `0.5px solid ${C.border}` : 'none' }}
+        >
           <div style={{ fontSize: 10, fontWeight: 600, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>{s.label}</div>
           <div style={{ fontSize: 22, fontWeight: 500, color: s.color || C.dark, letterSpacing: '-0.03em', lineHeight: 1 }}>{s.value}</div>
           {s.sub && <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{s.sub}</div>}
-        </div>
+        </motion.div>
       ))}
     </div>
   )
@@ -106,7 +132,12 @@ function FunnelChart({ deals, stageConversion, stageLabels }: { deals: Deal[]; s
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 3 }}>
               <div style={{ width: 80, fontSize: 11, color: C.muted, flexShrink: 0 }}>{stageLabels[row.stage] || row.stage}</div>
               <div style={{ flex: 1, height: 20, background: C.bg, borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
-                <div style={{ width: `${barPct}%`, height: '100%', background: STAGE_COLOR[row.stage], borderRadius: 4, transition: 'width 0.6s ease', opacity: 0.85 }} />
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${barPct}%` }}
+                  transition={{ duration: 0.7, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  style={{ height: '100%', background: STAGE_COLOR[row.stage], borderRadius: 4, opacity: 0.85 }}
+                />
                 {row.count > 0 && <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 10, fontWeight: 600, color: barPct > 30 ? 'white' : C.muted }}>{row.count}</span>}
               </div>
               <div style={{ width: 48, fontSize: 11, color: C.muted, textAlign: 'right', flexShrink: 0 }}>{fmt(row.value)}</div>
@@ -134,10 +165,22 @@ function WinLossDonut({ deals }: { deals: Deal[] }) {
       <svg width={100} height={100} viewBox="0 0 100 100">
         <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.bg} strokeWidth={stroke} />
         {total === 0
-          ? <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.border} strokeWidth={stroke} strokeDasharray={`${circ}`} />
+          ? <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.border} strokeWidth={stroke} />
           : <>
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.green} strokeWidth={stroke} strokeDasharray={`${wonArc} ${circ}`} strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} />
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.red} strokeWidth={stroke} strokeDasharray={`${lostArc} ${circ - lostArc}`} strokeDashoffset={-wonArc} strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} />
+            <motion.circle
+              cx={cx} cy={cy} r={r} fill="none" stroke={C.green} strokeWidth={stroke} strokeLinecap="round"
+              transform={`rotate(-90 ${cx} ${cy})`}
+              initial={{ strokeDasharray: `0 ${circ}` }}
+              animate={{ strokeDasharray: `${wonArc} ${circ}` }}
+              transition={{ duration: 0.9, ease: 'easeOut' }}
+            />
+            <motion.circle
+              cx={cx} cy={cy} r={r} fill="none" stroke={C.red} strokeWidth={stroke} strokeLinecap="round"
+              transform={`rotate(-90 ${cx} ${cy})`}
+              initial={{ strokeDasharray: `0 ${circ}`, strokeDashoffset: 0 }}
+              animate={{ strokeDasharray: `${lostArc} ${circ - lostArc}`, strokeDashoffset: -wonArc }}
+              transition={{ duration: 0.9, ease: 'easeOut', delay: 0.1 }}
+            />
           </>
         }
         <text x={cx} y={cy - 4} textAnchor="middle" fontSize={14} fontWeight={600} fill={C.dark}>{winRate}%</text>
@@ -158,8 +201,9 @@ function WinLossDonut({ deals }: { deals: Deal[] }) {
   )
 }
 
-// ─── CHART: Revenue Bars ─────────────────────────────────────────────────────
+// ─── CHART: Revenue Bars — responsive ────────────────────────────────────────
 function RevenueBarChart({ deals }: { deals: Deal[] }) {
+  const [containerRef, W] = useContainerWidth(300)
   const months = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(); d.setMonth(d.getMonth() - (5 - i))
     const y = d.getFullYear(); const m = d.getMonth()
@@ -169,22 +213,33 @@ function RevenueBarChart({ deals }: { deals: Deal[] }) {
     }
   })
   const maxVal = Math.max(...months.map(m => m.value), 1)
-  const VW = 300; const VH = 120; const chartH = 90; const barW = 34; const gap = 14
+  const VH = 120; const chartH = 90; const pad = 8
+  const slot = (W - pad * 2) / 6
+  const barW = Math.max(slot * 0.55, 10)
   return (
-    <svg width="100%" viewBox={`0 0 ${VW} ${VH}`} style={{ display: 'block' }}>
-      {months.map((m, i) => {
-        const barH = m.value > 0 ? Math.max((m.value / maxVal) * chartH, 3) : 0
-        const x = 4 + i * (barW + gap)
-        return (
-          <g key={i}>
-            <rect x={x} y={0} width={barW} height={chartH} fill={C.bg} rx={5} />
-            {barH > 0 && <rect x={x} y={chartH - barH} width={barW} height={barH} fill={C.dark} rx={5} />}
-            {m.value > 0 && <text x={x + barW / 2} y={chartH - barH - 5} textAnchor="middle" fontSize={7} fill={C.muted} fontWeight="500">{fmt(m.value)}</text>}
-            <text x={x + barW / 2} y={VH - 2} textAnchor="middle" fontSize={8} fill={C.faint}>{m.label}</text>
-          </g>
-        )
-      })}
-    </svg>
+    <div ref={containerRef}>
+      <svg width="100%" height={VH} style={{ display: 'block', overflow: 'visible' }}>
+        {months.map((m, i) => {
+          const barH = m.value > 0 ? Math.max((m.value / maxVal) * chartH, 3) : 0
+          const cx = pad + i * slot + slot / 2
+          return (
+            <g key={i}>
+              <rect x={cx - barW / 2} y={0} width={barW} height={chartH} fill={C.bg} rx={5} />
+              {barH > 0 && (
+                <motion.rect
+                  x={cx - barW / 2} width={barW} rx={5} fill={C.dark}
+                  initial={{ y: chartH, height: 0 }}
+                  animate={{ y: chartH - barH, height: barH }}
+                  transition={{ duration: 0.6, delay: i * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
+                />
+              )}
+              {m.value > 0 && <text x={cx} y={chartH - barH - 5} textAnchor="middle" fontSize={7} fill={C.muted} fontWeight="500">{fmt(m.value)}</text>}
+              <text x={cx} y={VH - 2} textAnchor="middle" fontSize={8} fill={C.faint}>{m.label}</text>
+            </g>
+          )
+        })}
+      </svg>
+    </div>
   )
 }
 
@@ -195,47 +250,64 @@ function VelocityHeatmap({ stageVelocity, stageLabels }: { stageVelocity: StageV
   const maxDays = Math.max(...stageVelocity.map(s => s.avg_days), 1)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {stages.map(stage => {
+      {stages.map((stage, i) => {
         const row = stageVelocity.find(s => s.stage === stage)
         if (!row) return null
         const intensity = row.avg_days / maxDays
         const bg = `rgba(26,26,24,${0.06 + intensity * 0.7})`
         const tc = intensity > 0.5 ? 'white' : C.dark
         return (
-          <div key={stage} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 84, fontSize: 11, color: C.muted }}>{stageLabels[stage] || stage}</div>
+          <motion.div
+            key={stage}
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.07, duration: 0.35 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+          >
+            <div style={{ width: 84, fontSize: 11, color: C.muted, flexShrink: 0 }}>{stageLabels[stage] || stage}</div>
             <div style={{ flex: 1, height: 32, background: bg, borderRadius: 6, display: 'flex', alignItems: 'center', paddingLeft: 10, gap: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: tc }}>{row.avg_days}d</span>
               <span style={{ fontSize: 10, color: intensity > 0.5 ? 'rgba(255,255,255,0.6)' : C.faint }}>avg · {row.transitions} transitions</span>
             </div>
             {intensity > 0.6 && <span style={{ fontSize: 10, color: C.amber }}>bottleneck</span>}
-          </div>
+          </motion.div>
         )
       })}
     </div>
   )
 }
 
-// ─── CHART: Deal Age Scatter ──────────────────────────────────────────────────
+// ─── CHART: Deal Age Scatter — responsive ────────────────────────────────────
 function DealAgeScatter({ deals, stageLabels, atRiskDays }: { deals: Deal[]; stageLabels: Record<string, string>; atRiskDays: number }) {
+  const [containerRef, W] = useContainerWidth(500)
   const active = deals.filter(d => !['closed_won', 'closed_lost'].includes(d.stage) && d.value)
   if (active.length === 0) return <div style={{ fontSize: 12, color: C.faint }}>No active deals</div>
-  const W = 500; const H = 200
+  const H = 200; const padL = 36; const padR = 8; const padT = 8; const padB = 20
   const maxAge = Math.max(...active.map(d => daysSince(d.created_at)), 1)
   const maxVal = Math.max(...active.map(d => d.value || 0), 1)
   return (
-    <div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
-        <line x1={36} y1={H - 20} x2={W - 8} y2={H - 20} stroke={C.border} strokeWidth={1} />
-        <line x1={36} y1={8} x2={36} y2={H - 20} stroke={C.border} strokeWidth={1} />
-        <text x={W / 2} y={H - 4} textAnchor="middle" fontSize={9} fill={C.faint}>Age (days)</text>
+    <div ref={containerRef}>
+      <svg width="100%" height={H} style={{ display: 'block', overflow: 'visible' }}>
+        <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke={C.border} strokeWidth={1} />
+        <line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke={C.border} strokeWidth={1} />
+        <text x={(W + padL) / 2} y={H - 4} textAnchor="middle" fontSize={9} fill={C.faint}>Age (days)</text>
         <text x={10} y={H / 2} textAnchor="middle" fontSize={9} fill={C.faint} transform={`rotate(-90 10 ${H / 2})`}>Value</text>
-        {active.map(d => {
-          const x = 36 + ((daysSince(d.created_at) / maxAge) * (W - 48))
-          const y = (H - 24) - ((d.value! / maxVal) * (H - 40))
+        {active.map((d, i) => {
+          const x = padL + ((daysSince(d.created_at) / maxAge) * (W - padL - padR))
+          const y = (H - padB) - ((d.value! / maxVal) * (H - padT - padB))
           const atRisk = daysSince(d.last_activity_at) > atRiskDays
           const color = atRisk ? C.red : STAGE_COLOR[d.stage] || C.dark
-          return <g key={d.id}><circle cx={x} cy={y} r={7} fill={color} opacity={0.75} /><circle cx={x} cy={y} r={10} fill="none" stroke={color} strokeWidth={1} opacity={0.2} /></g>
+          return (
+            <motion.g key={d.id}
+              initial={{ opacity: 0, scale: 0 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.03, duration: 0.35, type: 'spring', stiffness: 300 }}
+              style={{ transformOrigin: `${x}px ${y}px` }}
+            >
+              <circle cx={x} cy={y} r={7} fill={color} opacity={0.75} />
+              <circle cx={x} cy={y} r={10} fill="none" stroke={color} strokeWidth={1} opacity={0.2} />
+            </motion.g>
+          )
         })}
       </svg>
       <div style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
@@ -254,8 +326,9 @@ function DealAgeScatter({ deals, stageLabels, atRiskDays }: { deals: Deal[]; sta
   )
 }
 
-// ─── CHART: Revenue Waterfall ─────────────────────────────────────────────────
+// ─── CHART: Revenue Waterfall — responsive ───────────────────────────────────
 function RevenueWaterfall({ deals, quota, stageLabels }: { deals: Deal[]; quota: Quota | null; stageLabels: Record<string, string> }) {
+  const [containerRef, W] = useContainerWidth(300)
   const confirmed = quota?.confirmed_revenue || 0
   const stages = ['lead', 'qualified', 'demo', 'proposal', 'negotiation']
   const bars = stages.map(s => ({
@@ -264,62 +337,81 @@ function RevenueWaterfall({ deals, quota, stageLabels }: { deals: Deal[]; quota:
     color: STAGE_COLOR[s],
   })).filter(b => b.value > 0)
   const allBars = [...(confirmed > 0 ? [{ label: 'Confirmed', value: confirmed, color: C.green, isConfirmed: true }] : []), ...bars.map(b => ({ ...b, isConfirmed: false }))]
+  const hasQuota = !!quota?.quota
+  const totalSlots = allBars.length + (hasQuota ? 1 : 0)
   const maxVal = Math.max(confirmed + bars.reduce((s, b) => s + b.value, 0), quota?.quota || 0, 1)
-  const VW = 300; const VH = 140; const chartH = 100
-  const totalBars = allBars.length + (quota?.quota ? 1 : 0)
-  const spacing = (VW - 10) / totalBars
-  const bW = Math.min(36, spacing - 8)
+  const VH = 140; const chartH = 100; const pad = 8
+  const slot = totalSlots > 0 ? (W - pad * 2) / totalSlots : 40
+  const bW = Math.max(slot * 0.6, 8)
   return (
-    <svg width="100%" viewBox={`0 0 ${VW} ${VH}`} style={{ display: 'block' }}>
-      {allBars.map((b, i) => {
-        const barH = Math.max((b.value / maxVal) * chartH, 3)
-        const cx = 10 + i * spacing + spacing / 2
-        return (
-          <g key={i}>
-            <rect x={cx - bW / 2} y={0} width={bW} height={chartH} fill={C.bg} rx={4} />
-            <rect x={cx - bW / 2} y={chartH - barH} width={bW} height={barH} fill={b.color} opacity={(b as any).isConfirmed ? 1 : 0.75} rx={4} />
-            <text x={cx} y={chartH - barH - 4} textAnchor="middle" fontSize={7} fill={C.muted} fontWeight="600">{fmt(b.value)}</text>
-            <text x={cx} y={VH - 2} textAnchor="middle" fontSize={8} fill={C.faint}>{b.label}</text>
+    <div ref={containerRef}>
+      <svg width="100%" height={VH} style={{ display: 'block', overflow: 'visible' }}>
+        {allBars.map((b, i) => {
+          const barH = Math.max((b.value / maxVal) * chartH, 3)
+          const cx = pad + i * slot + slot / 2
+          return (
+            <g key={i}>
+              <rect x={cx - bW / 2} y={0} width={bW} height={chartH} fill={C.bg} rx={4} />
+              <motion.rect
+                x={cx - bW / 2} width={bW} rx={4}
+                fill={b.color} opacity={(b as any).isConfirmed ? 1 : 0.75}
+                initial={{ y: chartH, height: 0 }}
+                animate={{ y: chartH - barH, height: barH }}
+                transition={{ duration: 0.6, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+              />
+              <text x={cx} y={chartH - barH - 4} textAnchor="middle" fontSize={7} fill={C.muted} fontWeight="600">{fmt(b.value)}</text>
+              <text x={cx} y={VH - 2} textAnchor="middle" fontSize={8} fill={C.faint}>{b.label}</text>
+            </g>
+          )
+        })}
+        {hasQuota && (() => {
+          const cx = pad + allBars.length * slot + slot / 2
+          const qY = chartH - ((quota!.quota! / maxVal) * chartH)
+          return <g>
+            <line x1={cx - bW / 2} y1={qY} x2={cx + bW / 2} y2={qY} stroke={C.amber} strokeWidth={2} strokeDasharray="4 3" />
+            <text x={cx} y={qY - 5} textAnchor="middle" fontSize={7} fill={C.amber} fontWeight="600">{fmt(quota!.quota)}</text>
+            <text x={cx} y={VH - 2} textAnchor="middle" fontSize={8} fill={C.amber}>Quota</text>
           </g>
-        )
-      })}
-      {quota?.quota && (() => {
-        const cx = 10 + allBars.length * spacing + spacing / 2
-        const qY = chartH - (quota.quota / maxVal) * chartH
-        return <g>
-          <line x1={cx - bW / 2} y1={qY} x2={cx + bW / 2} y2={qY} stroke={C.amber} strokeWidth={2} strokeDasharray="4 3" />
-          <text x={cx} y={qY - 5} textAnchor="middle" fontSize={7} fill={C.amber} fontWeight="600">{fmt(quota.quota)}</text>
-          <text x={cx} y={VH - 2} textAnchor="middle" fontSize={8} fill={C.amber}>Quota</text>
-        </g>
-      })()}
-    </svg>
+        })()}
+      </svg>
+    </div>
   )
 }
 
-// ─── CHART: Conversion Waterfall ─────────────────────────────────────────────
+// ─── CHART: Conversion Waterfall — responsive ─────────────────────────────────
 function ConversionWaterfall({ stageConversion, stageLabels }: { stageConversion: StageConversion[]; stageLabels: Record<string, string> }) {
+  const [containerRef, W] = useContainerWidth(300)
   if (stageConversion.length === 0) return <div style={{ fontSize: 12, color: C.faint }}>Populates as deals progress</div>
   const stages = ['lead', 'qualified', 'demo', 'proposal', 'negotiation']
-  const VW = 300; const VH = 130; const chartH = 90; const bW = 34; const spacing = VW / stages.length
+  const VH = 130; const chartH = 90; const pad = 4
+  const slot = (W - pad * 2) / stages.length
+  const bW = Math.max(slot * 0.6, 8)
   return (
-    <svg width="100%" viewBox={`0 0 ${VW} ${VH}`} style={{ display: 'block' }}>
-      {stages.map((stage, i) => {
-        const row = stageConversion.find(s => s.stage === stage)
-        const rate = row ? Math.round((row.deals_advanced / Math.max(row.deals_entered, 1)) * 100) : 0
-        const color = rate >= 60 ? C.green : rate >= 35 ? C.amber : C.red
-        const barH = Math.max((rate / 100) * chartH, 2)
-        const cx = i * spacing + spacing / 2
-        return (
-          <g key={stage}>
-            <rect x={cx - bW / 2} y={0} width={bW} height={chartH} fill={C.bg} rx={5} />
-            <rect x={cx - bW / 2} y={chartH - barH} width={bW} height={barH} fill={color} opacity={0.8} rx={5} />
-            <text x={cx} y={chartH - barH - 4} textAnchor="middle" fontSize={8} fontWeight="600" fill={color}>{rate}%</text>
-            <text x={cx} y={VH - 10} textAnchor="middle" fontSize={8} fill={C.faint}>{(stageLabels[stage] || stage).slice(0, 6)}</text>
-            {row && row.deals_lost_here > 0 && <text x={cx} y={VH - 1} textAnchor="middle" fontSize={7} fill={C.red}>−{row.deals_lost_here}</text>}
-          </g>
-        )
-      })}
-    </svg>
+    <div ref={containerRef}>
+      <svg width="100%" height={VH} style={{ display: 'block', overflow: 'visible' }}>
+        {stages.map((stage, i) => {
+          const row = stageConversion.find(s => s.stage === stage)
+          const rate = row ? Math.round((row.deals_advanced / Math.max(row.deals_entered, 1)) * 100) : 0
+          const color = rate >= 60 ? C.green : rate >= 35 ? C.amber : C.red
+          const barH = Math.max((rate / 100) * chartH, 2)
+          const cx = pad + i * slot + slot / 2
+          return (
+            <g key={stage}>
+              <rect x={cx - bW / 2} y={0} width={bW} height={chartH} fill={C.bg} rx={5} />
+              <motion.rect
+                x={cx - bW / 2} width={bW} rx={5} fill={color} opacity={0.8}
+                initial={{ y: chartH, height: 0 }}
+                animate={{ y: chartH - barH, height: barH }}
+                transition={{ duration: 0.55, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+              />
+              <text x={cx} y={chartH - barH - 4} textAnchor="middle" fontSize={8} fontWeight="600" fill={color}>{rate}%</text>
+              <text x={cx} y={VH - 10} textAnchor="middle" fontSize={8} fill={C.faint}>{(stageLabels[stage] || stage).slice(0, 7)}</text>
+              {row && row.deals_lost_here > 0 && <text x={cx} y={VH - 1} textAnchor="middle" fontSize={7} fill={C.red}>−{row.deals_lost_here}</text>}
+            </g>
+          )
+        })}
+      </svg>
+    </div>
   )
 }
 
@@ -334,10 +426,16 @@ function CompanyTreemap({ deals, companies }: { deals: Deal[]; companies: Compan
       {vals.map((c, i) => {
         const opacity = 0.2 + (c.value / vals[0].value) * 0.8
         return (
-          <div key={i} style={{ background: `rgba(26,26,24,${opacity})`, borderRadius: 8, padding: '8px 10px', minWidth: '15%', flexGrow: (c.value / total) * 100 }}>
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.05, duration: 0.3 }}
+            style={{ background: `rgba(26,26,24,${opacity})`, borderRadius: 8, padding: '8px 10px', minWidth: '15%', flexGrow: (c.value / total) * 100 }}
+          >
             <div style={{ fontSize: 11, fontWeight: 600, color: opacity > 0.5 ? 'white' : C.dark, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
             <div style={{ fontSize: 10, color: opacity > 0.5 ? 'rgba(255,255,255,0.7)' : C.muted }}>{fmt(c.value)}</div>
-          </div>
+          </motion.div>
         )
       })}
     </div>
@@ -356,12 +454,13 @@ function FollowupCalendar({ contacts }: { contacts: Contact[] }) {
   return (
     <div style={{ display: 'flex', gap: 4, overflowX: 'auto' }} className="no-scrollbar">
       {days.map((day, i) => (
-        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0, minWidth: 44 }}>
+        <motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0, minWidth: 44 }}>
           <div style={{ width: 36, height: 36, borderRadius: 8, background: day.count > 0 ? `rgba(26,26,24,${0.1 + (day.count / maxCount) * 0.85})` : C.bg, border: day.count > 0 ? 'none' : `0.5px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: day.count > 0 ? (day.count / maxCount > 0.5 ? 'white' : C.dark) : C.faint }}>
             {day.count > 0 ? day.count : '·'}
           </div>
           <div style={{ fontSize: 9, color: C.faint, textAlign: 'center', maxWidth: 40 }}>{day.label}</div>
-        </div>
+        </motion.div>
       ))}
     </div>
   )
@@ -379,7 +478,14 @@ function TaskGauge({ tasks }: { tasks: Task[] }) {
     <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
       <svg width={80} height={50}>
         <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke={C.bg} strokeWidth={stroke} strokeLinecap="round" />
-        <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`} fill="none" stroke={rate >= 50 ? C.green : rate >= 25 ? C.amber : C.red} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={`${filled} ${arc}`} />
+        <motion.path
+          d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+          fill="none" stroke={rate >= 50 ? C.green : rate >= 25 ? C.amber : C.red}
+          strokeWidth={stroke} strokeLinecap="round"
+          initial={{ strokeDasharray: `0 ${arc}` }}
+          animate={{ strokeDasharray: `${filled} ${arc}` }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+        />
         <text x={cx} y={cy - 2} textAnchor="middle" fontSize={14} fontWeight={700} fill={C.dark}>{rate}%</text>
       </svg>
       <div>
@@ -400,11 +506,16 @@ function LossReasons({ deals }: { deals: Deal[] }) {
   const max = sorted[0][1]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {sorted.map(([reason, count]) => (
+      {sorted.map(([reason, count], i) => (
         <div key={reason} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 130, fontSize: 11, color: C.muted, flexShrink: 0 }}>{reason}</div>
           <div style={{ flex: 1, height: 6, background: C.bg, borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{ width: `${(count / max) * 100}%`, height: '100%', background: C.red, opacity: 0.7, borderRadius: 3 }} />
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${(count / max) * 100}%` }}
+              transition={{ duration: 0.6, delay: i * 0.08 }}
+              style={{ height: '100%', background: C.red, opacity: 0.7, borderRadius: 3 }}
+            />
           </div>
           <div style={{ width: 20, fontSize: 11, fontWeight: 600, color: C.dark, textAlign: 'right' }}>{count}</div>
         </div>
@@ -420,11 +531,16 @@ function DealAgeDistribution({ deals }: { deals: Deal[] }) {
   const maxCount = Math.max(...buckets.map(b => b.count), 1)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {buckets.map(b => (
+      {buckets.map((b, i) => (
         <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 44, fontSize: 11, color: C.muted, flexShrink: 0 }}>{b.label}</div>
           <div style={{ flex: 1, height: 18, background: C.bg, borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
-            <div style={{ width: `${(b.count / maxCount) * 100}%`, height: '100%', background: b.min >= 60 ? C.red : b.min >= 30 ? C.amber : C.green, opacity: 0.75, borderRadius: 4 }} />
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${(b.count / maxCount) * 100}%` }}
+              transition={{ duration: 0.6, delay: i * 0.08 }}
+              style={{ height: '100%', background: b.min >= 60 ? C.red : b.min >= 30 ? C.amber : C.green, opacity: 0.75, borderRadius: 4 }}
+            />
             {b.count > 0 && <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 10, fontWeight: 600, color: (b.count / maxCount) > 0.4 ? 'white' : C.muted }}>{b.count}</span>}
           </div>
           <div style={{ width: 42, fontSize: 11, color: C.faint, textAlign: 'right' }}>{fmt(b.value)}</div>
@@ -437,7 +553,14 @@ function DealAgeDistribution({ deals }: { deals: Deal[] }) {
 // ─── TABLE: At-risk ───────────────────────────────────────────────────────────
 function AtRiskTable({ deals, stageLabels, atRiskDays }: { deals: Deal[]; stageLabels: Record<string, string>; atRiskDays: number }) {
   const atRisk = deals.filter(d => !['closed_won', 'closed_lost'].includes(d.stage) && daysSince(d.last_activity_at) >= atRiskDays).sort((a, b) => daysSince(b.last_activity_at) - daysSince(a.last_activity_at))
-  if (atRisk.length === 0) return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0' }}><div style={{ width: 20, height: 20, borderRadius: '50%', background: '#e8f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" stroke={C.green} strokeWidth="1.5" fill="none" strokeLinecap="round" /></svg></div><span style={{ fontSize: 12, color: C.muted }}>No at-risk deals right now</span></div>
+  if (atRisk.length === 0) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0' }}>
+      <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#e8f5f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2 2 4-4" stroke={C.green} strokeWidth="1.5" fill="none" strokeLinecap="round" /></svg>
+      </div>
+      <span style={{ fontSize: 12, color: C.muted }}>No at-risk deals right now</span>
+    </div>
+  )
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       {atRisk.map((d, i) => (
@@ -509,7 +632,12 @@ function QuotaProgress({ quota }: { quota: Quota }) {
         <span style={{ fontSize: 12, color: C.faint }}>{quota.quota_period} quota</span>
       </div>
       <div style={{ height: 8, background: C.bg, borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.6s ease' }} />
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94] }}
+          style={{ height: '100%', background: color, borderRadius: 4 }}
+        />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         {[{ label: 'CONFIRMED', value: fmt(quota.confirmed_revenue) }, { label: 'GAP', value: fmt(quota.gap_to_quota), red: true }, { label: 'QUOTA', value: fmt(quota.quota) }].map(s => (
@@ -553,7 +681,11 @@ function RepPerformanceTable({ repPerformance }: { repPerformance: RepRow[] }) {
                 {rep.quota && <span style={{ fontSize: 11, fontWeight: 600, color: attainColor }}>{attain.toFixed(0)}%</span>}
               </div>
             </div>
-            {rep.quota && <div style={{ height: 4, background: C.bg, borderRadius: 2, marginBottom: 8, overflow: 'hidden' }}><div style={{ width: `${clamp(attain, 0, 100)}%`, height: '100%', background: attainColor, borderRadius: 2, transition: 'width 0.6s ease' }} /></div>}
+            {rep.quota && (
+              <div style={{ height: 4, background: C.bg, borderRadius: 2, marginBottom: 8, overflow: 'hidden' }}>
+                <motion.div initial={{ width: 0 }} animate={{ width: `${clamp(attain, 0, 100)}%` }} transition={{ duration: 0.7, delay: i * 0.06 }} style={{ height: '100%', background: attainColor, borderRadius: 2 }} />
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 16 }}>
               {[['Pipeline', fmt(rep.pipeline_value)], ['Confirmed', fmt(rep.confirmed_revenue)], ...(rep.quota ? [['Quota', fmt(rep.quota)]] : []), ...(rep.gap_to_quota && rep.gap_to_quota > 0 ? [['Gap', fmt(rep.gap_to_quota), true]] : [])].map(([label, value, red]) => (
                 <div key={label as string}>
@@ -569,92 +701,23 @@ function RepPerformanceTable({ repPerformance }: { repPerformance: RepRow[] }) {
   )
 }
 
-// ─── DraggableCard ────────────────────────────────────────────────────────────
-function DraggableCard({
-  id, title, subtitle, tags, span, collapsed, isDragOver, isDragging,
-  miniStat, children, onCollapse, onDragStart, onDragOver, onDrop, onDragEnd,
-}: {
-  id: string; title: string; subtitle: string; tags: string[]; span: 1 | 2
-  collapsed: boolean; isDragOver: boolean; isDragging: boolean
-  miniStat: { label: string; value: string; color?: string }
-  children: React.ReactNode
-  onCollapse: () => void
-  onDragStart: (e: React.DragEvent) => void
-  onDragOver: (e: React.DragEvent) => void
-  onDrop: (e: React.DragEvent) => void
-  onDragEnd: () => void
-}) {
+// ─── AnimatedCardBody — smooth height collapse with framer-motion ─────────────
+function AnimatedCardBody({ visible, children }: { visible: boolean; children: React.ReactNode }) {
   return (
-    <div
-      data-card-id={id}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      style={{
-        gridColumn: `span ${span}`,
-        background: C.card,
-        border: `0.5px solid ${isDragOver ? C.dark : C.border}`,
-        borderRadius: 18,
-        overflow: 'hidden',
-        opacity: isDragging ? 0.45 : 1,
-        transition: 'opacity 0.15s, border-color 0.15s, box-shadow 0.15s',
-        boxShadow: isDragOver ? `0 0 0 2px ${C.dark}` : 'none',
-      }}
-    >
-      {/* Header — drag handle */}
-      <div
-        draggable
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        style={{
-          padding: collapsed ? '12px 16px' : '13px 18px 11px',
-          borderBottom: collapsed ? 'none' : `0.5px solid ${C.border}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-          cursor: 'grab', userSelect: 'none',
-        }}
-      >
-        {/* Left: drag dots + title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-          {/* Drag grip dots */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, flexShrink: 0, opacity: 0.25 }}>
-            {[0,1,2,3,4,5].map(i => <div key={i} style={{ width: 3, height: 3, borderRadius: '50%', background: C.dark }} />)}
-          </div>
-          <span style={{ fontSize: 12, fontWeight: 600, color: C.dark, letterSpacing: '-0.01em', flexShrink: 0 }}>{title}</span>
-          {!collapsed && subtitle && <span style={{ fontSize: 11, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</span>}
-          {/* Mini stat shown when collapsed */}
-          {collapsed && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
-              <span style={{ fontSize: 10, color: C.faint }}>{miniStat.label}</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: miniStat.color || C.dark, letterSpacing: '-0.02em' }}>{miniStat.value}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Right: tags + collapse toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          {!collapsed && tags.length > 0 && (
-            <div style={{ display: 'flex', gap: 3 }}>
-              {tags.map(t => <span key={t} style={{ fontSize: 10, color: C.faint, background: C.bg, borderRadius: 5, padding: '1px 6px' }}>{t}</span>)}
-            </div>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onCollapse() }}
-            title={collapsed ? 'Expand' : 'Collapse'}
-            style={{
-              width: 22, height: 22, borderRadius: 6, border: `0.5px solid ${C.border}`,
-              background: C.bg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0, transition: 'background 0.1s',
-            }}
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" style={{ transform: collapsed ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-              <path d="M2 3.5L5 6.5L8 3.5" stroke={C.muted} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Body */}
-      {!collapsed && <div style={{ padding: '16px 18px' }}>{children}</div>}
-    </div>
+    <AnimatePresence initial={false}>
+      {visible && (
+        <motion.div
+          key="body"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ height: { duration: 0.32, ease: [0.4, 0, 0.2, 1] }, opacity: { duration: 0.2 } }}
+          style={{ overflow: 'hidden' }}
+        >
+          <div style={{ padding: '16px 18px' }}>{children}</div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 
@@ -681,334 +744,232 @@ export default function AnalyticsClient({ deals, contacts, companies, tasks, sta
 
   const [activeTag, setActiveTag] = useState<string>('all')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const [dragFrom, setDragFrom] = useState<string | null>(null)
-  const [dragOver, setDragOver] = useState<string | null>(null)
 
-  // Build card definitions — stable order, visibility driven by tag
+  const toggleCollapse = useCallback((id: string) => {
+    setCollapsed(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }, [])
+
+  // ── Card definitions ──────────────────────────────────────────────────────
   const allCards: CardDef[] = [
-    // Full-width stat strip (always shown in 'all')
     {
-      id: 'stats',
-      title: 'Overview',
-      subtitle: `${active.length} active ${dealWord}`,
-      span: 2,
-      tags: ['deals'],
+      id: 'stats', title: 'Overview', subtitle: `${active.length} active ${dealWord}`, span: 2, tags: ['deals'],
       miniStat: () => ({ label: 'pipeline', value: fmt(pipelineVal) }),
       visible: activeTag === 'all' || activeTag === 'deals',
-      render: () => (
-        <StatStrip stats={[
-          { label: 'Pipeline value', value: fmt(pipelineVal), sub: `${active.length} active ${dealWord}` },
-          { label: 'Weighted forecast', value: fmt(weighted), sub: 'probability-adjusted' },
-          { label: 'Win rate', value: `${winRate}%`, sub: `${won.length} won · ${lost.length} lost`, color: winRate >= 50 ? C.green : C.amber },
-          { label: 'Avg deal size', value: fmt(avgDeal), sub: 'closed won' },
-          { label: 'Contacts', value: String(contacts.length), sub: `${followupsDue} follow-ups due` },
-        ]} />
-      ),
+      render: () => <StatStrip stats={[
+        { label: 'Pipeline value', value: fmt(pipelineVal), sub: `${active.length} active ${dealWord}` },
+        { label: 'Weighted forecast', value: fmt(weighted), sub: 'probability-adjusted' },
+        { label: 'Win rate', value: `${winRate}%`, sub: `${won.length} won · ${lost.length} lost`, color: winRate >= 50 ? C.green : C.amber },
+        { label: 'Avg deal size', value: fmt(avgDeal), sub: 'closed won' },
+        { label: 'Contacts', value: String(contacts.length), sub: `${followupsDue} follow-ups due` },
+      ]} />,
     },
-    // Quota — only when quota exists
     ...(quota?.quota ? [{
-      id: 'quota',
-      title: 'Quota attainment',
-      subtitle: quota.quota_period || '',
-      span: 2 as 2,
-      tags: ['forecast', 'performance'],
+      id: 'quota', title: 'Quota attainment', subtitle: quota.quota_period || '', span: 2 as const, tags: ['forecast', 'performance'],
       miniStat: () => ({ label: 'attained', value: `${(quota.attainment_pct || 0).toFixed(0)}%`, color: (quota.attainment_pct || 0) >= 75 ? C.green : (quota.attainment_pct || 0) >= 40 ? C.amber : C.red }),
       visible: activeTag === 'all' || ['deals', 'forecast', 'performance'].includes(activeTag),
       render: () => <QuotaProgress quota={quota!} />,
     }] : []),
+    { id: 'funnel', title: 'Pipeline funnel', subtitle: pipelineSubtitle, span: 1, tags: ['deals', 'performance'], miniStat: () => ({ label: 'active', value: String(active.length) }), visible: activeTag === 'all' || ['deals', 'performance'].includes(activeTag), render: () => <FunnelChart deals={deals} stageConversion={stageConversion} stageLabels={stageLabels} /> },
+    { id: 'winloss', title: 'Win / loss', subtitle: 'all time', span: 1, tags: ['deals', 'history'], miniStat: () => ({ label: 'win rate', value: `${winRate}%`, color: winRate >= 50 ? C.green : C.amber }), visible: activeTag === 'all' || ['deals', 'history'].includes(activeTag), render: () => <WinLossDonut deals={deals} /> },
+    { id: 'revenue', title: 'Revenue closed', subtitle: 'last 6 months', span: 1, tags: ['deals', 'history'], miniStat: () => ({ label: 'won', value: String(won.length) }), visible: activeTag === 'all' || ['deals', 'history'].includes(activeTag), render: () => <RevenueBarChart deals={deals} /> },
+    { id: 'forecast', title: 'Revenue forecast', subtitle: 'weighted by stage', span: 1, tags: ['forecast', 'deals'], miniStat: () => ({ label: 'weighted', value: fmt(weighted) }), visible: activeTag === 'all' || ['forecast', 'deals'].includes(activeTag), render: () => <RevenueWaterfall deals={deals} quota={quota} stageLabels={stageLabels} /> },
+    { id: 'conversion', title: 'Stage conversion', subtitle: 'advance rate per stage', span: 1, tags: ['performance'], miniStat: () => ({ label: 'stages', value: String(stageConversion.length) }), visible: activeTag === 'all' || activeTag === 'performance', render: () => <ConversionWaterfall stageConversion={stageConversion} stageLabels={stageLabels} /> },
     {
-      id: 'funnel',
-      title: 'Pipeline funnel',
-      subtitle: pipelineSubtitle,
-      span: 1,
-      tags: ['deals', 'performance'],
-      miniStat: () => ({ label: 'active', value: String(active.length) }),
-      visible: activeTag === 'all' || ['deals', 'performance'].includes(activeTag),
-      render: () => <FunnelChart deals={deals} stageConversion={stageConversion} stageLabels={stageLabels} />,
-    },
-    {
-      id: 'winloss',
-      title: 'Win / loss',
-      subtitle: 'all time',
-      span: 1,
-      tags: ['deals', 'history'],
-      miniStat: () => ({ label: 'win rate', value: `${winRate}%`, color: winRate >= 50 ? C.green : C.amber }),
-      visible: activeTag === 'all' || ['deals', 'history'].includes(activeTag),
-      render: () => <WinLossDonut deals={deals} />,
-    },
-    {
-      id: 'revenue',
-      title: 'Revenue closed',
-      subtitle: 'last 6 months',
-      span: 1,
-      tags: ['deals', 'history'],
-      miniStat: () => ({ label: 'won', value: String(won.length) }),
-      visible: activeTag === 'all' || ['deals', 'history'].includes(activeTag),
-      render: () => <RevenueBarChart deals={deals} />,
-    },
-    {
-      id: 'forecast',
-      title: 'Revenue forecast',
-      subtitle: 'weighted by stage',
-      span: 1,
-      tags: ['forecast', 'deals'],
-      miniStat: () => ({ label: 'weighted', value: fmt(weighted) }),
-      visible: activeTag === 'all' || ['forecast', 'deals'].includes(activeTag),
-      render: () => <RevenueWaterfall deals={deals} quota={quota} stageLabels={stageLabels} />,
-    },
-    {
-      id: 'conversion',
-      title: 'Stage conversion',
-      subtitle: 'advance rate per stage',
-      span: 1,
-      tags: ['performance'],
-      miniStat: () => ({ label: 'stages', value: String(stageConversion.length) }),
-      visible: activeTag === 'all' || activeTag === 'performance',
-      render: () => <ConversionWaterfall stageConversion={stageConversion} stageLabels={stageLabels} />,
-    },
-    {
-      id: 'velocity',
-      title: 'Stage velocity',
-      subtitle: orgContext.cycle_days ? `${orgContext.cycle_days}d target cycle` : 'avg days spent',
-      span: 1,
-      tags: ['performance'],
-      miniStat: () => {
-        const bottleneck = stageVelocity.length ? stageVelocity.reduce((a, b) => a.avg_days > b.avg_days ? a : b) : null
-        return bottleneck ? { label: 'slowest', value: `${bottleneck.avg_days}d`, color: C.amber } : { label: 'stages', value: String(stageVelocity.length) }
-      },
+      id: 'velocity', title: 'Stage velocity', subtitle: orgContext.cycle_days ? `${orgContext.cycle_days}d target cycle` : 'avg days spent', span: 1, tags: ['performance'],
+      miniStat: () => { const b = stageVelocity.length ? stageVelocity.reduce((a, x) => a.avg_days > x.avg_days ? a : x) : null; return b ? { label: 'slowest', value: `${b.avg_days}d`, color: C.amber } : { label: 'stages', value: String(stageVelocity.length) } },
       visible: activeTag === 'all' || activeTag === 'performance',
       render: () => <VelocityHeatmap stageVelocity={stageVelocity} stageLabels={stageLabels} />,
     },
+    { id: 'scatter', title: 'Deal age vs value', subtitle: 'active pipeline', span: 2, tags: ['deals', 'live'], miniStat: () => ({ label: 'active', value: fmt(pipelineVal) }), visible: activeTag === 'all' || ['deals', 'live'].includes(activeTag), render: () => <DealAgeScatter deals={deals} stageLabels={stageLabels} atRiskDays={atRiskDays} /> },
+    { id: 'agedist', title: 'Deal age distribution', subtitle: 'how old are active deals', span: 1, tags: ['deals', 'history'], miniStat: () => ({ label: 'active', value: String(active.length) }), visible: activeTag === 'all' || ['deals', 'history'].includes(activeTag), render: () => <DealAgeDistribution deals={deals} /> },
+    { id: 'loss', title: 'Loss reasons', subtitle: 'why deals were lost', span: 1, tags: ['history'], miniStat: () => ({ label: 'lost', value: String(lost.length) }), visible: activeTag === 'all' || activeTag === 'history', render: () => <LossReasons deals={deals} /> },
+    { id: 'atrisk', title: 'At-risk deals', subtitle: `no activity ${atRiskDays}+ days`, span: 1, tags: ['problems', 'live'], miniStat: () => ({ label: 'at risk', value: String(atRiskCount), color: atRiskCount > 0 ? C.red : C.green }), visible: activeTag === 'all' || ['problems', 'live'].includes(activeTag), render: () => <AtRiskTable deals={deals} stageLabels={stageLabels} atRiskDays={atRiskDays} /> },
     {
-      id: 'scatter',
-      title: 'Deal age vs value',
-      subtitle: 'active pipeline',
-      span: 2,
-      tags: ['deals', 'live'],
-      miniStat: () => ({ label: 'active', value: fmt(pipelineVal) }),
-      visible: activeTag === 'all' || ['deals', 'live'].includes(activeTag),
-      render: () => <DealAgeScatter deals={deals} stageLabels={stageLabels} atRiskDays={atRiskDays} />,
-    },
-    {
-      id: 'agedist',
-      title: 'Deal age distribution',
-      subtitle: 'how old are active deals',
-      span: 1,
-      tags: ['deals', 'history'],
-      miniStat: () => ({ label: 'active', value: String(active.length) }),
-      visible: activeTag === 'all' || ['deals', 'history'].includes(activeTag),
-      render: () => <DealAgeDistribution deals={deals} />,
-    },
-    {
-      id: 'loss',
-      title: 'Loss reasons',
-      subtitle: 'why deals were lost',
-      span: 1,
-      tags: ['history'],
-      miniStat: () => ({ label: 'lost', value: String(lost.length) }),
-      visible: activeTag === 'all' || activeTag === 'history',
-      render: () => <LossReasons deals={deals} />,
-    },
-    {
-      id: 'atrisk',
-      title: 'At-risk deals',
-      subtitle: `no activity ${atRiskDays}+ days`,
-      span: 1,
-      tags: ['problems', 'live'],
-      miniStat: () => ({ label: 'at risk', value: String(atRiskCount), color: atRiskCount > 0 ? C.red : C.green }),
-      visible: activeTag === 'all' || ['problems', 'live'].includes(activeTag),
-      render: () => <AtRiskTable deals={deals} stageLabels={stageLabels} atRiskDays={atRiskDays} />,
-    },
-    {
-      id: 'closing',
-      title: 'Closing soon',
-      subtitle: 'expected in 30 days',
-      span: 1,
-      tags: ['forecast', 'live'],
-      miniStat: () => {
-        const count = deals.filter(d => !['closed_won', 'closed_lost'].includes(d.stage) && d.expected_close_date).filter(d => { const dl = daysUntil(d.expected_close_date); return dl !== null && dl >= 0 && dl <= 30 }).length
-        return { label: 'closing', value: String(count), color: count > 0 ? C.green : C.faint }
-      },
+      id: 'closing', title: 'Closing soon', subtitle: 'expected in 30 days', span: 1, tags: ['forecast', 'live'],
+      miniStat: () => { const n = deals.filter(d => !['closed_won', 'closed_lost'].includes(d.stage) && d.expected_close_date).filter(d => { const dl = daysUntil(d.expected_close_date); return dl !== null && dl >= 0 && dl <= 30 }).length; return { label: 'closing', value: String(n), color: n > 0 ? C.green : C.faint } },
       visible: activeTag === 'all' || ['forecast', 'live'].includes(activeTag),
       render: () => <ClosingSoonTable deals={deals} stageLabels={stageLabels} />,
     },
     {
-      id: 'uninvoiced',
-      title: 'Revenue not invoiced',
-      subtitle: 'won deals pending',
-      span: 1,
-      tags: ['problems'],
-      miniStat: () => {
-        const total = deals.filter(d => d.stage === 'closed_won' && (!d.payment_status || d.payment_status === 'none')).reduce((s, d) => s + (d.confirmed_revenue || d.value || 0), 0)
-        return { label: 'uninvoiced', value: fmt(total), color: total > 0 ? C.red : C.faint }
-      },
+      id: 'uninvoiced', title: 'Revenue not invoiced', subtitle: 'won deals pending', span: 1, tags: ['problems'],
+      miniStat: () => { const t = deals.filter(d => d.stage === 'closed_won' && (!d.payment_status || d.payment_status === 'none')).reduce((s, d) => s + (d.confirmed_revenue || d.value || 0), 0); return { label: 'uninvoiced', value: fmt(t), color: t > 0 ? C.red : C.faint } },
       visible: activeTag === 'all' || activeTag === 'problems',
       render: () => <UninvoicedTable deals={deals} />,
     },
     ...(isElevated && repPerformance && repPerformance.length > 0 ? [{
-      id: 'team',
-      title: 'Team performance',
-      subtitle: `${repPerformance!.length} reps`,
-      span: 2 as 2,
-      tags: ['team', 'performance'],
+      id: 'team', title: 'Team performance', subtitle: `${repPerformance!.length} reps`, span: 2 as const, tags: ['team', 'performance'],
       miniStat: () => ({ label: 'reps', value: String(repPerformance!.length) }),
       visible: activeTag === 'all' || ['team', 'performance'].includes(activeTag),
       render: () => <RepPerformanceTable repPerformance={repPerformance!} />,
     }] : []),
+    { id: 'followup', title: 'Follow-up calendar', subtitle: 'next 14 days', span: 2, tags: ['contacts'], miniStat: () => ({ label: 'due', value: String(followupsDue), color: followupsDue > 0 ? C.amber : C.faint }), visible: activeTag === 'all' || activeTag === 'contacts', render: () => <FollowupCalendar contacts={contacts} /> },
     {
-      id: 'followup',
-      title: 'Follow-up calendar',
-      subtitle: 'next 14 days',
-      span: 2,
-      tags: ['contacts'],
-      miniStat: () => ({ label: 'due', value: String(followupsDue), color: followupsDue > 0 ? C.amber : C.faint }),
-      visible: activeTag === 'all' || activeTag === 'contacts',
-      render: () => <FollowupCalendar contacts={contacts} />,
-    },
-    {
-      id: 'tasks',
-      title: 'Task completion',
-      subtitle: 'all tasks',
-      span: 1,
-      tags: ['tasks'],
-      miniStat: () => {
-        const total = tasks.length; const done = tasks.filter(t => t.done || t.status === 'done').length
-        return { label: 'done', value: total > 0 ? `${Math.round(done / total * 100)}%` : '—' }
-      },
+      id: 'tasks', title: 'Task completion', subtitle: 'all tasks', span: 1, tags: ['tasks'],
+      miniStat: () => { const t = tasks.length; const d = tasks.filter(t => t.done || t.status === 'done').length; return { label: 'done', value: t > 0 ? `${Math.round(d / t * 100)}%` : '—' } },
       visible: activeTag === 'all' || ['tasks', 'problems'].includes(activeTag),
       render: () => <TaskGauge tasks={tasks} />,
     },
-    {
-      id: 'treemap',
-      title: 'Pipeline by company',
-      subtitle: 'active deal value',
-      span: 2,
-      tags: ['companies'],
-      miniStat: () => ({ label: 'companies', value: String(companies.length) }),
-      visible: activeTag === 'all' || activeTag === 'companies',
-      render: () => <CompanyTreemap deals={deals} companies={companies} />,
-    },
+    { id: 'treemap', title: 'Pipeline by company', subtitle: 'active deal value', span: 2, tags: ['companies'], miniStat: () => ({ label: 'companies', value: String(companies.length) }), visible: activeTag === 'all' || activeTag === 'companies', render: () => <CompanyTreemap deals={deals} companies={companies} /> },
   ]
 
-  // Ordered list of visible card IDs — initialised once from allCards order
   const defaultOrder = allCards.map(c => c.id)
   const [cardOrder, setCardOrder] = useState<string[]>(defaultOrder)
 
-  const visibleIds = cardOrder.filter(id => {
-    const card = allCards.find(c => c.id === id)
-    return card?.visible
-  })
-
-  const toggleCollapse = useCallback((id: string) => {
-    setCollapsed(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }, [])
-
-  // ── Drag handlers ──
-  const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', id)
-    setDragFrom(id)
-  }, [])
-
-  const handleDragOver = useCallback((e: React.DragEvent, id: string) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    setDragOver(id)
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent, targetId: string) => {
-    e.preventDefault()
-    const sourceId = e.dataTransfer.getData('text/plain')
-    if (!sourceId || sourceId === targetId) { setDragFrom(null); setDragOver(null); return }
-    setCardOrder(prev => {
-      const next = [...prev]
-      const fromIdx = next.indexOf(sourceId)
-      const toIdx = next.indexOf(targetId)
-      if (fromIdx < 0 || toIdx < 0) return prev
-      next.splice(fromIdx, 1)
-      next.splice(toIdx, 0, sourceId)
-      return next
-    })
-    setDragFrom(null)
-    setDragOver(null)
-  }, [])
-
-  const handleDragEnd = useCallback(() => {
-    setDragFrom(null)
-    setDragOver(null)
-  }, [])
+  // Keep a stable ordered list of CardDef for Reorder
+  const visibleCards = cardOrder
+    .map(id => allCards.find(c => c.id === id))
+    .filter((c): c is CardDef => !!c && c.visible)
 
   const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 
   return (
     <div style={{ paddingTop: 8, paddingBottom: 40 }}>
       {/* Header */}
-      <div style={{ marginBottom: 20 }}>
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 500, color: C.dark, margin: 0, marginBottom: 2 }}>Analytics</h1>
         <div style={{ fontSize: 12, color: C.faint }}>{today}{industry ? ` · ${industry}` : ''}</div>
-      </div>
+      </motion.div>
 
       {/* Tag nav */}
-      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 24 }}>
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 20 }}>
         {['all', ...ALL_TAGS].map(tag => (
-          <button key={tag} onClick={() => setActiveTag(tag)} style={{
+          <motion.button key={tag} onClick={() => setActiveTag(tag)} whileTap={{ scale: 0.95 }} style={{
             padding: '5px 13px', borderRadius: 20, fontSize: 11, cursor: 'pointer',
             border: `0.5px solid ${activeTag === tag ? C.dark : 'rgba(0,0,0,0.09)'}`,
             background: activeTag === tag ? C.dark : C.card,
             color: activeTag === tag ? 'white' : C.muted,
             fontWeight: activeTag === tag ? 500 : 400,
-            fontFamily: 'inherit', transition: 'all 0.15s', textTransform: 'capitalize',
-          }}>{tag === 'all' ? 'All' : tag}</button>
+            fontFamily: 'inherit', transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+            textTransform: 'capitalize',
+          }}>{tag === 'all' ? 'All' : tag}</motion.button>
         ))}
       </div>
 
       {/* Drag hint */}
       <div style={{ fontSize: 11, color: C.faint, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="4" cy="3" r="1" fill={C.faint}/><circle cx="8" cy="3" r="1" fill={C.faint}/><circle cx="4" cy="6" r="1" fill={C.faint}/><circle cx="8" cy="6" r="1" fill={C.faint}/><circle cx="4" cy="9" r="1" fill={C.faint}/><circle cx="8" cy="9" r="1" fill={C.faint}/></svg>
+        <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="4" cy="3" r="1" fill={C.faint} /><circle cx="8" cy="3" r="1" fill={C.faint} /><circle cx="4" cy="6" r="1" fill={C.faint} /><circle cx="8" cy="6" r="1" fill={C.faint} /><circle cx="4" cy="9" r="1" fill={C.faint} /><circle cx="8" cy="9" r="1" fill={C.faint} /></svg>
         Drag cards to rearrange · click ↓ to collapse
       </div>
 
-      {/* Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        {visibleIds.map(id => {
-          const card = allCards.find(c => c.id === id)
-          if (!card) return null
-          const isCollapsed = collapsed.has(id)
+      {/* Reorder grid — framer-motion Reorder handles the drag + layout animation */}
+      <Reorder.Group
+        axis="y"
+        values={visibleCards}
+        onReorder={(newOrder) => {
+          // Map back to full order, preserving hidden cards in place
+          const newIds = newOrder.map(c => c.id)
+          setCardOrder(prev => {
+            const hiddenInOrder = prev.filter(id => !visibleCards.some(c => c.id === id))
+            // Rebuild: slot visible cards in their new positions, hidden stay at their indices
+            const result: string[] = []
+            let vi = 0
+            for (const id of prev) {
+              if (visibleCards.some(c => c.id === id)) {
+                result.push(newIds[vi++])
+              } else {
+                result.push(id)
+              }
+            }
+            return result
+          })
+        }}
+        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, listStyle: 'none', padding: 0, margin: 0 }}
+      >
+        {visibleCards.map(card => {
+          const isCollapsed = collapsed.has(card.id)
           const mini = card.miniStat()
           return (
-            <DraggableCard
-              key={id}
-              id={id}
-              title={card.title}
-              subtitle={card.subtitle}
-              tags={card.tags}
-              span={card.span}
-              collapsed={isCollapsed}
-              isDragOver={dragOver === id && dragFrom !== id}
-              isDragging={dragFrom === id}
-              miniStat={mini}
-              onCollapse={() => toggleCollapse(id)}
-              onDragStart={(e) => handleDragStart(e, id)}
-              onDragOver={(e) => handleDragOver(e, id)}
-              onDrop={(e) => handleDrop(e, id)}
-              onDragEnd={handleDragEnd}
+            <Reorder.Item
+              key={card.id}
+              value={card}
+              layout
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              transition={{ layout: { type: 'spring', stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
+              whileDrag={{ scale: 1.02, rotate: 0.8, boxShadow: '0 16px 40px rgba(0,0,0,0.12)', zIndex: 10, cursor: 'grabbing' }}
+              style={{
+                gridColumn: `span ${card.span}`,
+                background: C.card,
+                border: `0.5px solid ${C.border}`,
+                borderRadius: 18,
+                overflow: 'hidden',
+                cursor: 'grab',
+                listStyle: 'none',
+                position: 'relative',
+              }}
             >
-              {card.render()}
-            </DraggableCard>
+              {/* Header */}
+              <div style={{
+                padding: isCollapsed ? '12px 16px' : '13px 18px 11px',
+                borderBottom: isCollapsed ? 'none' : `0.5px solid ${C.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                userSelect: 'none',
+              }}>
+                {/* Left: grip + title */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, flexShrink: 0, opacity: 0.2 }}>
+                    {[0, 1, 2, 3, 4, 5].map(i => <div key={i} style={{ width: 3, height: 3, borderRadius: '50%', background: C.dark }} />)}
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: C.dark, letterSpacing: '-0.01em', flexShrink: 0 }}>{card.title}</span>
+                  {!isCollapsed && card.subtitle && <span style={{ fontSize: 11, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.subtitle}</span>}
+                  {/* Mini stat when collapsed */}
+                  <AnimatePresence>
+                    {isCollapsed && (
+                      <motion.div
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -6 }}
+                        transition={{ duration: 0.18 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}
+                      >
+                        <span style={{ fontSize: 10, color: C.faint }}>{mini.label}</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: mini.color || C.dark, letterSpacing: '-0.02em' }}>{mini.value}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Right: tags + collapse button */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  {!isCollapsed && card.tags.length > 0 && (
+                    <div style={{ display: 'flex', gap: 3 }}>
+                      {card.tags.map(t => <span key={t} style={{ fontSize: 10, color: C.faint, background: C.bg, borderRadius: 5, padding: '1px 6px' }}>{t}</span>)}
+                    </div>
+                  )}
+                  <motion.button
+                    onClick={(e) => { e.stopPropagation(); toggleCollapse(card.id) }}
+                    whileTap={{ scale: 0.88 }}
+                    title={isCollapsed ? 'Expand' : 'Collapse'}
+                    style={{
+                      width: 22, height: 22, borderRadius: 6, border: `0.5px solid ${C.border}`,
+                      background: C.bg, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}
+                  >
+                    <motion.svg
+                      width="10" height="10" viewBox="0 0 10 10"
+                      animate={{ rotate: isCollapsed ? 180 : 0 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                    >
+                      <path d="M2 3.5L5 6.5L8 3.5" stroke={C.muted} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    </motion.svg>
+                  </motion.button>
+                </div>
+              </div>
+
+              {/* Body — animated height */}
+              <AnimatedCardBody visible={!isCollapsed}>
+                {card.render()}
+              </AnimatedCardBody>
+            </Reorder.Item>
           )
         })}
-      </div>
+      </Reorder.Group>
 
       <style>{`
         button { font-family: inherit; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        [draggable=true] { cursor: grab; }
-        [draggable=true]:active { cursor: grabbing; }
       `}</style>
     </div>
   )
