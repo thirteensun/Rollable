@@ -321,7 +321,8 @@ function SortableCard({ card, collapsed, onCollapse, editMode }: { card: CardDef
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, marginBottom: 12, touchAction: 'none' }} {...attributes} {...(editMode ? listeners : {})}>
       <CardShell card={card} collapsed={collapsed} onCollapse={onCollapse} isDragging={isDragging} editMode={editMode}>
-        <AnimatedCardBody visible={!collapsed}>{card.render()}</AnimatedCardBody>
+        {/* Skip rendering chart content while dragging — avoids hook issues in DragOverlay context */}
+        {!isDragging && <AnimatedCardBody visible={!collapsed}>{card.render()}</AnimatedCardBody>}
       </CardShell>
     </div>
   )
