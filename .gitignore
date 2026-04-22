@@ -32,4 +32,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-CRM_CONTEXT.md
+CRM context.md
+CRM context full.md

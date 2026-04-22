@@ -15,533 +15,122 @@ Status: Red #E24B4A | Amber #EF9F27 | Green #1D9E75
 
 ## AI Models
 Haiku (claude-haiku-4-5-20251001): image capture, search, assistant preview
-Sonnet (dynamic latest, fallback claude-sonnet-4-6): AI assistant
+Sonnet (dynamic latest, fallback claude-sonnet-4-6): AI assistant, analytics agent
 
 ## API Routes
 POST /api/capture — Haiku vision → contacts/deals/tasks JSON
-POST /api/assistant — Sonnet + 9 tools, agentic loop, logs events after write
+POST /api/assistant — Action Agent: Sonnet + 8 tools, user-scoped writes, confirm card preview
 POST /api/assistant/preview — Haiku confirm card before write actions
+POST /api/analytics-agent — Analytics Agent: Sonnet + 5 read tools, org-scoped
+POST /api/sandbox — Haiku routes intent → action or analytics agent, returns agent label
+POST /api/sandbox/history — GET conversation list + single conversation
 POST /api/search — Haiku intent parsing + Supabase queries
 POST /api/nudges — proactive home screen cards
 POST /api/tasks — create task
-PATCH /api/tasks/[id] — update task (status, title, due_date, priority)
+PATCH /api/tasks/[id] — update task
+PATCH /api/deals/[id]/stage — kanban drag-drop persist
+PATCH /api/analytics-layout — save draggable card layout to org context
 
-## Assistant Tools (9)
-add_contact, find_contact, add_company, add_deal, add_task, search_crm, get_pipeline_summary, update_deal_stage, update_deal_financials
+## Assistant Tools
+Action Agent (8): add_contact, find_contact, add_company, add_deal, add_task, search_crm, get_pipeline_summary, update_deal_stage, update_deal_financials
+Analytics Agent (5): get_pipeline_summary, get_deal_velocity, get_stage_conversion, get_revenue_forecast, get_rep_performance
 
 ## Database Tables
 users, organisations, organisation_members, subscriptions
 companies, contacts, deals, deal_contacts, events, tasks
+deal_stage_history, conversations
 
 ## Schema Notes
-contacts: full_name (not first/last), role (not title)
-organisation_members: org_id (not organisation_id), role: admin/manager/rep
+contacts: full_name (not first/last), role (not title), next_followup_date
+organisation_members: org_id (not organisation_id), role: admin/manager/member
+organisations: context jsonb — industry, cycle_days, at_risk_days, team_size, terminology, pain_points[], stage_template, home_priority, analytics_layout
 deals stages: lead → qualified → demo → proposal → negotiation → closed_won → closed_lost
-deals fields: confirmed_revenue, invoice_ref, po_ref, invoice_date, po_date, payment_status (none/invoiced/paid)
-tasks fields: title, status, done (bool), due_date, priority, deal_id, contact_id, user_id
+deals fields: value, currency, confirmed_revenue, invoice_ref, po_ref, invoice_date, po_date, payment_status (none/invoiced/paid), closed_at, stage_entered_at, expected_close_date, loss_reason
+tasks fields: title, status (todo/in_progress/done/cancelled/postponed), done (bool), due_date, priority, postponed_until, deal_id, contact_id, user_id
 events: jsonb metadata, every capture and assistant write action logged
+DB views: deal_stage_velocity, deal_stage_conversion, rep_quota_attainment
+Trigger: handle_stage_change — auto-stamps deal_stage_history on stage change
 
 ## Key DB Functions
 create_organisation(name, slug) — creates org + admin member + free subscription
 get_user_org_id() — returns current user's org
-RLS: rep=own data, manager=read org, admin=full org
+RLS: member=own data, manager=read org, admin=full org
 Server components use service role key, client uses anon key
 
+## Org Context
+src/lib/org-context.ts — getOrgContext() + formatOrgContextForPrompt()
+src/lib/stage-templates.ts — 8 industry templates, suggestTemplate(), buildStageLabelMap(), getStagesForTemplate(), HOME_PRIORITY_OPTIONS
+Injected into: Action Agent system prompt, Analytics Agent system prompt, Nudge API thresholds, Kanban stage labels, Analytics charts
+
 ## Auth Flow
-/login → magic link / Google / GitHub OAuth → /auth/callback → has org? redirect / : redirect /onboarding
-Onboarding: create workspace (admin) or join existing
+/login → magic link / Google / GitHub OAuth → /auth/callback → has org? / : /onboarding
+Onboarding: Haiku-guided Q&A (5 exchanges) → structured context JSON → saved to organisations.context → confirm card → home
+Invite system: settings form (role picker, seat limit check) → pending invite → auth callback auto-activates on first login
 
 ## Layout Architecture
-Mobile (<768px): bottom nav fixed (Home | Capture pulse button | Tracking), content pb-[90px]
+Mobile (<768px): bottom nav fixed (Home | Capture pulse | Tracking), content pb-[90px]
 Desktop (≥768px): sidebar fixed left 210px, content md:ml-[210px], no bottom nav
-layout.tsx wrapper div: px-4 py-4 pb-[90px] md:px-10 md:py-8 md:pb-8 md:max-w-[1240px] md:mx-auto
+layout.tsx wrapper: px-4 py-4 pb-[90px] md:px-10 md:py-8 md:pb-8 md:max-w-[1240px] md:mx-auto
 Nav hidden on /login /onboarding /auth/* via NavVisibilityWrapper
-useIsDesktop() hook (768px breakpoint) used across all client components
+useIsDesktop() hook (768px, SSR-safe) — src/hooks/useIsDesktop.ts
 
 ## File Structure
 src/app/layout.tsx, page.tsx, HomeClient.tsx, loading.tsx
-src/app/planning/ — mobile tasks (legacy)
 src/app/tasks/ — TaskSchedulerClient (desktop week view + mobile urgency list)
 src/app/tracking/ — TrackingClient (Kanban desktop, tabs mobile), KanbanBoard.tsx
 src/app/tracking/deals/[id]/ — DealDetailClient
-src/app/analytics/ — AnalyticsClient
-src/app/ai-sandbox/ — AISandboxClient
-src/app/contacts/[id]/ — ContactDetailClient
-src/app/companies/[id]/ — CompanyDetailClient
+src/app/analytics/ — AnalyticsClient (dnd-kit draggable grid, collapsible cards, responsive SVG charts)
+src/app/ai-sandbox/ — AISandboxClient (Signals + Questions + History tabs, inline charts)
+src/app/contacts/[id]/, src/app/companies/[id]/
+src/app/deals/, src/app/contacts/, src/app/companies/ — standalone list pages
 src/app/settings/, src/app/capture/
-src/app/auth/callback/route.ts
-src/app/api/ — capture, assistant, assistant/preview, search, nudges, tasks/
+src/app/api/ — all routes above
 src/components/layout/ — BottomNav, SidebarNav, ProgressBar, NavVisibilityWrapper
-src/components/ — AIProactiveNudges, SearchModal
-src/lib/ — supabase.ts, supabase-server.ts
+src/components/ — AIProactiveNudges, SearchModal, SectionCard (collapsible shell)
+src/lib/ — supabase.ts, supabase-server.ts, org-scope.ts, org-context.ts, stage-templates.ts
 
 ## Critical Patterns
 Server client: const supabase = await createServerSupabaseClient()
-Assistant request: { message, history } → response: { reply, history }
+Anon client for all data queries (RLS enforces scoping), service role only for users + org_members
+Assistant request: { message, history } → response: { reply, history } — rolling 6-message window to AI
+Full conversation history saved to conversations table, 24h session restore
 Any new Date() in JSX needs suppressHydrationWarning
 Sidebar home link: href="/" active only when pathname === "/"
 Tracking tab links: /tracking?tab=contacts and /tracking?tab=companies
-Kanban drag-drop is optimistic only — Supabase persist not yet wired
+Kanban: drag-drop persists via PATCH /api/deals/[id]/stage, save/discard bar, amber pending state
+Analytics layout: dnd-kit cross-column drag, DragOverlay ghost, ResizeObserver responsive charts, edit/save/cancel mode persisted to org context
 
-## Environment Variables
-NEXT_PUBLIC_SUPABASE_URL=https://wndnihuqmtdiekglxkgu.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-ANTHROPIC_API_KEY=
+## Home Page
+Sections: AI nudges, Today's focus (tasks), Pipeline, At-risk, Revenue, Activity chart
+SectionCard shell: collapsible with framer spring, mini stat shown when collapsed
+Activity chart: GitHub-style 52-week grid, teal #4a7a8a, click day → inline events, auto-scrolls to current week
+6 shortcut cards, homePriority from org context controls section order
+page.tsx fetches: deals, 365 days events, at-risk using org at_risk_days threshold
+
+## Analytics Page
+12 SVG charts, tag-based nav filter, org-context stage labels + at_risk_days + terminology
+RepPerformanceTable — managers/admins only, sortable by 4 metrics
+dnd-kit two-column draggable grid, collapsible cards, layout saved to org context
+Mobile: single column, no drag, collapse works
 
 ## What's Working
-Auth (magic link + Google + GitHub), onboarding (create/join workspace)
-Home: tasks, activity feed, AI nudges, AI search
-Planning: mobile urgency task list (legacy)
-Tasks: desktop week view + mobile urgency list, create/update via API
-Tracking: Kanban desktop (drag+drop optimistic, at-risk highlight) + tabbed mobile (Deals/Contacts/Companies)
-Analytics: pipeline metrics, revenue chart, funnel, at-risk, uninvoiced, task rate
-AI Sandbox: Sonnet chat with pipeline context, suggestions, deal health scores
-Deal detail: stage pipeline, invoice/PO tracking, contacts, activity
-Contact detail: quick actions, linked deals, edit, activity
-Company detail: people, linked deals, edit, activity
-Capture: Haiku vision, thinking UI, typewriter confirm
-AI Assistant: Sonnet + 9 tools + voice + text, confirm card before writes
-Event logging, AI search modal, AI nudges, settings
-Nav: mobile bottom + desktop sidebar, hidden on auth routes
-Loading skeletons, top progress bar, PWA manifest
+Auth, onboarding (Q&A + create/join workspace), invite system
+Home (nudges, tasks, pipeline, activity chart, shortcuts, collapsible sections)
+Tasks (desktop week + mobile urgency, 5 statuses, calendar, task detail)
+Tracking (Kanban persist + save/discard, at-risk highlight, tabbed mobile)
+Analytics (12 charts, draggable grid, rep performance, org-context aware)
+AI Sandbox (sandbox router, inline charts, session history)
+Deal/Contact/Company detail (stage rail, invoice/PO, merged activity+tasks timeline)
+Capture (Haiku vision, voice, typewriter confirm)
+AI Assistant (8 tools, voice, confirm card, event logging, org-scoped for elevated roles)
+Nav (mobile bottom + desktop sidebar), skeletons, progress bar, PWA manifest
+Settings (customise panel: pipeline template, home priority, AI pain points, preview)
+Org context (injected everywhere, stage templates, terminology, at_risk_days)
 
 ## What to Build Next
-1. Polish — detail pages, settings, login, onboarding for desktop spacing
-2. Kanban persist — wire drag-drop stage change to Supabase
-3. Invite system — magic link auto-joins org
-4. Onboarding Q&A — AI learns the business on setup
-5. Stripe billing — per seat (Solo/Team/Business)
-6. Org-scoped assistant — currently user_id scoped
-7. Company enrichment — Apollo / Google Places
-8. React Native app — after first real users
-
-## Session Log
-S1 Apr 5: Vision, pillars, design language, AI strategy, web-first PWA
-S2 Apr 6: Supabase schema, GitHub/Vercel setup, Next.js skeleton, magic link auth, multi-tenant org
-S3 Apr 7: RLS fixed, Google/GitHub OAuth, unified capture + assistant, Claude 9 tools, voice, animations, settings, skeletons
-S4 Apr 9: Dynamic model selection, fixed cookies/voice/capture bugs, improved capture prompt
-S5 Apr 10: Deal/contact/company detail pages, tabbed tracking, assistant confirm card, event logging, switched capture to Haiku, AI nudges, search modal
-S6 Apr 11: Full desktop — SidebarNav, NavVisibilityWrapper, Kanban board, analytics page, AI sandbox, task scheduler, responsive layout system
-S7 Apr 12: Desktop layout polish — removed 390px app-shell constraint, layout.tsx padding/centering, stripped mobile paddingBottom from all clients, HomeClient 2-col desktop grid, fixed sidebar isActive bugs, tracking ?tab= param, removed events tab
-
-Here's the full session summary to add to your CRM context:
-
----
-
-**S8 Apr 13: Full desktop layout + CRM structure**
-
-**Layout fixes**
-- Removed `max-width: 390px` from `.app-shell` in globals.css
-- Added desktop padding/centering to layout.tsx wrapper
-- Removed all `paddingBottom: '90px'` inline styles from Client components
-- HomeClient: removed hardcoded 24px side padding, added 2-col desktop grid
-- Home loading.tsx skeleton updated to match
-
-**Navigation**
-- Fixed `isActive('/')` bug (was matching everything)
-- Fixed ai-sandbox active check
-- Added Deals, Contacts, Companies as standalone sidebar links
-- Real user name/role in sidebar via service role key in layout.tsx
-
-**Pipeline / Tracking**
-- Tracking page: desktop = Kanban only, mobile = tabs (Deals/Contacts/Companies)
-- Removed Events tab from mobile tracking
-- Kanban horizontal scroll with no-scrollbar class
-- `+ Add Deal` button links to Capture
-
-**Standalone CRM pages**
-- `/deals` — deals list with Capture button
-- `/contacts` — contacts list with Capture button  
-- `/companies` — companies list with Capture button
-- All detail pages updated with merged Activity + Tasks timeline
-
-**Tasks**
-- Calendar with week/month toggle, month default
-- Day click → confirm modal → Capture
-- Task chips link to task detail page
-- Task detail: status/priority/edit + searchable deal/contact link/unlink UI
-- Added `priority` and `status` columns to tasks table in Supabase
-- Seeded 50 simulated tasks
-
-**Activity & Tasks timeline**
-- Deal, Contact, Company detail pages all show merged events + tasks
-- Tasks show checkbox state, priority badge, due date, link to task detail
-- Tasks fetched via relationships (contact_id, deal_id, company → deals → tasks)
-
-**Invite system**
-- Settings invite form: role picker (Manager/Member), seat limit check, duplicate check
-- Auth callback: auto-activates pending invite on first login, new users → onboarding
-- Team list shows "Invite pending" for uninvited members
-
-**Role system**
-- Three roles: Admin, Manager, Member (renamed from rep)
-- DB updated: `UPDATE organisation_members SET role = 'member' WHERE role = 'rep'`
-- Role display fixed in sidebar using service role key
-
-**What to build next (updated)**
-1. Org-scoped data queries for Manager/Admin (currently all user_id scoped)
-2. Role change UI in settings (Admin can promote/demote)
-3. Kanban persist — wire drag-drop to Supabase
-4. Stripe billing — per seat (Free/Pro/Business)
-5. Onboarding Q&A — AI learns the business
-6. Company enrichment — Apollo/Google Places
-7. React Native app
-
-
-Here's the full session summary:
-
----
-
-**S9 Apr 16: Kanban persist, org scoping, RLS, UI polish**
-
-**Kanban persist**
-- Wired drag-drop stage changes to Supabase via new PATCH `/api/deals/[id]/stage/route.ts`
-- Added save/discard bar with pending change count and amber dot
-- Pending cards get subtle amber outline
-- Discard reverts board to original positions
-
-**Full-width Kanban**
-- `TrackingClient.tsx` desktop view now uses `position: fixed` from `left: 210px` to full viewport
-- Escapes layout wrapper `max-w` constraint entirely
-- Mobile tabbed view unchanged
-
-**Home task links fixed**
-- "See all" → `/tasks` (was `/planning`)
-- Task cards now link to `/tasks/${id}` (were dead `div`s)
-
-**Legacy planning removed**
-- Deleted `src/app/planning/` entirely
-
-**Mobile task calendar**
-- Added week/month toggle on mobile matching desktop
-- Task count badges on each day (red if overdue, green otherwise)
-- Tapping a day shows that day's task list below the calendar
-- Overdue banner shown when today is selected
-
-**Analytics fix**
-- Fixed events query: `type` not `event_type`
-
-**Org-scoped queries + RLS**
-- Created `src/lib/org-scope.ts` with `getUserContext()` returning both `anon` and `admin` clients
-- Anon client for all data queries (deals, contacts, companies, tasks, events) — RLS enforces scoping
-- Service role only for users table and organisation_members lookups
-- Updated RLS policies on all 5 data tables + deal_contacts:
-  - Members: `user_id = auth.uid()`
-  - Managers/Admins: `org_id = get_user_org_id() AND is_manager_or_admin()`
-- Applied consistently to: home, tracking, tasks, analytics, all detail pages
-- Removed all hardcoded `user_id` filters from app code
-
-**Detail pages**
-- All 4 detail pages (`deals/[id]`, `tasks/[id]`, `contacts/[id]`, `companies/[id]`) migrated to `createAnonSupabaseClient`
-- Removed hardcoded `.eq('user_id', user.id)` from task detail page
-
-**AI Sandbox redesign**
-- Right panel now tabbed: Signals + Health
-- Signals: slim banners with colored left border, dismissible
-- Health: compact scoreboard table — score chip, deal name, status label
-- Worst deals shown first, expand/collapse if >4 deals
-- Badges on tabs show count of issues
-
-**What to build next (updated)**
-1. Assistant org-scoping — search_crm and get_pipeline_summary should see full org for managers/admins
-2. Kanban `days_since_activity` — verify field is computed correctly
-3. Invite system end-to-end test
-4. Stripe billing
-5. Onboarding Q&A
-6. React Native app
-
-Here's the session summary to add to your CRM context:
-
----
-
-**S10 Apr 17: SDM Landing Page**
-
-**New repo**
-- Created `github.com/thirteensun/sdm-landing` — separate static repo, no Supabase needed
-- Deployed to `sdm-landing.vercel.app` via Vercel (auto-detects static site)
-- 4 files in root: `index.html`, `screenshot-pipeline.png`, `screenshot-capture.png`, `bg-texture.png`
-
-**Design decisions**
-- White background (`#ffffff`), warm-neutral grey cards (`#eeede9` / `#f4f3f1`)
-- Inter 300/400/500 — slim weight, no decorative serif
-- Vintage grain photography (AI-generated) used as background in bento photo cards and final CTA
-- Real app screenshots embedded in bento grid (easy to swap — just replace the PNGs, same filenames)
-
-**Page structure**
-- Nav — fixed, blurred, Log in + Start free
-- Hero — two-col, poetic headline, no screenshot block
-- Trust strip — "Built for" audience types
-- Bento grid — Pipeline (2-col screenshot card) + Capture + 3 photo texture cards
-- Editorial demo section — 4 tabbed scenes (Capture, Pipeline, Analytics, AI Signals), fixed 540px height, auto-rotates every 12s
-- Agents section — sticky left text + 3 agent cards (Agent 01/02/03) with SVG icons
-- Pricing — Solo (free) / Pro (€29/user) / Business (€79 flat/10 users)
-- CTA — full texture background with dark overlay
-- Footer
-
-**Demo animation (cinematic, no user interaction)**
-- Capture scene: voice waveform → text resolves → photo attachment → fields typewriter in → success state
-- Pipeline scene: kanban renders → AI nudge slides in → voice command moves deal → board updates
-- Analytics scene: stat cards count up, SVG revenue trend line draws, sales funnel animates, deal health bars fill
-- Signals scene: 4 AI nudge cards slide in sequentially with icons and timestamps
-- All scenes loop; tab buttons switch manually or auto-rotate
-
-**Copy direction**
-- Hero: "Your team deserves better than filling in forms"
-- CTA: "Less admin. More selling."
-- Agents framing: "Deploy agents that capture, analyse, and take action"
-
-S11: Three-agent architecture
-
-Split monolithic /api/assistant into two agents:
-
-Action Agent /api/assistant — 8 tools, user-scoped writes, confirm card preview unchanged
-Analytics Agent /api/analytics-agent — 5 tools, org-scoped reads, used by AI Sandbox
-
-
-Added deal_stage_history table — full stage transition log with entered_at, exited_at, days_in_stage
-Added fields: deals.closed_at, deals.stage_entered_at, deals.expected_close_date, deals.loss_reason, organisation_members.quota/quota_period, contacts.next_followup_date
-Trigger handle_stage_change auto-stamps history on every stage change
-Three DB views: deal_stage_velocity, deal_stage_conversion, rep_quota_attainment
-Analytics Agent tools: get_pipeline_summary, get_deal_velocity, get_stage_conversion, get_revenue_forecast, get_rep_performance
-Seeded realistic stage history, quotas, close dates, loss reasons, followup dates for existing data
-AISandboxClient pointed to /api/analytics-agent, quick prompts updated
-
-Here's the full session summary to add to your CRM context:
-
----
-
-**S12 Apr 18: Agent architecture, analytics, home page, task statuses**
-
-**Three-agent architecture**
-- Split monolithic `/api/assistant` into:
-  - **Action Agent** `/api/assistant` — 8 write tools, user-scoped, confirm card unchanged
-  - **Analytics Agent** `/api/analytics-agent` — 5 read tools, org-scoped, used by AI Sandbox
-  - **Sandbox Router** `/api/sandbox` — Haiku classifies intent → routes to Action or Analytics. Returns `agent` label shown in chat UI
-- `AISandboxClient` updated: dark→white chat, Signals + Questions + History tabs, inline charts, copy button, session persistence via Supabase `conversations` table
-- `/api/sandbox/history` — GET list + GET single conversation
-
-**Analytics Agent tools (5)**
-- `get_pipeline_summary` — by stage, at-risk, closing soon, by rep (elevated only)
-- `get_deal_velocity` — avg days per stage from `deal_stage_velocity` view
-- `get_stage_conversion` — advance rate % per stage from `deal_stage_conversion` view
-- `get_revenue_forecast` — weighted pipeline, quota attainment, gap, closing soon
-- `get_rep_performance` — managers/admins only, sortable by 4 metrics
-
-**Analytics Agent inline charts**
-- Agent returns `\`\`\`chart\`\`\`` JSON block when answer is visual
-- Sandbox client parses and renders inline: `funnel`, `bar`, `donut`, `stages`
-- Agent proactively suggests charts for pipeline/revenue/performance questions
-
-**DB migrations (run in order)**
-- `analytics-migrations.sql` — new deal fields (`closed_at`, `stage_entered_at`, `expected_close_date`, `loss_reason`), quota fields on org members, `next_followup_date` on contacts, `deal_stage_history` table, trigger `handle_stage_change`, 3 views (`deal_stage_velocity`, `deal_stage_conversion`, `rep_quota_attainment`)
-- `analytics-seed.sql` — seeded realistic stage history, quotas, close dates, loss reasons, followup dates
-- `conversations-migration.sql` — `conversations` table for sandbox session persistence
-- `task-status-migration.sql` — added `cancelled`, `postponed` statuses, `postponed_until` field, backfilled all existing to `todo`
-
-**Token strategy**
-- Agent gets rolling 6-message window only — never full history
-- Full conversation saved to Supabase `conversations` table for display
-- Session restores on mount if updated within 24h
-
-**Navigation**
-- `SidebarNav`: Capture moved into Workspace group (after Home), "CRM" renamed to "Records", Capture removed from Records group
-- `BottomNav`: unchanged (Capture already centre pulse button)
-
-**Home page rebuilt**
-- Removed: recent activity feed
-- Added: GitHub-style activity chart (click day → see events), 6 shortcut cards (white bg, coloured icons from project image palette), kept: today's focus, AI nudges
-- Activity chart: teal color from project image (`#4a7a8a`), CSS flex grid (stable, no SVG scaling issues), click any active day to see events inline below chart
-- `page.tsx`: fetches deals + 112 days of events with full detail (summary, contacts, deals, companies)
-
-**Task statuses**
-- 5 statuses: `todo | in_progress | done | cancelled | postponed`
-- `TaskDetailClient`: 2-row status picker, postponed shows date picker, cancelled gets strikethrough + fade
-- `TaskSchedulerClient`: cancelled excluded from counts/overdue, postponed shown blue, toggle uses `todo` not `pending`
-- Home and tasks page queries exclude `cancelled` and `postponed` from active views
-
-**Kanban improvements**
-- Pending cards: amber background tint + border (was invisible outline)
-- Stage column headers: low-saturation washi palette — coloured dot + tinted header bg per stage (lead/qualified/demo/proposal/negotiation/won/lost)
-- Centering: `justifyContent: 'center'` + `minWidth: 'max-content'`
-
-**Analytics page rebuilt**
-- `AnalyticsClient`: 12 SVG charts, tag-based nav filter, all rendering fixes (no `preserveAspectRatio="none"`)
-- `analytics/page.tsx`: fetches deals, contacts, companies, tasks, stage velocity, quota, stage conversion
-
-S13 Apr 19 — Org scoping, home fixes, onboarding Q&A spec
-Assistant org-scoping (Action Agent)
-
-Fetched role alongside org_id in /api/assistant/route.ts
-Added isElevated flag (manager/admin)
-search_crm — all three entity queries now scope by org_id for elevated, user_id for members
-get_pipeline_summary — same pattern, labels "Org pipeline" vs "Your pipeline"
-find_contact — also org-scoped for elevated users
-System prompt now reflects scope and role
-Analytics agent confirmed already correct — no changes needed
-Write tools intentionally stay user-scoped (audit trail)
-
-Home page fixes
-
-Shortcuts grid: grid-cols-3 md:grid-cols-6 — fixes broken mobile layout
-Activity chart: TOTAL_WEEKS 16 → 52 (full year)
-Chart wrapped in horizontal scroll container
-Chart auto-scrolls to far right on load (most recent week visible by default)
-Event fetch in page.tsx: 112 → 365 days
-Removed stale .shortcuts-grid CSS media query
-
-Decisions & discussions
-
-Manager in Kanban — currently sees only own deals, fix needs to be in tracking/page.tsx server component (pending)
-Analytics agent — no changes needed, was already correctly org-scoped
-Sandbox history — rolling 6-message window to AI, full history in Supabase, 24h session restore
-Excel → leads via Haiku — confirmed viable, SheetJS client-side parse → Haiku extraction → confirm card → bulk insert
-HubSpot workflow analysis — forward-looking nudge ("proposal sent 4 days ago, no response") identified as quick win
-Activity chart — reverted reversal, instead auto-scrolls to right so newest is default visible
-
-Onboarding Q&A — specced, not yet built
-The current onboarding is structural only (create/join workspace). No business context gathered.
-Three-part build plan:
-Part A — DB
-sqlALTER TABLE organisations ADD COLUMN context jsonb DEFAULT '{}';
-Fields: industry, cycle_days, stage_names[], at_risk_days, team_size, terminology, pain_points[]
-Part B — Onboarding chat UI
-
-New step after workspace name
-Haiku runs guided conversation (5 exchanges)
-Extracts structured JSON at end
-Saves to organisations.context
-Shows confirmation card "Here's your setup" before redirect to home
-
-Part C — Context injection
-
-getOrgContext() reads org context, injects into:
-
-Action agent system prompt
-Analytics agent system prompt
-Nudge API thresholds
-Kanban stage display labels
-
-
-
-The demo moment — user sees their exact pipeline stages appear without touching settings. That's the differentiator.
-What to build next
-
-Onboarding Q&A — Part A, B, C in order
-Kanban org-scoping for managers (tracking/page.tsx)
-Forward-looking nudge ("proposal sent X days ago, no movement")
-Excel → leads in Capture
-Stripe billing
-
-Here's what we've built this session:
-
-**Onboarding Q&A (Parts A, B, C)**
-- `organisations.context` jsonb column in Supabase
-- Haiku-guided chat after workspace creation
-- Saves structured context to DB
-- Context injected into Action Agent, Analytics Agent, Nudges
-
-**Org Context Helper**
-- `src/lib/org-context.ts` — `getOrgContext()` + `formatOrgContextForPrompt()`
-
-**Stage Templates**
-- `src/lib/stage-templates.ts` — 8 industry templates with stable DB keys
-- `suggestTemplate()`, `buildStageLabelMap()`, `getStagesForTemplate()`
-- `HOME_PRIORITY_OPTIONS` — tasks / pipeline / at-risk / revenue
-
-**Kanban**
-- `KanbanBoard` — uses `stageTemplate` prop, builds columns from template
-- `TrackingClient` — passes template down, mobile list uses label map
-- `tracking/page.tsx` — fetches `stage_template` from org context
-
-**Settings Customise Panel**
-- Pipeline tab — 8 template cards replacing free text input
-- Profile tab — home priority picker with 4 options
-- AI tab — pain points + live context summary
-- Preview tab — live Kanban + nudge preview
-- Saves `stage_template` + `home_priority` to `organisations.context`
-
-**Home Page Personalisation**
-- 4 priority sections: Tasks, Pipeline, At-risk, Revenue
-- `homePriority` from org context determines which appears first
-- `page.tsx` fetches at-risk deals using org `at_risk_days` threshold
-
-**Still to do:**
-- Analytics page — stage labels + at-risk threshold from org context
-- Onboarding chat revised to suggest templates + ask home priority
-- `OrgContext` type updated to include `stage_template` + `home_priority`
-
-Ready for analytics page?
-
-Here's what we've built across this session:
-
-**S14 — Analytics page overhaul**
-
-**Analytics page — org context integration**
-- `page.tsx` fetches org context (`stage_template`, `at_risk_days`, `industry`, `terminology`, `analytics_layout`) and passes it to `AnalyticsClient`
-- `page.tsx` also fetches user role and rep performance data (managers/admins only)
-- `AnalyticsClient` derives stage labels from `buildStageLabelMap(orgContext.stage_template)` — every chart now shows your actual pipeline stage names (e.g. "Enquiry" instead of "Lead" for construction orgs)
-- At-risk threshold uses `orgContext.at_risk_days` instead of hardcoded 14 — shows in card subtitle and scatter plot legend
-- Industry shown in header subtitle and pipeline funnel subtitle
-- Terminology respects org's deal word (e.g. "enquiries" instead of "deals")
-
-**Rep performance section**
-- New `RepPerformanceTable` card — managers/admins only
-- Sortable by: Quota %, Pipeline, Revenue, At risk
-- Per-rep: avatar initials, role, quota progress bar, confirmed/pipeline/quota/gap stats, at-risk badge
-- Tagged `team` + `performance`
-
-**Draggable card grid — three iterations**
-- Started with framer-motion `Reorder.Group` — broke on horizontal drag and grid layout
-- Switched to two independent `axis="y"` Reorder columns — cross-column drag impossible
-- Finally replaced with **`@dnd-kit`** (installed) — the right tool for the job
-
-**dnd-kit grid system**
-- Single `DndContext` wrapping both columns
-- Two `DroppableColumn` components each with `SortableContext`
-- Cross-column drag works natively — `handleDragOver` moves card to target column live while dragging, `handleDragEnd` finalises position
-- `DragOverlay` renders a floating ghost card (header only, no charts) that follows the cursor with rotation + deep shadow
-- `PointerSensor` with 6px activation distance so clicks (collapse button, links) still work
-
-**Collapsible cards**
-- Every card has a ↓ chevron — framer-motion `AnimatePresence` + `height: 0 → auto` for smooth collapse
-- Collapsed state shows a mini stat inline (e.g. "win rate · 68%", "at risk · 3")
-- Chevron springs to 180° when collapsed
-
-**Responsive SVG charts**
-- `useContainerWidth` hook using `ResizeObserver` — charts measure their actual container width and recompute all coordinates
-- All bar/scatter/waterfall charts respond correctly when cards are dragged between columns (narrow ↔ wide)
-- Charts skip rendering while a card is being dragged (fixes React error #185)
-
-**Edit mode + layout persistence**
-- Default: cards locked, no drag
-- **Edit layout** button top-right of header — pencil icon
-- Entering edit mode: snapshots current layout to `useRef`, grip dots appear, cards get subtle lift shadow, drag activates, banner slides in explaining controls
-- **Save layout**: `PATCH /api/analytics-layout` → merges `analytics_layout: { left, right, collapsed }` into `organisations.context` in Supabase without touching other context keys
-- **Cancel**: restores exact pre-edit snapshot — no network call
-- Layout hydrates from `orgContext.analytics_layout` on page load, falls back to defaults if nothing saved
-- Spinner during save, error message on failure
-
-**Mobile**
-- `useIsDesktop()` hook at 768px breakpoint gates the layout
-- Mobile: single column, no drag, collapse still works
-- Full-width cards (Overview, Scatter, Team, Followup, Treemap) render above the grid on both platforms
-
-**Bug fixes**
-- `Set` spread (`[...collapsed]`) → `Array.from(collapsed)` for TypeScript compatibility
-- `useIsDesktop` moved out of `StatStrip` (hook in portal = React error #185) — passed as prop from main component instead
-- `card.render()` skipped when `isDragging=true` — prevents chart hook calls during drag
-- `RevenueWaterfall` IIFE extracted to variable to fix JSX parser brace confusion
-
-**New files**
-- `src/app/api/analytics-layout/route.ts` — PATCH endpoint for saving layout
-- `src/hooks/useIsDesktop.ts` — 768px breakpoint hook (SSR-safe, mobile-first default)
-
-Home page — collapsible card shells
-Brought the same card pattern to HomeClient.tsx — collapse/expand with framer spring animation, mini stat shown inline when collapsed:
-
-SectionCard — shared shell with header row, label, optional link, chevron toggle, height: 0 → auto body animation
-ActivityChart gets the same header treatment — collapse button inline, mini stat (47 actions · 23d) slides in when collapsed
-Click-to-expand date events in the activity chart completely unchanged
-All sections start expanded on every page load
-Mini stats per section: Tasks shows overdue count (red) or due count (green), Pipeline shows total value, At-risk shows deal count (amber), Revenue shows closed won (green), Activity shows action + day count
+1. Forward-looking nudges — stalled proposals, overdue follow-ups, closing-soon, uninvoiced won, relationship decay
+2. Nudge card UI redesign — richer layout with avatar, deal value, inline action
+3. Kanban org-scoping for managers (tracking/page.tsx server component)
+4. Excel → leads in Capture (SheetJS parse → Haiku extraction → confirm → bulk insert)
+5. Stripe billing — per seat (Solo free / Pro €29 / Business €79 flat)
+6. React Native app — after first real users
