@@ -536,3 +536,12 @@ Here's what we've built across this session:
 **New files**
 - `src/app/api/analytics-layout/route.ts` — PATCH endpoint for saving layout
 - `src/hooks/useIsDesktop.ts` — 768px breakpoint hook (SSR-safe, mobile-first default)
+
+Home page — collapsible card shells
+Brought the same card pattern to HomeClient.tsx — collapse/expand with framer spring animation, mini stat shown inline when collapsed:
+
+SectionCard — shared shell with header row, label, optional link, chevron toggle, height: 0 → auto body animation
+ActivityChart gets the same header treatment — collapse button inline, mini stat (47 actions · 23d) slides in when collapsed
+Click-to-expand date events in the activity chart completely unchanged
+All sections start expanded on every page load
+Mini stats per section: Tasks shows overdue count (red) or due count (green), Pipeline shows total value, At-risk shows deal count (amber), Revenue shows closed won (green), Activity shows action + day count

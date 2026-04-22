@@ -584,23 +584,27 @@ export default function HomeClient({ name, initials, tasks, events, deals, atRis
         ))}
       </div>
 
-      {/* Priority section + activity chart side by side on desktop */}
-      <div className="md:grid md:grid-cols-2 md:gap-8">
-        <div>{prioritySections[primarySection]}</div>
-        <div>
+      {/* Two persistent columns on desktop — no shared row grid so heights never fight */}
+      <div className="md:flex md:gap-8 md:items-start">
+        {/* Left column */}
+        <div className="md:flex-1 md:min-w-0">
+          {prioritySections[primarySection]}
+          {restSections.filter((_, i) => i % 2 === 0).map(key => (
+            <div key={key}>{prioritySections[key]}</div>
+          ))}
+        </div>
+
+        {/* Right column */}
+        <div className="md:flex-1 md:min-w-0">
           <ActivityChart
             events={events}
             collapsed={collapsed.activity}
             onToggle={() => toggle('activity')}
           />
+          {restSections.filter((_, i) => i % 2 === 1).map(key => (
+            <div key={key}>{prioritySections[key]}</div>
+          ))}
         </div>
-      </div>
-
-      {/* Remaining sections — 2 col on desktop */}
-      <div className="md:grid md:grid-cols-2 md:gap-8">
-        {restSections.map(key => (
-          <div key={key}>{prioritySections[key]}</div>
-        ))}
       </div>
 
       <style>{`
