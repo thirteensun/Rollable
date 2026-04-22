@@ -30,7 +30,7 @@ export async function GET() {
     .from('organisation_members')
     .select('org_id')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
   if (!membership) return NextResponse.json([])
 
