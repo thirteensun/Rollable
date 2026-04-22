@@ -51,7 +51,7 @@ export default async function AnalyticsPage() {
   ] = await Promise.all([
     supabase
       .from('deals')
-      .select('id, name, stage, value, confirmed_revenue, updated_at, payment_status, expected_close_date, loss_reason, stage_entered_at, closed_at, last_activity_at, created_at')
+      .select('id, name, stage, value, company_id, confirmed_revenue, updated_at, payment_status, expected_close_date, loss_reason, stage_entered_at, closed_at, last_activity_at, created_at')
       .order('updated_at', { ascending: false }),
 
     supabase
