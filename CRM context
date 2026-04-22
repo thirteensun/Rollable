@@ -472,3 +472,67 @@ Here's what we've built this session:
 - `OrgContext` type updated to include `stage_template` + `home_priority`
 
 Ready for analytics page?
+
+Here's what we've built across this session:
+
+**S14 — Analytics page overhaul**
+
+**Analytics page — org context integration**
+- `page.tsx` fetches org context (`stage_template`, `at_risk_days`, `industry`, `terminology`, `analytics_layout`) and passes it to `AnalyticsClient`
+- `page.tsx` also fetches user role and rep performance data (managers/admins only)
+- `AnalyticsClient` derives stage labels from `buildStageLabelMap(orgContext.stage_template)` — every chart now shows your actual pipeline stage names (e.g. "Enquiry" instead of "Lead" for construction orgs)
+- At-risk threshold uses `orgContext.at_risk_days` instead of hardcoded 14 — shows in card subtitle and scatter plot legend
+- Industry shown in header subtitle and pipeline funnel subtitle
+- Terminology respects org's deal word (e.g. "enquiries" instead of "deals")
+
+**Rep performance section**
+- New `RepPerformanceTable` card — managers/admins only
+- Sortable by: Quota %, Pipeline, Revenue, At risk
+- Per-rep: avatar initials, role, quota progress bar, confirmed/pipeline/quota/gap stats, at-risk badge
+- Tagged `team` + `performance`
+
+**Draggable card grid — three iterations**
+- Started with framer-motion `Reorder.Group` — broke on horizontal drag and grid layout
+- Switched to two independent `axis="y"` Reorder columns — cross-column drag impossible
+- Finally replaced with **`@dnd-kit`** (installed) — the right tool for the job
+
+**dnd-kit grid system**
+- Single `DndContext` wrapping both columns
+- Two `DroppableColumn` components each with `SortableContext`
+- Cross-column drag works natively — `handleDragOver` moves card to target column live while dragging, `handleDragEnd` finalises position
+- `DragOverlay` renders a floating ghost card (header only, no charts) that follows the cursor with rotation + deep shadow
+- `PointerSensor` with 6px activation distance so clicks (collapse button, links) still work
+
+**Collapsible cards**
+- Every card has a ↓ chevron — framer-motion `AnimatePresence` + `height: 0 → auto` for smooth collapse
+- Collapsed state shows a mini stat inline (e.g. "win rate · 68%", "at risk · 3")
+- Chevron springs to 180° when collapsed
+
+**Responsive SVG charts**
+- `useContainerWidth` hook using `ResizeObserver` — charts measure their actual container width and recompute all coordinates
+- All bar/scatter/waterfall charts respond correctly when cards are dragged between columns (narrow ↔ wide)
+- Charts skip rendering while a card is being dragged (fixes React error #185)
+
+**Edit mode + layout persistence**
+- Default: cards locked, no drag
+- **Edit layout** button top-right of header — pencil icon
+- Entering edit mode: snapshots current layout to `useRef`, grip dots appear, cards get subtle lift shadow, drag activates, banner slides in explaining controls
+- **Save layout**: `PATCH /api/analytics-layout` → merges `analytics_layout: { left, right, collapsed }` into `organisations.context` in Supabase without touching other context keys
+- **Cancel**: restores exact pre-edit snapshot — no network call
+- Layout hydrates from `orgContext.analytics_layout` on page load, falls back to defaults if nothing saved
+- Spinner during save, error message on failure
+
+**Mobile**
+- `useIsDesktop()` hook at 768px breakpoint gates the layout
+- Mobile: single column, no drag, collapse still works
+- Full-width cards (Overview, Scatter, Team, Followup, Treemap) render above the grid on both platforms
+
+**Bug fixes**
+- `Set` spread (`[...collapsed]`) → `Array.from(collapsed)` for TypeScript compatibility
+- `useIsDesktop` moved out of `StatStrip` (hook in portal = React error #185) — passed as prop from main component instead
+- `card.render()` skipped when `isDragging=true` — prevents chart hook calls during drag
+- `RevenueWaterfall` IIFE extracted to variable to fix JSX parser brace confusion
+
+**New files**
+- `src/app/api/analytics-layout/route.ts` — PATCH endpoint for saving layout
+- `src/hooks/useIsDesktop.ts` — 768px breakpoint hook (SSR-safe, mobile-first default)

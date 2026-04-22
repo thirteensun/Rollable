@@ -98,10 +98,10 @@ export default async function AnalyticsPage() {
     const atRiskDays = (orgContext as any).at_risk_days || 14
     const now = Date.now()
 
-    const [{ data: members }, { data: atRiskDeals }] = await Promise.all([
+    const [{ data: members }, { data: atRiskDeals }, { data: { users: authUsers } }] = await Promise.all([
       admin
         .from('organisation_members')
-        .select('user_id, users(email)')
+        .select('user_id')
         .eq('org_id', orgId)
         .eq('status', 'active'),
       admin
@@ -109,10 +109,11 @@ export default async function AnalyticsPage() {
         .select('user_id, last_activity_at')
         .eq('org_id', orgId)
         .not('stage', 'in', '("closed_won","closed_lost")'),
+      admin.auth.admin.listUsers({ perPage: 1000 }),
     ])
 
     const emailMap: Record<string, string> = {}
-    members?.forEach((m: any) => { emailMap[m.user_id] = m.users?.email || m.user_id })
+    authUsers?.forEach((u: any) => { emailMap[u.id] = u.email || u.id })
 
     const atRiskByRep: Record<string, number> = {}
     atRiskDeals?.forEach((d: any) => {
