@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
-type Mode = 'choose' | 'image_processing' | 'image_confirm' | 'assistant'
+type Mode = 'choose' | 'image_processing' | 'image_confirm' | 'assistant' | 'sheet_processing' | 'sheet_confirm'
 
 interface AIResult {
   summary: string
@@ -21,6 +21,27 @@ interface AIResult {
 interface Message {
   role: 'user' | 'assistant'
   content: string
+}
+
+interface SheetContact {
+  full_name: string
+  role?: string | null
+  email?: string | null
+  phone?: string | null
+  company_name?: string | null
+}
+
+interface SheetCompany {
+  name: string
+  website?: string | null
+  industry?: string | null
+}
+
+interface SheetResult {
+  contacts: SheetContact[]
+  companies: SheetCompany[]
+  skipped: number
+  notes: string
 }
 
 interface PendingAction {
@@ -54,6 +75,12 @@ export default function CapturePage() {
   const [conversationHistory, setConversationHistory] = useState<any[]>([])
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const sheetInputRef = useRef<HTMLInputElement>(null)
+  const [sheetResult, setSheetResult] = useState<SheetResult | null>(null)
+  const [sheetSaving, setSheetSaving] = useState(false)
+  const [selectedContacts, setSelectedContacts] = useState<number[]>([])
+  const [selectedCompanies, setSelectedCompanies] = useState<number[]>([])
+  const [sheetStep, setSheetStep] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
   const transcriptRef = useRef('')
@@ -300,15 +327,120 @@ export default function CapturePage() {
   }
   const handleMicClick = () => { if (isListeningRef.current) { stopVoice() } else { startVoice() } }
 
+  const handleSheetSelect = async (file: File) => {
+    setMode('sheet_processing')
+    setSheetStep(0)
+    try {
+      // Dynamically import SheetJS
+      const XLSX = await import('xlsx')
+      setSheetStep(1)
+      const buffer = await file.arrayBuffer()
+      const workbook = XLSX.read(buffer, { type: 'array' })
+      const sheetName = workbook.SheetNames[0]
+      const worksheet = workbook.Sheets[sheetName]
+      const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: null })
+      setSheetStep(2)
+      if (rows.length === 0) {
+        setMode('choose')
+        alert('No data found in spreadsheet.')
+        return
+      }
+      setSheetStep(3)
+      const response = await fetch('/api/capture/spreadsheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows }),
+      })
+      if (!response.ok) throw new Error('AI processing failed')
+      const result: SheetResult = await response.json()
+      setSheetStep(4)
+      setSheetResult(result)
+      setSelectedContacts(result.contacts.map((_, i) => i))
+      setSelectedCompanies(result.companies.map((_, i) => i))
+      setMode('sheet_confirm')
+    } catch (err: any) {
+      setMode('choose')
+      alert(err.message || 'Something went wrong. Please try again.')
+    }
+  }
+
+  const handleSheetSave = async () => {
+    if (!sheetResult) return
+    setSheetSaving(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSheetSaving(false); return }
+    const { data: membership } = await supabase
+      .from('organisation_members').select('org_id')
+      .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle()
+    const org_id = membership?.org_id || null
+
+    try {
+      // Upsert selected companies first, build name→id map
+      const companyMap: Record<string, string> = {}
+      const chosenCompanies = sheetResult.companies.filter((_, i) => selectedCompanies.includes(i))
+      for (const co of chosenCompanies) {
+        const { data: existing } = await supabase.from('companies').select('id').eq('user_id', user.id).ilike('name', co.name).maybeSingle()
+        if (existing) {
+          companyMap[co.name.toLowerCase()] = existing.id
+        } else {
+          const { data: newCo } = await supabase.from('companies').insert({
+            user_id: user.id, org_id, name: co.name,
+            website: co.website || null, industry: co.industry || null,
+          }).select('id').maybeSingle()
+          if (newCo) companyMap[co.name.toLowerCase()] = newCo.id
+        }
+      }
+
+      // Upsert selected contacts
+      let created = 0, updated = 0
+      const chosenContacts = sheetResult.contacts.filter((_, i) => selectedContacts.includes(i))
+      for (const c of chosenContacts) {
+        const company_id = c.company_name ? (companyMap[c.company_name.toLowerCase()] || null) : null
+        const { data: existing } = await supabase.from('contacts').select('id').eq('user_id', user.id).ilike('full_name', c.full_name).maybeSingle()
+        if (existing) {
+          await supabase.from('contacts').update({
+            company_id: company_id || undefined,
+            role: c.role || undefined,
+            email: c.email || undefined,
+            phone: c.phone || undefined,
+          }).eq('id', existing.id)
+          updated++
+        } else {
+          await supabase.from('contacts').insert({
+            user_id: user.id, org_id, full_name: c.full_name,
+            company_id, role: c.role || null, email: c.email || null, phone: c.phone || null,
+          })
+          created++
+        }
+      }
+
+      // Log import event
+      await supabase.from('events').insert({
+        user_id: user.id, org_id, type: 'other',
+        summary: `Spreadsheet import: ${created} contacts created, ${updated} updated, ${chosenCompanies.length} companies.`,
+        metadata: { source: 'spreadsheet_import', created, updated, companies: chosenCompanies.length },
+      })
+
+      router.push('/')
+      router.refresh()
+    } catch (err: any) {
+      alert(err.message || 'Failed to save.')
+      setSheetSaving(false)
+    }
+  }
+
   return (
     <main style={{ background: '#f5f4f0', paddingBottom: '90px', display: 'flex', flexDirection: 'column' }}>
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }}
         onChange={e => { if (e.target.files?.[0]) handleImageSelect(e.target.files[0]) }} />
+      <input ref={sheetInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }}
+        onChange={e => { if (e.target.files?.[0]) handleSheetSelect(e.target.files[0]); e.currentTarget.value = '' }} />
 
       {/* Header */}
       <div style={{ padding: '56px 24px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         {mode !== 'choose' && (
-          <button onClick={() => { setMode('choose'); setMessages([]); setTranscript(''); setPendingAction(null); transcriptRef.current = ''; recognitionRef.current?.stop() }} style={{
+          <button onClick={() => { setMode('choose'); setMessages([]); setTranscript(''); setPendingAction(null); setSheetResult(null); transcriptRef.current = ''; recognitionRef.current?.stop() }} style={{
             width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.07)',
             border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
@@ -320,7 +452,9 @@ export default function CapturePage() {
         <p style={{ margin: 0, fontSize: '20px', fontWeight: 500, color: '#1a1a18' }}>
           {mode === 'choose' ? 'What can I help with?' :
            mode === 'image_processing' ? 'Reading image...' :
-           mode === 'image_confirm' ? 'Review capture' : 'AI Assistant'}
+           mode === 'image_confirm' ? 'Review capture' :
+           mode === 'sheet_processing' ? 'Reading spreadsheet...' :
+           mode === 'sheet_confirm' ? 'Review import' : 'AI Assistant'}
         </p>
       </div>
 
@@ -381,6 +515,25 @@ export default function CapturePage() {
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: '#1a1a18' }}>Type a message</p>
                 <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#9b9890' }}>Chat with your AI sales assistant</p>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 4l4 4-4 4" stroke="#9b9890" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <button onClick={() => sheetInputRef.current?.click()} style={{
+              background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '20px',
+              display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'left', width: '100%',
+            }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f5f4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="2" stroke="#1a1a18" strokeWidth="1.5" />
+                  <path d="M3 9h18M3 15h18M9 3v18" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: '#1a1a18' }}>Import spreadsheet</p>
+                <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#9b9890' }}>Upload .xlsx or .csv — AI maps contacts & companies</p>
               </div>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M6 4l4 4-4 4" stroke="#9b9890" strokeWidth="1.3" strokeLinecap="round" />
@@ -481,6 +634,136 @@ export default function CapturePage() {
             <button onClick={() => setMode('choose')} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: '22px', padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
             <button onClick={handleImageSave} disabled={saving} style={{ flex: 2, background: saving ? '#6b6960' : '#1a1a18', border: 'none', borderRadius: '22px', padding: '15px', fontSize: '15px', color: 'white', fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
               {saving ? 'Saving...' : 'Looks good, save it'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sheet processing */}
+      {mode === 'sheet_processing' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '28px', padding: '24px' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#1a1a18', display: 'flex', alignItems: 'center', justifyContent: 'center' }} className="capture-btn">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="3" width="18" height="18" rx="2" stroke="white" strokeWidth="1.5" />
+              <path d="M3 9h18M3 15h18M9 3v18" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%', maxWidth: '280px' }}>
+            {['Loading SheetJS parser...', 'Parsing spreadsheet rows...', 'Sending to AI...', 'Mapping contacts & companies...', 'Almost done...'].map((step, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', opacity: sheetStep >= i ? 1 : 0.2, transition: 'opacity 0.4s ease' }}>
+                <div style={{ width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0, background: sheetStep > i ? '#1D9E75' : sheetStep === i ? '#1a1a18' : 'rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.3s ease' }}>
+                  {sheetStep > i ? (
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  ) : sheetStep === i ? (
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'white', animation: 'breathe 1s ease-in-out infinite' }} />
+                  ) : null}
+                </div>
+                <p style={{ margin: 0, fontSize: '14px', color: sheetStep > i ? '#1D9E75' : sheetStep === i ? '#1a1a18' : '#9b9890', fontWeight: sheetStep === i ? 500 : 400, transition: 'color 0.3s ease' }}>{step}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sheet confirm */}
+      {mode === 'sheet_confirm' && sheetResult && (
+        <div style={{ padding: '0 24px', flex: 1, overflowY: 'auto' }} className="animate-slide-up no-scrollbar">
+          {/* Summary card */}
+          <div style={{ background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1D9E75' }} />
+              <span style={{ fontSize: '12px', fontWeight: 500, color: '#1D9E75' }}>AI processed</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '15px', color: '#1a1a18', lineHeight: 1.6 }}>{sheetResult.notes}</p>
+            {sheetResult.skipped > 0 && (
+              <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#9b9890' }}>{sheetResult.skipped} rows skipped (no name found)</p>
+            )}
+          </div>
+
+          {/* Companies */}
+          {sheetResult.companies.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Companies ({selectedCompanies.length}/{sheetResult.companies.length})</p>
+                <button onClick={() => setSelectedCompanies(selectedCompanies.length === sheetResult.companies.length ? [] : sheetResult.companies.map((_, i) => i))}
+                  style={{ background: 'none', border: 'none', fontSize: '12px', color: '#6b6960', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
+                  {selectedCompanies.length === sheetResult.companies.length ? 'Deselect all' : 'Select all'}
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {sheetResult.companies.map((co, i) => {
+                  const selected = selectedCompanies.includes(i)
+                  return (
+                    <button key={i} onClick={() => setSelectedCompanies(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      background: selected ? pillColors.company.bg : '#f5f4f0',
+                      border: selected ? `1px solid ${pillColors.company.color}20` : '1px solid rgba(0,0,0,0.08)',
+                      borderRadius: '14px', padding: '11px 14px', cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 0.15s ease',
+                    }}>
+                      <div style={{ width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, background: selected ? pillColors.company.color : 'white', border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
+                        {selected && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: selected ? pillColors.company.color : '#6b6960', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{co.name}</p>
+                        {(co.industry || co.website) && (
+                          <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[co.industry, co.website].filter(Boolean).join(' · ')}</p>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Contacts */}
+          {sheetResult.contacts.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Contacts ({selectedContacts.length}/{sheetResult.contacts.length})</p>
+                <button onClick={() => setSelectedContacts(selectedContacts.length === sheetResult.contacts.length ? [] : sheetResult.contacts.map((_, i) => i))}
+                  style={{ background: 'none', border: 'none', fontSize: '12px', color: '#6b6960', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
+                  {selectedContacts.length === sheetResult.contacts.length ? 'Deselect all' : 'Select all'}
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {sheetResult.contacts.map((c, i) => {
+                  const selected = selectedContacts.includes(i)
+                  const initials = c.full_name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+                  return (
+                    <button key={i} onClick={() => setSelectedContacts(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])} style={{
+                      display: 'flex', alignItems: 'center', gap: '12px',
+                      background: selected ? pillColors.contact.bg : '#f5f4f0',
+                      border: selected ? `1px solid ${pillColors.contact.color}20` : '1px solid rgba(0,0,0,0.08)',
+                      borderRadius: '14px', padding: '11px 14px', cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 0.15s ease',
+                    }}>
+                      {/* Avatar */}
+                      <div style={{ width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0, background: selected ? pillColors.contact.color : 'rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s ease' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: selected ? 'white' : '#6b6960' }}>{initials}</span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: selected ? pillColors.contact.color : '#1a1a18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.full_name}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {[c.role, c.company_name, c.email].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                      <div style={{ width: '18px', height: '18px', borderRadius: '5px', flexShrink: 0, background: selected ? pillColors.contact.color : 'white', border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
+                        {selected && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
+            <button onClick={() => { setMode('choose'); setSheetResult(null) }} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: '22px', padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
+            <button onClick={handleSheetSave} disabled={sheetSaving || (selectedContacts.length === 0 && selectedCompanies.length === 0)} style={{
+              flex: 2, background: sheetSaving ? '#6b6960' : '#1a1a18', border: 'none', borderRadius: '22px', padding: '15px', fontSize: '15px', color: 'white', fontWeight: 500,
+              cursor: (sheetSaving || (selectedContacts.length === 0 && selectedCompanies.length === 0)) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (selectedContacts.length === 0 && selectedCompanies.length === 0) ? 0.5 : 1,
+            }}>
+              {sheetSaving ? 'Importing...' : `Import ${selectedContacts.length + selectedCompanies.length} records`}
             </button>
           </div>
         </div>
