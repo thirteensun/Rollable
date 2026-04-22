@@ -69,9 +69,13 @@ export default async function AnalyticsPage() {
       .select('id, title, status, done, due_date, priority, deal_id, contact_id')
       .order('due_date', { ascending: true }),
 
-    supabase
-      .from('deal_stage_velocity')
-      .select('stage, avg_days, transitions'),
+    // Use admin + org_id filter — views bypass RLS via service role
+    orgId
+      ? admin
+          .from('deal_stage_velocity')
+          .select('stage, avg_days, transitions')
+          .eq('org_id', orgId)
+      : Promise.resolve({ data: [] }),
 
     user ? admin
       .from('rep_quota_attainment')
@@ -79,9 +83,13 @@ export default async function AnalyticsPage() {
       .eq('user_id', user.id)
       .maybeSingle() : Promise.resolve({ data: null }),
 
-    supabase
-      .from('deal_stage_conversion')
-      .select('stage, deals_entered, deals_advanced, deals_lost_here, advance_rate_pct'),
+    // Use admin + org_id filter — views bypass RLS via service role
+    orgId
+      ? admin
+          .from('deal_stage_conversion')
+          .select('stage, deals_entered, deals_advanced, deals_lost_here, advance_rate_pct')
+          .eq('org_id', orgId)
+      : Promise.resolve({ data: [] }),
 
     // Rep performance rows — managers/admins only
     isElevated && orgId
