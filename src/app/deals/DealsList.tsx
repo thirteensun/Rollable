@@ -9,7 +9,7 @@ interface Deal {
   value: number | null
   stage: string
   last_activity_at: string | null
-  companies: { name: string } | null
+  companies: { name: string } | { name: string }[] | null
 }
 
 const STAGE_LABELS: Record<string, string> = {
@@ -26,6 +26,12 @@ const STAGE_COLORS: Record<string, { bg: string; color: string }> = {
   negotiation: { bg: 'rgba(226,75,74,0.1)',   color: '#c03030' },
   closed_won:  { bg: 'rgba(29,158,117,0.1)',  color: '#1D9E75' },
   closed_lost: { bg: 'rgba(0,0,0,0.05)',      color: '#9b9890' },
+}
+
+function getCompanyName(companies: Deal['companies']): string | null {
+  if (!companies) return null
+  if (Array.isArray(companies)) return (companies as any[])[0]?.name ?? null
+  return (companies as any).name ?? null
 }
 
 function formatValue(v?: number | null) {
@@ -60,7 +66,7 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
     return deals.filter(d => {
       const matchesQuery = !q ||
         d.name.toLowerCase().includes(q) ||
-        (d.companies as any)?.name?.toLowerCase().includes(q) ||
+        getCompanyName(d.companies)?.toLowerCase().includes(q) ||
         STAGE_LABELS[d.stage]?.toLowerCase().includes(q)
       const matchesStage = stageFilter === 'all' || d.stage === stageFilter
       return matchesQuery && matchesStage
@@ -161,8 +167,8 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
                     <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {deal.name}
                     </div>
-                    {(deal.companies as any)?.name && (
-                      <div style={{ fontSize: 12, color: '#9b9890' }}>{(deal.companies as any).name}</div>
+                    {getCompanyName(deal.companies) && (
+                      <div style={{ fontSize: 12, color: '#9b9890' }}>{getCompanyName(deal.companies)}</div>
                     )}
                   </div>
                   {value && (
