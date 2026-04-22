@@ -3,8 +3,22 @@
 import Link from 'next/link'
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import AIProactiveNudges from '@/components/AIProactiveNudges'
 import { type HomePriority } from '@/lib/stage-templates'
+
+// ─── Nudge types (inline — no longer needs separate component) ────────────────
+interface Nudge {
+  id: string
+  type: 'stalled_deal' | 'overdue_followup' | 'closing_soon' | 'uninvoiced_won' | 'relationship_decay'
+  urgency: 'high' | 'medium' | 'low'
+  title: string
+  body: string
+  deal?: { id: string; name: string; value: number | null; stage: string; currency?: string }
+  contact?: { id: string; full_name: string; role: string | null }
+  company?: { id: string; name: string } | null
+  days: number
+  action_label: string
+  action_href: string
+}
 
 interface Task {
   id: string
@@ -45,14 +59,14 @@ interface Props {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function getTaskUrgency(task: Task): string {
-  if (!task.due_date) return '#9b9890'
+function getTaskUrgency(task: Task): { color: string; label: string } {
+  if (!task.due_date) return { color: '#c8c5be', label: 'No date' }
   const due = new Date(task.due_date)
   const now = new Date()
-  if (due < now) return '#E24B4A'
+  if (due < now) return { color: '#E24B4A', label: 'Overdue' }
   const hours = (due.getTime() - now.getTime()) / 3600000
-  if (hours < 24) return '#EF9F27'
-  return '#1D9E75'
+  if (hours < 24) return { color: '#EF9F27', label: 'Due today' }
+  return { color: '#1D9E75', label: 'Upcoming' }
 }
 
 const EVENT_LABEL: Record<string, string> = {
@@ -61,65 +75,76 @@ const EVENT_LABEL: Record<string, string> = {
   voice_memo: 'Voice memo', other: 'Activity',
 }
 
-function formatValue(v?: number) {
-  if (!v) return '—'
-  if (v >= 1000) return `€${(v / 1000).toFixed(0)}k`
-  return `€${v}`
+function formatValue(v?: number | null, currency = 'EUR') {
+  if (!v) return null
+  return new Intl.NumberFormat('en', {
+    style: 'currency', currency,
+    maximumFractionDigits: 0, notation: 'compact',
+  }).format(v)
 }
 
-function timeAgo(dateStr?: string) {
-  if (!dateStr) return '—'
-  const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
-  if (d === 0) return 'Today'
-  if (d === 1) return 'Yesterday'
-  return `${d}d ago`
+const NUDGE_META: Record<Nudge['type'], { label: string; icon: React.ReactNode }> = {
+  stalled_deal: {
+    label: 'Stalled',
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  },
+  overdue_followup: {
+    label: 'Follow-up due',
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
+  },
+  closing_soon: {
+    label: 'Closing soon',
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  },
+  uninvoiced_won: {
+    label: 'Invoice needed',
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+  },
+  relationship_decay: {
+    label: 'Gone quiet',
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  },
 }
 
-const SHORTCUTS = [
-  { href: '/capture', label: 'Capture', color: '#4a7a8a', icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="M11 6v10M6 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
-  { href: '/tracking', label: 'Pipeline', color: '#4a7a8a', icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="1.5" y="4" width="5.5" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/><rect x="8.5" y="4" width="5.5" height="9" rx="2" stroke="currentColor" strokeWidth="1.5"/><rect x="15.5" y="4" width="5" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/></svg> },
-  { href: '/tasks', label: 'Tasks', color: '#4a8a6a', icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="2" y="2" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="1.5"/><path d="M7 11l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-  { href: '/ai-sandbox', label: 'AI Sandbox', color: '#a08840', icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M2 11h3.5L8 5l4 12 3-6h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-  { href: '/analytics', label: 'Analytics', color: '#a06050', icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M2 17L7 10l4.5 3.5L16 6l4 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
-  { href: '/contacts', label: 'Contacts', color: '#7a6aaa', icon: <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M3 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
-]
+const URGENCY_STYLE: Record<Nudge['urgency'], { accent: string; bg: string; border: string }> = {
+  high:   { accent: '#E24B4A', bg: 'rgba(226,75,74,0.06)',  border: 'rgba(226,75,74,0.15)' },
+  medium: { accent: '#EF9F27', bg: 'rgba(239,159,39,0.06)', border: 'rgba(239,159,39,0.2)' },
+  low:    { accent: '#9b9890', bg: 'rgba(0,0,0,0.02)',      border: 'rgba(0,0,0,0.07)' },
+}
 
 const CHART_COLOR_BASE = [74, 122, 138]
 const TOTAL_WEEKS = 52
 
 function activityColor(intensity: number): string {
-  if (intensity === 0) return 'rgba(0,0,0,0.06)'
+  if (intensity === 0) return 'rgba(0,0,0,0.055)'
   const [r, g, b] = CHART_COLOR_BASE
   return `rgb(${Math.round(r + (1 - intensity) * 148)},${Math.round(g + (1 - intensity) * 98)},${Math.round(b + (1 - intensity) * 80)})`
 }
 
-// ─── Collapse chevron button ──────────────────────────────────────────────────
-function CollapseButton({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+// ─── Shared shell components ──────────────────────────────────────────────────
+function CollapseBtn({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   return (
     <motion.button
       onClick={onToggle}
-      whileTap={{ scale: 0.88 }}
+      whileTap={{ scale: 0.85 }}
       style={{
-        width: 22, height: 22, borderRadius: 6,
-        border: '0.5px solid rgba(0,0,0,0.07)',
-        background: '#f5f4f0', cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexShrink: 0,
+        width: 24, height: 24, borderRadius: 7,
+        border: '0.5px solid rgba(0,0,0,0.08)',
+        background: 'rgba(0,0,0,0.03)',
+        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
       }}
     >
-      <motion.svg
-        width="10" height="10" viewBox="0 0 10 10"
+      <motion.svg width="10" height="10" viewBox="0 0 10 10"
         animate={{ rotate: collapsed ? 180 : 0 }}
-        transition={{ type: 'spring', stiffness: 380, damping: 26 }}
+        transition={{ type: 'spring', stiffness: 420, damping: 28 }}
       >
-        <path d="M2 3.5L5 6.5L8 3.5" stroke="#9b9890" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M2 3.5L5 6.5L8 3.5" stroke="#9b9890" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
       </motion.svg>
     </motion.button>
   )
 }
 
-// ─── Animated body ────────────────────────────────────────────────────────────
-function CardBody({ visible, children }: { visible: boolean; children: React.ReactNode }) {
+function SlideBody({ visible, children }: { visible: boolean; children: React.ReactNode }) {
   return (
     <AnimatePresence initial={false}>
       {visible && (
@@ -128,10 +153,7 @@ function CardBody({ visible, children }: { visible: boolean; children: React.Rea
           initial={{ height: 0, opacity: 0 }}
           animate={{ height: 'auto', opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
-          transition={{
-            height: { duration: 0.28, ease: [0.4, 0, 0.2, 1] },
-            opacity: { duration: 0.18 },
-          }}
+          transition={{ height: { duration: 0.26, ease: [0.4, 0, 0.2, 1] }, opacity: { duration: 0.16 } }}
           style={{ overflow: 'hidden' }}
         >
           {children}
@@ -141,78 +163,272 @@ function CardBody({ visible, children }: { visible: boolean; children: React.Rea
   )
 }
 
-// ─── Section card shell ───────────────────────────────────────────────────────
-function SectionCard({
-  label, link, linkLabel, miniStat, collapsed, onToggle, children,
+function SectionShell({
+  label, badge, badgeColor, link, linkLabel, collapsed, onToggle, children,
 }: {
   label: string
+  badge?: string
+  badgeColor?: string
   link?: string
   linkLabel?: string
-  miniStat?: { value: string; color?: string }
   collapsed: boolean
   onToggle: () => void
   children: React.ReactNode
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
+      transition={{ duration: 0.22 }}
       style={{
         background: 'white',
-        borderRadius: 14,
+        borderRadius: 16,
         border: '0.5px solid rgba(0,0,0,0.07)',
         overflow: 'hidden',
-        marginBottom: 24,
+        marginBottom: 16,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
       }}
     >
-      {/* Header row */}
       <div style={{
-        padding: collapsed ? '12px 14px' : '14px 14px 12px',
-        borderBottom: collapsed ? 'none' : '0.5px solid rgba(0,0,0,0.07)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+        padding: '13px 16px',
+        borderBottom: collapsed ? 'none' : '0.5px solid rgba(0,0,0,0.06)',
+        display: 'flex', alignItems: 'center', gap: 8,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase', flexShrink: 0 }}>
-            {label}
-          </p>
-          {/* Mini stat — slides in when collapsed */}
-          <AnimatePresence>
-            {collapsed && miniStat && (
-              <motion.span
-                initial={{ opacity: 0, x: -6 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -6 }}
-                transition={{ duration: 0.15 }}
-                style={{ fontSize: 13, fontWeight: 500, color: miniStat.color || '#1a1a18' }}
-              >
-                {miniStat.value}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          {link && linkLabel && !collapsed && (
-            <Link href={link} style={{ fontSize: 12, color: '#9b9890', textDecoration: 'none' }}>
-              {linkLabel}
-            </Link>
-          )}
-          <CollapseButton collapsed={collapsed} onToggle={onToggle} />
-        </div>
-      </div>
+        {/* Label */}
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#9b9890', letterSpacing: '0.06em', textTransform: 'uppercase', flex: 1 }}>
+          {label}
+        </span>
 
-      {/* Animated body */}
-      <CardBody visible={!collapsed}>
-        <div style={{ padding: '14px 14px 16px' }}>
+        {/* Badge — mini stat when expanded, full stat when collapsed */}
+        <AnimatePresence mode="wait">
+          {badge && (
+            <motion.span
+              key={badge}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.12 }}
+              style={{
+                fontSize: 12, fontWeight: 500,
+                color: badgeColor || '#6b6960',
+              }}
+            >
+              {badge}
+            </motion.span>
+          )}
+        </AnimatePresence>
+
+        {link && linkLabel && !collapsed && (
+          <Link href={link} style={{ fontSize: 11, color: '#9b9890', textDecoration: 'none', fontWeight: 500 }}>
+            {linkLabel} →
+          </Link>
+        )}
+        <CollapseBtn collapsed={collapsed} onToggle={onToggle} />
+      </div>
+      <SlideBody visible={!collapsed}>
+        <div style={{ padding: '14px 16px 16px' }}>
           {children}
         </div>
-      </CardBody>
+      </SlideBody>
     </motion.div>
   )
 }
 
-// ─── ActivityChart — unchanged ────────────────────────────────────────────────
-function ActivityChart({ events, collapsed, onToggle }: { events: Event[]; collapsed: boolean; onToggle: () => void }) {
+// ─── AI Signals section ───────────────────────────────────────────────────────
+function AISignalsSection({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+  const [nudges, setNudges] = useState<Nudge[]>([])
+  const [loading, setLoading] = useState(true)
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    fetch('/api/nudges')
+      .then(r => r.json())
+      .then(data => { setNudges(Array.isArray(data) ? data : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  const visible = nudges.filter(n => !dismissed.has(n.id))
+  const dismiss = (id: string) => setDismissed(prev => new Set([...Array.from(prev), id]))
+
+  if (!loading && visible.length === 0) return null
+
+  const badge = loading ? '…' : `${visible.length} signal${visible.length !== 1 ? 's' : ''}`
+  const badgeColor = visible.some(n => n.urgency === 'high') ? '#E24B4A' : '#EF9F27'
+
+  return (
+    <SectionShell
+      label="AI Signals"
+      badge={badge}
+      badgeColor={badgeColor}
+      collapsed={collapsed}
+      onToggle={onToggle}
+    >
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {[1, 2].map(i => (
+            <div key={i} style={{ height: 64, borderRadius: 12, background: 'rgba(0,0,0,0.04)', animation: 'pulse 1.6s ease-in-out infinite' }} />
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {visible.map((nudge, idx) => {
+            const meta = NUDGE_META[nudge.type]
+            const style = URGENCY_STYLE[nudge.urgency]
+            const value = formatValue(nudge.deal?.value, nudge.deal?.currency)
+            const subName = nudge.contact?.full_name ?? nudge.company?.name ?? null
+            const initials = subName
+              ? subName.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
+              : null
+
+            return (
+              <motion.div
+                key={nudge.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.05, duration: 0.2 }}
+                style={{
+                  borderRadius: 12,
+                  border: `0.5px solid ${style.border}`,
+                  background: style.bg,
+                  overflow: 'hidden',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                  {/* Urgency stripe */}
+                  <div style={{ width: 3, background: style.accent, flexShrink: 0, borderRadius: '12px 0 0 12px' }} />
+
+                  <div style={{ flex: 1, padding: '10px 12px', minWidth: 0 }}>
+                    {/* Top row: type tag + value */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: style.accent }}>
+                        {meta.icon}
+                        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: style.accent }}>
+                          {meta.label}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {value && (
+                          <span style={{
+                            fontSize: 11, fontWeight: 600, color: '#1a1a18',
+                            background: 'rgba(0,0,0,0.06)', borderRadius: 5,
+                            padding: '2px 7px',
+                          }}>
+                            {value}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => dismiss(nudge.id)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#c8c5be', display: 'flex', lineHeight: 1 }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Title + body */}
+                    <Link href={nudge.action_href} style={{ textDecoration: 'none', display: 'block' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a18', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {nudge.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#6b6960', lineHeight: 1.4, marginBottom: subName ? 7 : 0 }}>
+                        {nudge.body}
+                      </div>
+
+                      {/* Sub-entity row */}
+                      {subName && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{
+                            width: 18, height: 18, borderRadius: '50%',
+                            background: 'rgba(0,0,0,0.08)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 9, fontWeight: 600, color: '#6b6960', flexShrink: 0,
+                          }}>
+                            {initials}
+                          </div>
+                          <span style={{ fontSize: 11, color: '#9b9890' }}>
+                            {subName}{nudge.contact?.role ? ` · ${nudge.contact.role}` : ''}
+                          </span>
+                          <span style={{ fontSize: 11, color: style.accent, marginLeft: 'auto', fontWeight: 500 }}>
+                            {nudge.action_label} →
+                          </span>
+                        </div>
+                      )}
+                      {!subName && (
+                        <span style={{ fontSize: 11, color: style.accent, fontWeight: 500 }}>
+                          {nudge.action_label} →
+                        </span>
+                      )}
+                    </Link>
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
+    </SectionShell>
+  )
+}
+
+// ─── Tasks section ────────────────────────────────────────────────────────────
+function TasksSection({ tasks, collapsed, onToggle }: { tasks: Task[]; collapsed: boolean; onToggle: () => void }) {
+  const overdue = tasks.filter(t => t.due_date && new Date(t.due_date) < new Date()).length
+  const badge = tasks.length === 0 ? 'all clear' : overdue > 0 ? `${overdue} overdue` : `${tasks.length} due`
+  const badgeColor = overdue > 0 ? '#E24B4A' : tasks.length > 0 ? '#1D9E75' : '#9b9890'
+
+  return (
+    <SectionShell label="Today's focus" badge={badge} badgeColor={badgeColor} link="/tasks" linkLabel="All tasks" collapsed={collapsed} onToggle={onToggle}>
+      {tasks.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '12px 0' }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(29,158,117,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1D9E75" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <p style={{ margin: 0, fontSize: 13, color: '#9b9890' }}>All caught up</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {tasks.map((task, idx) => {
+            const urgency = getTaskUrgency(task)
+            return (
+              <Link key={task.id} href={`/tasks/${task.id}`} style={{ textDecoration: 'none' }}>
+                <motion.div
+                  initial={{ opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.04 }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '9px 10px', borderRadius: 10,
+                    transition: 'background 0.15s ease',
+                  }}
+                  whileHover={{ backgroundColor: 'rgba(0,0,0,0.025)' }}
+                >
+                  {/* Urgency dot */}
+                  <div style={{
+                    width: 7, height: 7, borderRadius: '50%',
+                    background: urgency.color, flexShrink: 0,
+                    boxShadow: `0 0 0 2px ${urgency.color}22`,
+                  }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#1a1a18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {task.title}
+                    </p>
+                    <p style={{ margin: '1px 0 0', fontSize: 11, color: '#9b9890' }}>
+                      {[task.contacts?.full_name || task.deals?.name, task.due_date && new Date(task.due_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.4" strokeLinecap="round"/></svg>
+                </motion.div>
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </SectionShell>
+  )
+}
+
+// ─── Activity chart ───────────────────────────────────────────────────────────
+function ActivitySection({ events, collapsed, onToggle }: { events: Event[]; collapsed: boolean; onToggle: () => void }) {
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -259,356 +475,247 @@ function ActivityChart({ events, collapsed, onToggle }: { events: Event[]; colla
   }, [countByDate])
 
   const maxCount = useMemo(() => Math.max(...Object.values(countByDate), 1), [countByDate])
-  const selectedEvents = selectedDate ? (eventsByDate[selectedDate] || []) : []
-  const CELL = 13; const GAP = 3
-
   const activeDays = Object.keys(countByDate).length
-  const miniStat = `${events.length} actions · ${activeDays}d`
+  const badge = `${events.length} logged · ${activeDays}d active`
+  const CELL = 12; const GAP = 3
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-      style={{ background: 'white', borderRadius: 14, border: '0.5px solid rgba(0,0,0,0.07)', overflow: 'hidden', marginBottom: 24 }}
-    >
-      {/* Header */}
-      <div style={{
-        padding: collapsed ? '12px 18px' : '16px 18px 12px',
-        borderBottom: collapsed ? 'none' : '0.5px solid rgba(0,0,0,0.07)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
-          <p style={{ margin: 0, fontSize: 12, fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase', flexShrink: 0 }}>Activity</p>
-          <AnimatePresence>
-            {collapsed && (
-              <motion.span
-                initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -6 }}
-                transition={{ duration: 0.15 }}
-                style={{ fontSize: 12, color: '#9b9890' }}
-              >
-                {miniStat}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {!collapsed && (
-            <span style={{ fontSize: 11, color: '#9b9890' }}>{events.length} actions · {activeDays} active days</span>
-          )}
-          <CollapseButton collapsed={collapsed} onToggle={onToggle} />
-        </div>
-      </div>
-
-      {/* Chart body — animated */}
-      <CardBody visible={!collapsed}>
-        <div style={{ padding: '12px 18px 0' }}>
-          <div ref={scrollRef} style={{ overflowX: 'auto', overflowY: 'hidden', paddingBottom: 4 }}>
-            <div style={{ width: 'max-content' }}>
-              <div style={{ display: 'flex', marginBottom: 4, paddingLeft: 20 }}>
-                {weeks.map((col, ci) => {
-                  const ml = monthLabels.find(m => m.col === ci)
-                  return <div key={ci} style={{ width: CELL + GAP, flexShrink: 0, fontSize: 9, color: '#9b9890' }}>{ml ? ml.label : ''}</div>
-                })}
-              </div>
-              <div style={{ display: 'flex', gap: GAP }}>
-                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: 1, paddingBottom: 1, width: 16, flexShrink: 0 }}>
-                  {['M', '', 'W', '', 'F', '', ''].map((d, i) => (
-                    <div key={i} style={{ height: CELL, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 3 }}>
-                      <span style={{ fontSize: 8, color: '#9b9890' }}>{d}</span>
-                    </div>
-                  ))}
+    <SectionShell label="Activity" badge={badge} badgeColor="#6b6960" collapsed={collapsed} onToggle={onToggle}>
+      <div ref={scrollRef} style={{ overflowX: 'auto', overflowY: 'hidden', paddingBottom: 2, marginBottom: 2 }}>
+        <div style={{ width: 'max-content' }}>
+          {/* Month labels */}
+          <div style={{ display: 'flex', marginBottom: 3, paddingLeft: 18 }}>
+            {weeks.map((col, ci) => {
+              const ml = monthLabels.find(m => m.col === ci)
+              return <div key={ci} style={{ width: CELL + GAP, flexShrink: 0, fontSize: 8.5, color: '#b5b2aa' }}>{ml ? ml.label : ''}</div>
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: GAP }}>
+            {/* Day labels */}
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: 14, flexShrink: 0, paddingTop: 1 }}>
+              {['M', '', 'W', '', 'F', '', ''].map((d, i) => (
+                <div key={i} style={{ height: CELL, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 2 }}>
+                  <span style={{ fontSize: 7.5, color: '#b5b2aa' }}>{d}</span>
                 </div>
-                {weeks.map((col, ci) => (
-                  <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
-                    {col.map((cell, ri) => {
-                      const intensity = cell.count === 0 ? 0 : Math.max(0.2, Math.min(1, cell.count / maxCount))
-                      const isSelected = selectedDate === cell.date
-                      return (
-                        <div
-                          key={ri}
-                          onClick={() => setSelectedDate(isSelected ? null : cell.date)}
-                          title={`${cell.date}: ${cell.count} action${cell.count !== 1 ? 's' : ''}`}
-                          style={{
-                            width: CELL, height: CELL, borderRadius: 3,
-                            background: activityColor(intensity),
-                            border: cell.isToday ? '1.5px solid #4a7a8a' : isSelected ? '1.5px solid #1a1a18' : 'none',
-                            boxSizing: 'border-box',
-                            cursor: cell.count > 0 ? 'pointer' : 'default',
-                            flexShrink: 0,
-                          }}
-                        />
-                      )
-                    })}
-                    {Array.from({ length: 7 - col.length }).map((_, i) => (
-                      <div key={`pad-${i}`} style={{ width: CELL, height: CELL, flexShrink: 0 }} />
-                    ))}
-                  </div>
+              ))}
+            </div>
+            {weeks.map((col, ci) => (
+              <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
+                {col.map((cell, ri) => {
+                  const intensity = cell.count === 0 ? 0 : Math.max(0.18, Math.min(1, cell.count / maxCount))
+                  const isSelected = selectedDate === cell.date
+                  return (
+                    <div
+                      key={ri}
+                      onClick={() => setSelectedDate(isSelected ? null : cell.date)}
+                      style={{
+                        width: CELL, height: CELL, borderRadius: 3,
+                        background: activityColor(intensity),
+                        border: cell.isToday ? '1.5px solid #4a7a8a' : isSelected ? '1.5px solid #1a1a18' : 'none',
+                        boxSizing: 'border-box',
+                        cursor: cell.count > 0 ? 'pointer' : 'default',
+                        flexShrink: 0,
+                        transition: 'transform 0.1s ease',
+                      }}
+                    />
+                  )
+                })}
+                {Array.from({ length: 7 - col.length }).map((_, i) => (
+                  <div key={`pad-${i}`} style={{ width: CELL, height: CELL, flexShrink: 0 }} />
                 ))}
               </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 10, marginBottom: 12, justifyContent: 'flex-end' }}>
-            <span style={{ fontSize: 8, color: '#9b9890' }}>Less</span>
-            {[0, 0.2, 0.45, 0.7, 1].map((v, i) => (
-              <div key={i} style={{ width: 10, height: 10, borderRadius: 2, background: activityColor(v) }} />
             ))}
-            <span style={{ fontSize: 8, color: '#9b9890' }}>More</span>
           </div>
         </div>
+      </div>
 
-        {/* Selected date events */}
-        <AnimatePresence>
-          {selectedDate && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ height: { duration: 0.22, ease: [0.4, 0, 0.2, 1] }, opacity: { duration: 0.15 } }}
-              style={{ overflow: 'hidden' }}
-            >
-              <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.07)', padding: '12px 18px 16px' }}>
-                <div style={{ fontSize: 11, fontWeight: 500, color: '#9b9890', marginBottom: 8 }}>
-                  {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
-                  {selectedEvents.length === 0 && <span style={{ fontWeight: 400, marginLeft: 8 }}>No activity</span>}
-                </div>
-                {selectedEvents.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {selectedEvents.map(e => {
-                      const who = e.contacts?.[0]?.full_name || e.companies?.[0]?.name || e.deals?.[0]?.name || null
-                      return (
-                        <div key={e.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4a7a8a', flexShrink: 0, marginTop: 5 }} />
-                          <div>
-                            <span style={{ fontSize: 12, color: '#1a1a18', fontWeight: 500 }}>{EVENT_LABEL[e.type] || 'Activity'}</span>
-                            {who && <span style={{ fontSize: 12, color: '#6b6960' }}> — {who}</span>}
-                            {e.summary && <div style={{ fontSize: 11, color: '#9b9890', marginTop: 2, lineHeight: 1.4 }}>{e.summary.slice(0, 120)}{e.summary.length > 120 ? '…' : ''}</div>}
-                          </div>
+      {/* Legend */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end', marginTop: 8 }}>
+        <span style={{ fontSize: 8, color: '#b5b2aa' }}>Less</span>
+        {[0, 0.2, 0.45, 0.7, 1].map((v, i) => (
+          <div key={i} style={{ width: 9, height: 9, borderRadius: 2, background: activityColor(v) }} />
+        ))}
+        <span style={{ fontSize: 8, color: '#b5b2aa' }}>More</span>
+      </div>
+
+      {/* Selected date events */}
+      <AnimatePresence>
+        {selectedDate && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ height: { duration: 0.2 }, opacity: { duration: 0.14 } }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)', paddingTop: 12, marginTop: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9890', marginBottom: 8, letterSpacing: '0.02em' }}>
+                {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
+              </div>
+              {(eventsByDate[selectedDate] || []).length === 0 ? (
+                <p style={{ margin: 0, fontSize: 12, color: '#9b9890' }}>No activity logged</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  {(eventsByDate[selectedDate] || []).map(e => {
+                    const who = e.contacts?.[0]?.full_name || e.companies?.[0]?.name || e.deals?.[0]?.name || null
+                    return (
+                      <div key={e.id} style={{ display: 'flex', gap: 9 }}>
+                        <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#4a7a8a', flexShrink: 0, marginTop: 5 }} />
+                        <div>
+                          <span style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18' }}>{EVENT_LABEL[e.type] || 'Activity'}</span>
+                          {who && <span style={{ fontSize: 12, color: '#6b6960' }}> · {who}</span>}
+                          {e.summary && <div style={{ fontSize: 11, color: '#9b9890', marginTop: 2, lineHeight: 1.4 }}>{e.summary.slice(0, 120)}{e.summary.length > 120 ? '…' : ''}</div>}
                         </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </CardBody>
-    </motion.div>
-  )
-}
-
-// ─── Priority sections ────────────────────────────────────────────────────────
-
-function TasksSection({ tasks, collapsed, onToggle }: { tasks: Task[]; collapsed: boolean; onToggle: () => void }) {
-  const overdue = tasks.filter(t => t.due_date && new Date(t.due_date) < new Date()).length
-  const miniStat = tasks.length === 0
-    ? { value: 'all clear' }
-    : overdue > 0
-    ? { value: `${overdue} overdue`, color: '#E24B4A' }
-    : { value: `${tasks.length} due`, color: '#1D9E75' }
-
-  return (
-    <SectionCard label="Today's focus" link="/tasks" linkLabel="See all" miniStat={miniStat} collapsed={collapsed} onToggle={onToggle}>
-      {tasks.length === 0 ? (
-        <p style={{ margin: 0, fontSize: 14, color: '#9b9890', textAlign: 'center', padding: '8px 0' }}>All caught up — nothing due today</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {tasks.map(task => (
-            <Link key={task.id} href={`/tasks/${task.id}`} style={{ textDecoration: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0' }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: getTaskUrgency(task), flexShrink: 0 }} />
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>{task.title}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#9b9890' }}>
-                    {task.contacts?.full_name || task.deals?.name || ''}
-                    {task.due_date && ` · ${new Date(task.due_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`}
-                  </p>
+                      </div>
+                    )
+                  })}
                 </div>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.3" strokeLinecap="round"/></svg>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </SectionCard>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </SectionShell>
   )
 }
 
-function PipelineSection({ deals, collapsed, onToggle }: { deals: Deal[]; collapsed: boolean; onToggle: () => void }) {
-  const byStage = deals.reduce<Record<string, number>>((acc, d) => {
-    acc[d.stage] = (acc[d.stage] || 0) + (d.value || 0)
-    return acc
-  }, {})
-  const total = deals.reduce((s, d) => s + (d.value || 0), 0)
+// ─── Shortcuts ────────────────────────────────────────────────────────────────
+const SHORTCUTS = [
+  { href: '/capture',    label: 'Capture',    color: '#4a7a8a', icon: <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="M11 6v10M6 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
+  { href: '/tracking',  label: 'Pipeline',   color: '#5a7a9a', icon: <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><rect x="1.5" y="4" width="5.5" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/><rect x="8.5" y="4" width="5.5" height="9" rx="2" stroke="currentColor" strokeWidth="1.5"/><rect x="15.5" y="4" width="5" height="11" rx="2" stroke="currentColor" strokeWidth="1.5"/></svg> },
+  { href: '/tasks',     label: 'Tasks',      color: '#4a8a6a', icon: <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><rect x="2" y="2" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="1.5"/><path d="M7 11l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+  { href: '/ai-sandbox',label: 'AI',         color: '#8a7a40', icon: <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><path d="M2 11h3.5L8 5l4 12 3-6h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+  { href: '/analytics', label: 'Analytics',  color: '#8a5040', icon: <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><path d="M2 17L7 10l4.5 3.5L16 6l4 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+  { href: '/contacts',  label: 'Contacts',   color: '#6a5aaa', icon: <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="8" r="4" stroke="currentColor" strokeWidth="1.5"/><path d="M3 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
+]
 
-  return (
-    <SectionCard label="Pipeline" link="/tracking" linkLabel="Open board" miniStat={{ value: formatValue(total) }} collapsed={collapsed} onToggle={onToggle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
-        <span style={{ fontSize: 22, fontWeight: 500, color: '#1a1a18' }}>{formatValue(total)}</span>
-        <span style={{ fontSize: 12, color: '#9b9890' }}>{deals.length} active deals</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {Object.entries(byStage).map(([stage, value]) => (
-          <div key={stage} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: '#6b6960', textTransform: 'capitalize' }}>{stage.replace('_', ' ')}</span>
-            <span style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18' }}>{formatValue(value)}</span>
-          </div>
-        ))}
-      </div>
-    </SectionCard>
-  )
-}
-
-function AtRiskSection({ deals, collapsed, onToggle }: { deals: Deal[]; collapsed: boolean; onToggle: () => void }) {
-  const miniStat = deals.length === 0
-    ? { value: 'all clear', color: '#1D9E75' }
-    : { value: `${deals.length} deal${deals.length > 1 ? 's' : ''}`, color: '#EF9F27' }
-
-  return (
-    <SectionCard label="At-risk deals" link="/tracking" linkLabel="See all" miniStat={miniStat} collapsed={collapsed} onToggle={onToggle}>
-      {deals.length === 0 ? (
-        <p style={{ margin: 0, fontSize: 14, color: '#9b9890', textAlign: 'center', padding: '8px 0' }}>No at-risk deals right now</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {deals.map(deal => (
-            <Link key={deal.id} href={`/tracking/deals/${deal.id}`} style={{ textDecoration: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderLeft: '2.5px solid #EF9F27', paddingLeft: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>{deal.name}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#9b9890' }}>Last activity {timeAgo(deal.last_activity_at)} · {formatValue(deal.value)}</p>
-                </div>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.3" strokeLinecap="round"/></svg>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </SectionCard>
-  )
-}
-
-function RevenueSection({ deals, collapsed, onToggle }: { deals: Deal[]; collapsed: boolean; onToggle: () => void }) {
-  const won = deals.filter(d => d.stage === 'closed_won').reduce((s, d) => s + (d.value || 0), 0)
-  const pipeline = deals.filter(d => d.stage !== 'closed_won' && d.stage !== 'closed_lost').reduce((s, d) => s + (d.value || 0), 0)
-
-  return (
-    <SectionCard label="Revenue" link="/analytics" linkLabel="Full analytics" miniStat={{ value: formatValue(won), color: '#1D9E75' }} collapsed={collapsed} onToggle={onToggle}>
-      <div style={{ display: 'flex', gap: 0 }}>
-        {[
-          { label: 'Closed', value: formatValue(won), color: '#1D9E75' },
-          { label: 'Pipeline', value: formatValue(pipeline), color: '#1a1a18' },
-        ].map((item, i) => (
-          <div key={item.label} style={{ flex: 1, paddingLeft: i > 0 ? 16 : 0, borderLeft: i > 0 ? '0.5px solid rgba(0,0,0,0.07)' : 'none' }}>
-            <p style={{ margin: '0 0 4px', fontSize: 12, color: '#9b9890' }}>{item.label}</p>
-            <p style={{ margin: 0, fontSize: 20, fontWeight: 500, color: item.color }}>{item.value}</p>
-          </div>
-        ))}
-      </div>
-    </SectionCard>
-  )
-}
+// ─── Greetings ────────────────────────────────────────────────────────────────
+const GREETINGS = [
+  'Tap Capture and sell with total freedom.',
+  'Your AI is ready. Go close something.',
+  'Snap, speak, screenshot — AI handles the rest.',
+  'No forms. No friction. Just results.',
+  'Liberate your sales day.',
+]
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function HomeClient({ name, initials, tasks, events, deals, atRiskDeals, orgName, userRole, homePriority }: Props) {
-  const greeting = () => {
-    const messages = [
-      'Tap Capture and sell with total freedom.',
-      'Your AI is ready. Go close something.',
-      'Snap, speak, screenshot — AI handles the rest.',
-      'No forms. No friction. Just results.',
-      'Liberate your sales day.',
-    ]
-    return messages[new Date().getDay() % messages.length]
-  }
+  const greeting = GREETINGS[new Date().getDay() % GREETINGS.length]
 
-  // All sections start expanded
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
-    tasks: false, pipeline: false, at_risk: false, revenue: false, activity: false,
+    signals: false, tasks: false, activity: false,
   })
   const toggle = useCallback((key: string) => {
     setCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
   }, [])
 
-  const prioritySections: Record<HomePriority, React.ReactNode> = {
-    tasks:    <TasksSection    tasks={tasks}        collapsed={collapsed.tasks}    onToggle={() => toggle('tasks')} />,
-    pipeline: <PipelineSection deals={deals}        collapsed={collapsed.pipeline} onToggle={() => toggle('pipeline')} />,
-    at_risk:  <AtRiskSection   deals={atRiskDeals}  collapsed={collapsed.at_risk}  onToggle={() => toggle('at_risk')} />,
-    revenue:  <RevenueSection  deals={deals}        collapsed={collapsed.revenue}  onToggle={() => toggle('revenue')} />,
-  }
-
-  const sectionOrder: HomePriority[] = [
-    homePriority,
-    ...(['tasks', 'pipeline', 'at_risk', 'revenue'] as HomePriority[]).filter(k => k !== homePriority),
-  ]
-
-  const [primarySection, ...restSections] = sectionOrder
-
   return (
     <div>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <p style={{ margin: 0, fontSize: 13, color: '#9b9890' }} suppressHydrationWarning>
+          <p style={{ margin: 0, fontSize: 12, color: '#9b9890', letterSpacing: '0.02em' }} suppressHydrationWarning>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
           </p>
-          <p style={{ margin: '4px 0 0', fontSize: 22, fontWeight: 500, color: '#1a1a18', lineHeight: 1.3 }} suppressHydrationWarning>
-            {greeting()}
+          <p style={{ margin: '5px 0 0', fontSize: 21, fontWeight: 500, color: '#1a1a18', lineHeight: 1.25 }} suppressHydrationWarning>
+            {greeting}
           </p>
           {orgName && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              <p style={{ margin: 0, fontSize: 13, color: '#9b9890' }}>{orgName}</p>
-              <span style={{ fontSize: 10, color: '#9b9890', background: 'rgba(0,0,0,0.06)', borderRadius: 4, padding: '1px 6px', textTransform: 'capitalize' }}>{userRole}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+              <span style={{ fontSize: 12, color: '#9b9890' }}>{orgName}</span>
+              <span style={{
+                fontSize: 9, fontWeight: 600, color: '#9b9890',
+                background: 'rgba(0,0,0,0.06)', borderRadius: 4,
+                padding: '2px 6px', textTransform: 'uppercase', letterSpacing: '0.05em',
+              }}>
+                {userRole}
+              </span>
             </div>
           )}
         </div>
-        <Link href="/settings" style={{ textDecoration: 'none' }}>
-          <div style={{ width: 38, height: 38, borderRadius: '50%', background: '#1a1a18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 500, color: '#f5f4f0', cursor: 'pointer' }}>
+        <Link href="/settings" style={{ textDecoration: 'none', flexShrink: 0 }}>
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            style={{
+              width: 38, height: 38, borderRadius: '50%',
+              background: '#1a1a18',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 13, fontWeight: 600, color: '#f5f4f0',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            }}
+          >
             {initials}
-          </div>
+          </motion.div>
         </Link>
       </div>
 
-      {/* AI Nudges */}
-      <AIProactiveNudges />
-
-      {/* Shortcuts */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-7">
-        {SHORTCUTS.map(s => (
+      {/* ── Shortcuts ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }} className="md:grid-cols-6">
+        {SHORTCUTS.map((s, i) => (
           <Link key={s.href} href={s.href} style={{ textDecoration: 'none' }}>
-            <div style={{ background: 'white', border: '0.5px solid rgba(0,0,0,0.07)', borderRadius: 14, padding: '16px 12px 14px', display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer' }} className="shortcut-card">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              whileHover={{ y: -2, boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}
+              whileTap={{ scale: 0.97 }}
+              style={{
+                background: 'white',
+                border: '0.5px solid rgba(0,0,0,0.07)',
+                borderRadius: 14,
+                padding: '14px 12px 12px',
+                display: 'flex', flexDirection: 'column', gap: 8,
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              }}
+            >
               <div style={{ color: s.color }}>{s.icon}</div>
-              <span style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18' }}>{s.label}</span>
-            </div>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#1a1a18', letterSpacing: '0.01em' }}>{s.label}</span>
+            </motion.div>
           </Link>
         ))}
       </div>
 
-      {/* Two persistent columns on desktop — no shared row grid so heights never fight */}
-      <div className="md:flex md:gap-8 md:items-start">
-        {/* Left column */}
+      {/* ── Two-column layout on desktop ── */}
+      <div className="md:flex md:gap-5 md:items-start">
+        {/* Left */}
         <div className="md:flex-1 md:min-w-0">
-          {prioritySections[primarySection]}
-          {restSections.filter((_, i) => i % 2 === 0).map(key => (
-            <div key={key}>{prioritySections[key]}</div>
-          ))}
+          <TasksSection
+            tasks={tasks}
+            collapsed={collapsed.tasks}
+            onToggle={() => toggle('tasks')}
+          />
+          <AISignalsSection
+            collapsed={collapsed.signals}
+            onToggle={() => toggle('signals')}
+          />
         </div>
 
-        {/* Right column */}
+        {/* Right */}
         <div className="md:flex-1 md:min-w-0">
-          <ActivityChart
+          <ActivitySection
             events={events}
             collapsed={collapsed.activity}
             onToggle={() => toggle('activity')}
           />
-          {restSections.filter((_, i) => i % 2 === 1).map(key => (
-            <div key={key}>{prioritySections[key]}</div>
-          ))}
         </div>
       </div>
 
       <style>{`
-        .shortcut-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08) !important; transform: translateY(-1px); }
+        @media (min-width: 768px) {
+          .md\\:grid-cols-6 { grid-template-columns: repeat(6, 1fr) !important; }
+          .md\\:flex { display: flex !important; }
+          .md\\:gap-5 { gap: 20px !important; }
+          .md\\:items-start { align-items: flex-start !important; }
+          .md\\:flex-1 { flex: 1 !important; }
+          .md\\:min-w-0 { min-width: 0 !important; }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
         button { font-family: inherit; }
       `}</style>
     </div>
