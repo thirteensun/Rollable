@@ -189,19 +189,189 @@ function ConversionWaterfall({ stageConversion, stageLabels }: { stageConversion
   return (<div ref={ref}><svg width="100%" height={VH} style={{ display: 'block', overflow: 'visible' }}>{stages.map((stage, i) => { const row = stageConversion.find(s => s.stage === stage); const rate = row ? Math.round((row.deals_advanced / Math.max(row.deals_entered, 1)) * 100) : 0; const color = rate >= 60 ? C.green : rate >= 35 ? C.amber : C.red; const barH = Math.max((rate / 100) * chartH, 2); const cx = pad + i * slot + slot / 2; return (<g key={stage}><rect x={cx - bW / 2} y={0} width={bW} height={chartH} fill={C.bg} rx={5} /><motion.rect x={cx - bW / 2} width={bW} rx={5} fill={color} opacity={0.8} initial={{ y: chartH, height: 0 }} animate={{ y: chartH - barH, height: barH }} transition={{ duration: 0.55, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }} /><text x={cx} y={chartH - barH - 3} textAnchor="middle" fontSize={8} fontWeight="600" fill={color}>{rate}%</text><text x={cx} y={VH - 9} textAnchor="middle" fontSize={7.5} fill={C.faint}>{(stageLabels[stage] || stage).slice(0, 6)}</text>{row && row.deals_lost_here > 0 && <text x={cx} y={VH - 1} textAnchor="middle" fontSize={7} fill={C.red}>−{row.deals_lost_here}</text>}</g>) })}</svg></div>)
 }
 
-function CompanyTreemap({ deals, companies }: { deals: Deal[]; companies: Company[] }) {
-  const active = deals.filter(d => !['closed_won', 'closed_lost'].includes(d.stage))
-  const vals = companies.map(c => ({ name: c.name, value: active.filter(d => (d as any).company_id === c.id).reduce((s, d) => s + (d.value || 0), 0) })).filter(c => c.value > 0).sort((a, b) => b.value - a.value).slice(0, 8)
-  if (vals.length === 0) return <div style={{ fontSize: 12, color: C.faint }}>No company pipeline data</div>
-  const total = vals.reduce((s, c) => s + c.value, 0)
-  return (<div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>{vals.map((c, i) => { const opacity = 0.2 + (c.value / vals[0].value) * 0.8; return (<motion.div key={i} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }} style={{ background: `rgba(26,26,24,${opacity})`, borderRadius: 8, padding: '8px 10px', minWidth: '15%', flexGrow: (c.value / total) * 100 }}><div style={{ fontSize: 11, fontWeight: 600, color: opacity > 0.5 ? 'white' : C.dark, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div><div style={{ fontSize: 10, color: opacity > 0.5 ? 'rgba(255,255,255,0.7)' : C.muted }}>{fmt(c.value)}</div></motion.div>) })}</div>)
+function FollowupCalendar({ contacts }: { contacts: Contact[] }) {
+  const days = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() + i)
+    const dateStr = d.toISOString().split('T')[0]
+    const count = contacts.filter(c => c.next_followup_date === dateStr).length
+    const isWeekend = d.getDay() === 0 || d.getDay() === 6
+    return {
+      label: i === 0 ? 'Today' : i === 1 ? 'Tmrw' : d.toLocaleDateString('en', { weekday: 'short' }),
+      sublabel: i >= 2 ? d.toLocaleDateString('en', { day: 'numeric', month: 'short' }) : '',
+      count,
+      isWeekend,
+    }
+  })
+
+  const maxCount = Math.max(...days.map(d => d.count), 1)
+
+  return (
+    <div style={{ display: 'flex', gap: 5, overflowX: 'auto' }} className="no-scrollbar">
+      {days.map((day, i) => {
+        const intensity = day.count > 0 ? 0.12 + (day.count / maxCount) * 0.82 : 0
+        const isDark = intensity > 0.5
+        return (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.03 }}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              gap: 6, flexShrink: 0, minWidth: 52,
+            }}
+          >
+            {/* Main cell */}
+            <div style={{
+              width: 52, height: 64, borderRadius: 12,
+              background: day.count > 0
+                ? `rgba(26,26,24,${intensity})`
+                : day.isWeekend ? 'rgba(0,0,0,0.03)' : C.bg,
+              border: day.count > 0 ? 'none' : `0.5px solid ${C.border}`,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', gap: 2,
+            }}>
+              {day.count > 0 ? (
+                <>
+                  <span style={{
+                    fontSize: 22, fontWeight: 700, lineHeight: 1,
+                    color: isDark ? 'white' : C.dark,
+                    letterSpacing: '-0.03em',
+                  }}>
+                    {day.count}
+                  </span>
+                  <span style={{
+                    fontSize: 9, fontWeight: 500,
+                    color: isDark ? 'rgba(255,255,255,0.6)' : C.muted,
+                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                  }}>
+                    {day.count === 1 ? 'call' : 'calls'}
+                  </span>
+                </>
+              ) : (
+                <span style={{ fontSize: 16, color: day.isWeekend ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.18)' }}>·</span>
+              )}
+            </div>
+            {/* Day label */}
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: i === 0 ? C.dark : C.faint }}>{day.label}</div>
+              {day.sublabel && <div style={{ fontSize: 9, color: 'rgba(0,0,0,0.25)', marginTop: 1 }}>{day.sublabel}</div>}
+            </div>
+          </motion.div>
+        )
+      })}
+    </div>
+  )
 }
 
-function FollowupCalendar({ contacts }: { contacts: Contact[] }) {
-  const days = Array.from({ length: 14 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); const dateStr = d.toISOString().split('T')[0]; const count = contacts.filter(c => c.next_followup_date === dateStr).length; return { label: i === 0 ? 'Today' : i === 1 ? 'Tmrw' : d.toLocaleDateString('en', { weekday: 'short', day: 'numeric' }), count } })
-  const maxCount = Math.max(...days.map(d => d.count), 1)
-  return (<div style={{ display: 'flex', gap: 4, overflowX: 'auto' }} className="no-scrollbar">{days.map((day, i) => (<motion.div key={i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0, minWidth: 40 }}><div style={{ width: 34, height: 34, borderRadius: 8, background: day.count > 0 ? `rgba(26,26,24,${0.1 + (day.count / maxCount) * 0.85})` : C.bg, border: day.count > 0 ? 'none' : `0.5px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: day.count > 0 ? (day.count / maxCount > 0.5 ? 'white' : C.dark) : C.faint }}>{day.count > 0 ? day.count : '·'}</div><div style={{ fontSize: 9, color: C.faint, textAlign: 'center', maxWidth: 38 }}>{day.label}</div></motion.div>))}</div>)
+function CompanyTreemap({ deals, companies }: { deals: Deal[]; companies: Company[] }) {
+  const active = deals.filter(d => !['closed_won', 'closed_lost'].includes(d.stage))
+  const vals = companies
+    .map(c => ({
+      name: c.name,
+      value: active.filter(d => (d as any).company_id === c.id).reduce((s, d) => s + (d.value || 0), 0),
+      dealCount: active.filter(d => (d as any).company_id === c.id).length,
+    }))
+    .filter(c => c.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8)
+
+  if (vals.length === 0) return (
+    <div style={{ fontSize: 12, color: C.faint, padding: '12px 0' }}>No company pipeline data</div>
+  )
+
+  const maxVal = vals[0].value
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 8,
+    }}>
+      {vals.map((c, i) => {
+        const intensity = 0.06 + (c.value / maxVal) * 0.88
+        const isDark = intensity > 0.45
+        const barWidth = Math.round((c.value / maxVal) * 100)
+        const initials = c.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
+
+        return (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.04 }}
+            style={{
+              background: `rgba(26,26,24,${intensity})`,
+              borderRadius: 12,
+              padding: '14px 14px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              minHeight: 90,
+            }}
+          >
+            {/* Top row: initials + deal count */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 8,
+                background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, fontWeight: 700,
+                color: isDark ? 'rgba(255,255,255,0.8)' : C.muted,
+              }}>
+                {initials}
+              </div>
+              <span style={{
+                fontSize: 10, fontWeight: 500,
+                color: isDark ? 'rgba(255,255,255,0.5)' : C.faint,
+              }}>
+                {c.dealCount} deal{c.dealCount !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Company name */}
+            <div>
+              <div style={{
+                fontSize: 12, fontWeight: 600,
+                color: isDark ? 'white' : C.dark,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                marginBottom: 3,
+              }}>
+                {c.name}
+              </div>
+              <div style={{
+                fontSize: 15, fontWeight: 700,
+                color: isDark ? 'rgba(255,255,255,0.9)' : C.dark,
+                letterSpacing: '-0.02em',
+              }}>
+                {fmt(c.value)}
+              </div>
+            </div>
+
+            {/* Relative value bar */}
+            <div style={{
+              height: 3, borderRadius: 2,
+              background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)',
+              overflow: 'hidden',
+            }}>
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${barWidth}%` }}
+                transition={{ duration: 0.6, delay: i * 0.05, ease: [0.25, 0.46, 0.45, 0.94] }}
+                style={{
+                  height: '100%', borderRadius: 2,
+                  background: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(26,26,24,0.4)',
+                }}
+              />
+            </div>
+          </motion.div>
+        )
+      })}
+    </div>
+  )
 }
+
 
 function TaskGauge({ tasks }: { tasks: Task[] }) {
   const total = tasks.length; const done = tasks.filter(t => t.done || t.status === 'done').length; const overdue = tasks.filter(t => !t.done && t.due_date && daysUntil(t.due_date)! < 0).length; const rate = total > 0 ? Math.round((done / total) * 100) : 0
