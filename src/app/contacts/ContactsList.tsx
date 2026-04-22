@@ -8,8 +8,14 @@ interface Contact {
   full_name: string
   role: string | null
   email: string | null
-  companies: { name: string } | null
+  companies: { name: string } | { name: string }[] | null
   last_contacted_at: string | null
+}
+
+function getCompanyName(companies: Contact['companies']): string | null {
+  if (!companies) return null
+  if (Array.isArray(companies)) return (companies as any[])[0]?.name ?? null
+  return (companies as any).name ?? null
 }
 
 function timeAgo(dateStr: string) {
@@ -61,7 +67,7 @@ export default function ContactsList({ contacts }: { contacts: Contact[] }) {
       c.full_name.toLowerCase().includes(q) ||
       c.role?.toLowerCase().includes(q) ||
       c.email?.toLowerCase().includes(q) ||
-      (c.companies as any)?.name?.toLowerCase().includes(q)
+      getCompanyName(c.companies)?.toLowerCase().includes(q)
     )
   }, [contacts, query])
 
@@ -98,7 +104,7 @@ export default function ContactsList({ contacts }: { contacts: Contact[] }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', marginBottom: 2 }}>{c.full_name}</div>
                 <div style={{ fontSize: 12, color: '#9b9890', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {[c.role, (c.companies as any)?.name].filter(Boolean).join(' · ')}
+                  {[c.role, getCompanyName(c.companies)].filter(Boolean).join(' · ')}
                 </div>
               </div>
               {c.last_contacted_at && (
