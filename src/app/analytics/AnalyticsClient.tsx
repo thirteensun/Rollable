@@ -84,14 +84,35 @@ function StatStrip({ stats, isDesktop }: { stats: { label: string; value: string
 
 function FunnelChart({ deals, stageConversion, stageLabels }: { deals: Deal[]; stageConversion: StageConversion[]; stageLabels: Record<string, string> }) {
   const stages = ['lead', 'qualified', 'demo', 'proposal', 'negotiation']
-  const counts = stages.map(s => ({ stage: s, count: deals.filter(d => d.stage === s).length, value: deals.filter(d => d.stage === s).reduce((a, d) => a + (d.value || 0), 0), conv: stageConversion.find(sc => sc.stage === s)?.advance_rate_pct ?? null }))
-  const maxCount = Math.max(...counts.map(c => c.count), 1)
+  const rows = stages.map(s => ({
+    stage: s,
+    count: deals.filter(d => d.stage === s).length,
+    value: deals.filter(d => d.stage === s).reduce((a, d) => a + (d.value || 0), 0),
+  }))
+  const maxVal = Math.max(...rows.map(r => r.value), 1)
+  const tealStops = ['#c4dde3', '#c4dde3', '#aacfd8', '#d8eaee', '#e8f5f1']
+  const textColors = ['#085041', '#085041', '#085041', '#0F6E56', '#1D9E75']
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {counts.map((row, i) => {
-        const pct = (row.count / maxCount) * 100; const drop = i < counts.length - 1 && row.conv !== null ? `${Math.round(100 - row.conv)}% drop` : null
-        return (<div key={row.stage}><div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}><div style={{ width: 76, fontSize: 11, color: C.muted, flexShrink: 0 }}>{stageLabels[row.stage] || row.stage}</div><div style={{ flex: 1, height: 20, background: C.bg, borderRadius: 4, overflow: 'hidden', position: 'relative' }}><motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.7, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }} style={{ height: '100%', background: STAGE_COLOR[row.stage], borderRadius: 4, opacity: 0.85 }} />{row.count > 0 && <span style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 10, fontWeight: 600, color: pct > 30 ? 'white' : C.muted }}>{row.count}</span>}</div><div style={{ width: 44, fontSize: 11, color: C.muted, textAlign: 'right', flexShrink: 0 }}>{fmt(row.value)}</div></div>{drop && row.count > 0 && <div style={{ paddingLeft: 84, fontSize: 10, color: C.red, marginBottom: 3 }}>↓ {drop}</div>}</div>)
-      })}
+      {rows.map((row, i) => (
+        <div key={row.stage} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 76, fontSize: 11, color: C.muted, flexShrink: 0 }}>
+            {stageLabels[row.stage] || row.stage}
+          </div>
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.max((row.value / maxVal) * 100, row.count > 0 ? 8 : 0)}%` }}
+            transition={{ duration: 0.7, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+            style={{ height: 26, borderRadius: 4, background: tealStops[i], display: 'flex', alignItems: 'center', padding: '0 10px', minWidth: row.count > 0 ? 40 : 0, flex: 'none' }}
+          >
+            {row.count > 0 && (
+              <span style={{ fontSize: 12, fontWeight: 500, color: textColors[i], whiteSpace: 'nowrap' }}>{fmt(row.value)}</span>
+            )}
+          </motion.div>
+          <div style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>{row.count} deals</div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -183,12 +204,46 @@ function RevenueWaterfall({ deals, quota, stageLabels }: { deals: Deal[]; quota:
 }
 
 function ConversionWaterfall({ stageConversion, stageLabels }: { stageConversion: StageConversion[]; stageLabels: Record<string, string> }) {
-  const [ref, W] = useContainerWidth(280)
-  if (stageConversion.length === 0) return <div style={{ fontSize: 12, color: C.faint }}>Populates as deals progress</div>
-  const stages = ['lead', 'qualified', 'demo', 'proposal', 'negotiation']; const VH = 120; const chartH = 85; const pad = 4; const slot = (W - pad * 2) / stages.length; const bW = Math.max(slot * 0.58, 6)
-  return (<div ref={ref}><svg width="100%" height={VH} style={{ display: 'block', overflow: 'visible' }}>{stages.map((stage, i) => { const row = stageConversion.find(s => s.stage === stage); const rate = row ? Math.round((row.deals_advanced / Math.max(row.deals_entered, 1)) * 100) : 0; const color = rate >= 60 ? C.green : rate >= 35 ? C.amber : C.red; const barH = Math.max((rate / 100) * chartH, 2); const cx = pad + i * slot + slot / 2; return (<g key={stage}><rect x={cx - bW / 2} y={0} width={bW} height={chartH} fill={C.bg} rx={5} /><motion.rect x={cx - bW / 2} width={bW} rx={5} fill={color} opacity={0.8} initial={{ y: chartH, height: 0 }} animate={{ y: chartH - barH, height: barH }} transition={{ duration: 0.55, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }} /><text x={cx} y={chartH - barH - 3} textAnchor="middle" fontSize={8} fontWeight="600" fill={color}>{rate}%</text><text x={cx} y={VH - 9} textAnchor="middle" fontSize={7.5} fill={C.faint}>{(stageLabels[stage] || stage).slice(0, 6)}</text>{row && row.deals_lost_here > 0 && <text x={cx} y={VH - 1} textAnchor="middle" fontSize={7} fill={C.red}>−{row.deals_lost_here}</text>}</g>) })}</svg></div>)
-}
+  if (stageConversion.length === 0) return (
+    <div style={{ fontSize: 12, color: C.faint }}>Populates as deals progress</div>
+  )
 
+  const stages = ['lead', 'qualified', 'demo', 'proposal', 'negotiation']
+
+  const colorMap: Record<string, { bg: string; text: string }> = {
+    green:  { bg: '#e8f5f1', text: '#085041' },
+    amber:  { bg: '#fdf3e3', text: '#633806' },
+    red:    { bg: '#fceaea', text: '#791F1F' },
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {stages.map((stage, i) => {
+        const row = stageConversion.find(s => s.stage === stage)
+        const rate = row ? Math.round((row.deals_advanced / Math.max(row.deals_entered, 1)) * 100) : 0
+        const tier = rate >= 65 ? 'green' : rate >= 45 ? 'amber' : 'red'
+        const { bg, text } = colorMap[tier]
+
+        return (
+          <div key={stage} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 88, fontSize: 11, color: C.muted, flexShrink: 0 }}>
+              {stageLabels[stage] || stage}
+            </div>
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.max(rate, 8)}%` }}
+              transition={{ duration: 0.6, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+              style={{ height: 26, borderRadius: 4, background: bg, display: 'flex', alignItems: 'center', padding: '0 10px', minWidth: 40, flex: 'none' }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 500, color: text, whiteSpace: 'nowrap' }}>{rate}%</span>
+            </motion.div>
+            <div style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>{row?.deals_entered ?? 0} deals</div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 
 function FollowupCalendar({ contacts }: { contacts: Contact[] }) {
@@ -199,43 +254,39 @@ function FollowupCalendar({ contacts }: { contacts: Contact[] }) {
     const count = contacts.filter(c => c.next_followup_date === dateStr).length
     return {
       label: i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en', { weekday: 'short', day: 'numeric', month: 'short' }),
-      count,
-      isToday: i === 0,
+      count, isToday: i === 0,
     }
-  })
+  }).filter(d => d.count > 0)
 
-  const withFollowups = days.filter(d => d.count > 0)
-  const maxCount = Math.max(...days.map(d => d.count), 1)
-
-  if (withFollowups.length === 0) return (
+  if (days.length === 0) return (
     <div style={{ fontSize: 12, color: C.faint, padding: '12px 0' }}>No follow-ups scheduled in next 14 days</div>
   )
 
+  const todayOverdue = contacts.filter(c => {
+    if (!c.next_followup_date) return false
+    return c.next_followup_date < new Date().toISOString().split('T')[0]
+  }).length
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      {withFollowups.map((day, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 90, fontSize: 11, flexShrink: 0,
-            color: day.isToday ? C.dark : C.muted,
-            fontWeight: day.isToday ? 600 : 400,
-          }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {days.map((day, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 80, fontSize: 11, flexShrink: 0, color: day.isToday ? C.dark : C.muted, fontWeight: day.isToday ? 600 : 400 }}>
             {day.label}
           </div>
-          <div style={{ flex: 1, height: 20, background: C.bg, borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${(day.count / maxCount) * 100}%` }}
-              transition={{ duration: 0.6, delay: i * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
-              style={{ height: '100%', background: day.isToday ? C.dark : '#4a7a8a', borderRadius: 4, opacity: 0.85 }}
-            />
-            <span style={{
-              position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
-              fontSize: 10, fontWeight: 600,
-              color: (day.count / maxCount) > 0.35 ? 'white' : C.muted,
-            }}>
-              {day.count}
-            </span>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', flex: 1, alignItems: 'center' }}>
+            {Array.from({ length: day.count }).map((_, j) => {
+              const isOverdue = day.isToday && j >= day.count - todayOverdue
+              return (
+                <div key={j} style={{
+                  width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                  background: isOverdue ? '#E24B4A' : day.isToday ? '#1D9E75' : '#c4dde3',
+                }} />
+              )
+            })}
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 500, color: C.dark, width: 20, textAlign: 'right', flexShrink: 0 }}>
+            {day.count}
           </div>
         </div>
       ))}
@@ -260,38 +311,25 @@ function CompanyTreemap({ deals, companies }: { deals: Deal[]; companies: Compan
   )
 
   const maxVal = vals[0].value
+  const tealStops = ['#c4dde3', '#c4dde3', '#aacfd8', '#aacfd8', '#8fbfca', '#8fbfca', '#74aeba', '#74aeba']
+  const textColors = ['#085041', '#085041', '#085041', '#085041', '#085041', '#0F6E56', '#0F6E56', '#0F6E56']
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {vals.map((c, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            width: 120, fontSize: 11, color: C.muted, flexShrink: 0,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 120, fontSize: 11, color: C.muted, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {c.name}
           </div>
-          <div style={{ flex: 1, height: 20, background: C.bg, borderRadius: 4, overflow: 'hidden', position: 'relative' }}>
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${(c.value / maxVal) * 100}%` }}
-              transition={{ duration: 0.6, delay: i * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
-              style={{
-                height: '100%', background: C.dark, borderRadius: 4,
-                opacity: 0.12 + (c.value / maxVal) * 0.73,
-              }}
-            />
-            <span style={{
-              position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
-              fontSize: 10, fontWeight: 600,
-              color: (c.value / maxVal) > 0.45 ? 'white' : C.muted,
-            }}>
-              {fmt(c.value)}
-            </span>
-          </div>
-          <div style={{ width: 24, fontSize: 10, color: C.faint, textAlign: 'right', flexShrink: 0 }}>
-            {c.dealCount}d
-          </div>
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${(c.value / maxVal) * 100}%` }}
+            transition={{ duration: 0.6, delay: i * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
+            style={{ height: 26, borderRadius: 4, background: tealStops[i] || '#74aeba', display: 'flex', alignItems: 'center', padding: '0 10px', minWidth: 40, flex: 'none' }}
+          >
+            <span style={{ fontSize: 12, fontWeight: 500, color: textColors[i] || '#0F6E56', whiteSpace: 'nowrap' }}>{fmt(c.value)}</span>
+          </motion.div>
+          <div style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>{c.dealCount}d</div>
         </div>
       ))}
     </div>
