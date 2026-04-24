@@ -493,7 +493,7 @@ function RepPerformanceTable({ repPerformance }: { repPerformance: RepRow[] }) {
 }
 
 // ─── Insight content per view ─────────────────────────────────────────────────
-function getInsight(id: string, deals: Deal[], contacts: Contact[], stageConversion: StageConversion[], stageVelocity: StageVelocity[], quota: Quota | null, atRiskDays: number): { meaning: string; badges: { text: string; color: string; bg: string }[]; actions: { text: string; color: string }[] } {
+function getInsight(id: string, deals: Deal[], contacts: Contact[], stageConversion: StageConversion[], stageVelocity: StageVelocity[], quota: Quota | null, atRiskDays: number, repPerformance?: RepRow[] | null): { meaning: string; badges: { text: string; color: string; bg: string }[]; actions: { text: string; color: string }[] } {
   const active = deals.filter(d => !['closed_won', 'closed_lost'].includes(d.stage))
   const won = deals.filter(d => d.stage === 'closed_won')
   const lost = deals.filter(d => d.stage === 'closed_lost')
@@ -658,6 +658,22 @@ function getInsight(id: string, deals: Deal[], contacts: Contact[], stageConvers
         ]
       }
     }
+    case 'team': {
+      const totalAtRisk = repPerformance ? repPerformance.reduce((s, r) => s + r.at_risk_count, 0) : 0
+      const belowQuota = repPerformance ? repPerformance.filter(r => r.quota && (r.attainment_pct || 0) < 40).length : 0
+      return {
+        meaning: `Team performance tracks each rep's quota attainment, pipeline value, and at-risk deals. Use this to spot who needs support and who is on track. Attainment below 40% needs immediate attention — either coaching, deal help, or quota recalibration.`,
+        badges: [
+          ...(belowQuota > 0 ? [{ text: `${belowQuota} rep${belowQuota > 1 ? 's' : ''} below 40% quota`, color: '#791F1F', bg: '#fceaea' }] : []),
+          ...(totalAtRisk > 0 ? [{ text: `${totalAtRisk} at-risk deals across team`, color: '#633806', bg: '#fdf3e3' }] : []),
+        ],
+        actions: [
+          { text: 'Meet with any rep below 40% attainment this week — early intervention prevents end-of-quarter scrambles', color: C.red },
+          { text: `Review the ${totalAtRisk} at-risk deals across the team — assign owners and set follow-up tasks`, color: C.amber },
+          { text: 'Reps with high pipeline but low confirmed revenue likely need help closing, not prospecting', color: C.green },
+        ]
+      }
+    }
     default: return { meaning: '', badges: [], actions: [] }
   }
 }
@@ -757,7 +773,7 @@ export default function AnalyticsClient({ deals, contacts, companies, tasks, sta
   const [showQuickstart, setShowQuickstart] = useState(true)
 
   const meta = VIEW_META[activeView] || { title: activeView, subtitle: '' }
-  const insight = getInsight(activeView, deals, contacts, stageConversion, stageVelocity, quota, atRiskDays)
+  const insight = getInsight(activeView, deals, contacts, stageConversion, stageVelocity, quota, atRiskDays, repPerformance)
 
   // Summary stats for header
   const headerStats = [
