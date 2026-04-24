@@ -68,6 +68,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'atrisk', label: 'At risk', group: 'Problems' },
   { id: 'uninvoiced', label: 'Not invoiced', group: 'Problems' },
   { id: 'loss', label: 'Loss reasons', group: 'Problems' },
+  { id: 'team', label: 'Team performance', group: 'Team' },
 ]
 
 // ─── Charts ───────────────────────────────────────────────────────────────────
@@ -87,14 +88,16 @@ function FunnelChart({ deals, stageLabels }: { deals: Deal[]; stageLabels: Recor
       {rows.map((row, i) => (
         <div key={row.stage} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 76, fontSize: 12, color: C.muted, flexShrink: 0 }}>{stageLabels[row.stage] || row.stage}</div>
-          <motion.div
-            initial={{ width: 0 }} animate={{ width: `${Math.max((row.value / maxVal) * 100, row.count > 0 ? 6 : 0)}%` }}
-            transition={{ duration: 0.7, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
-            style={{ height: 26, borderRadius: 4, background: tealStops[i], display: 'flex', alignItems: 'center', padding: '0 10px', minWidth: row.count > 0 ? 40 : 0, flexShrink: 0 }}
-          >
-            {row.count > 0 && <span style={{ fontSize: 12, fontWeight: 500, color: textColors[i], whiteSpace: 'nowrap' }}>{fmt(row.value)}</span>}
-          </motion.div>
-          <div style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>{row.count} deals</div>
+          <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+            <motion.div
+              initial={{ width: 0 }} animate={{ width: `${Math.max((row.value / maxVal) * 100, row.count > 0 ? 6 : 0)}%` }}
+              transition={{ duration: 0.7, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+              style={{ height: 26, borderRadius: 4, background: tealStops[i], display: 'flex', alignItems: 'center', padding: '0 10px', minWidth: row.count > 0 ? 40 : 0 }}
+            >
+              {row.count > 0 && <span style={{ fontSize: 12, fontWeight: 500, color: textColors[i], whiteSpace: 'nowrap' }}>{fmt(row.value)}</span>}
+            </motion.div>
+          </div>
+          <div style={{ fontSize: 11, color: C.faint, flexShrink: 0, width: 52, textAlign: 'right' }}>{row.count} deals</div>
         </div>
       ))}
     </div>
@@ -151,14 +154,16 @@ function ConversionChart({ stageConversion, stageLabels }: { stageConversion: St
         return (
           <div key={stage} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 88, fontSize: 12, color: C.muted, flexShrink: 0 }}>{stageLabels[stage] || stage}</div>
-            <motion.div
-              initial={{ width: 0 }} animate={{ width: `${Math.max(rate, 6)}%` }}
-              transition={{ duration: 0.6, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
-              style={{ height: 26, borderRadius: 4, background: bg, display: 'flex', alignItems: 'center', padding: '0 10px', minWidth: 40, flexShrink: 0 }}
-            >
-              <span style={{ fontSize: 12, fontWeight: 500, color: text, whiteSpace: 'nowrap' }}>{rate}%</span>
-            </motion.div>
-            <div style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>{row?.deals_entered ?? 0} deals</div>
+            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+              <motion.div
+                initial={{ width: 0 }} animate={{ width: `${Math.max(rate, 6)}%` }}
+                transition={{ duration: 0.6, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
+                style={{ height: 26, borderRadius: 4, background: bg, display: 'flex', alignItems: 'center', padding: '0 10px', minWidth: 40 }}
+              >
+                <span style={{ fontSize: 12, fontWeight: 500, color: text, whiteSpace: 'nowrap' }}>{rate}%</span>
+              </motion.div>
+            </div>
+            <div style={{ fontSize: 11, color: C.faint, flexShrink: 0, width: 52, textAlign: 'right' }}>{row?.deals_entered ?? 0} deals</div>
           </div>
         )
       })}
@@ -308,11 +313,13 @@ function CompanyPipeline({ deals, companies }: { deals: Deal[]; companies: Compa
       {vals.map((c, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 120, fontSize: 11, color: C.muted, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-          <motion.div initial={{ width: 0 }} animate={{ width: `${(c.value / maxVal) * 100}%` }} transition={{ duration: 0.6, delay: i * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
-            style={{ height: 26, borderRadius: 4, background: tealStops[i] || '#e8f5f1', display: 'flex', alignItems: 'center', padding: '0 10px', minWidth: 40, flexShrink: 0 }}>
-            <span style={{ fontSize: 12, fontWeight: 500, color: textColors[i] || '#1D9E75', whiteSpace: 'nowrap' }}>{fmt(c.value)}</span>
-          </motion.div>
-          <div style={{ fontSize: 11, color: C.faint, flexShrink: 0 }}>{c.dealCount}d</div>
+          <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+            <motion.div initial={{ width: 0 }} animate={{ width: `${(c.value / maxVal) * 100}%` }} transition={{ duration: 0.6, delay: i * 0.07, ease: [0.25, 0.46, 0.45, 0.94] }}
+              style={{ height: 26, borderRadius: 4, background: tealStops[i] || '#e8f5f1', display: 'flex', alignItems: 'center', padding: '0 10px', minWidth: 40 }}>
+              <span style={{ fontSize: 12, fontWeight: 500, color: textColors[i] || '#1D9E75', whiteSpace: 'nowrap' }}>{fmt(c.value)}</span>
+            </motion.div>
+          </div>
+          <div style={{ fontSize: 11, color: C.faint, flexShrink: 0, width: 24, textAlign: 'right' }}>{c.dealCount}d</div>
         </div>
       ))}
     </div>
@@ -670,6 +677,7 @@ const VIEW_META: Record<string, { title: string; subtitle: string }> = {
   atrisk: { title: 'At-risk deals', subtitle: 'Deals with no recent activity' },
   uninvoiced: { title: 'Not invoiced', subtitle: 'Won deals pending invoice' },
   loss: { title: 'Loss reasons', subtitle: 'Why deals were lost' },
+  team: { title: 'Team performance', subtitle: 'Rep quota attainment and pipeline' },
 }
 
 // ─── Quickstart banner ────────────────────────────────────────────────────────
@@ -774,6 +782,7 @@ export default function AnalyticsClient({ deals, contacts, companies, tasks, sta
       case 'atrisk': return <AtRiskTable deals={deals} stageLabels={stageLabels} atRiskDays={atRiskDays} />
       case 'uninvoiced': return <UninvoicedTable deals={deals} />
       case 'loss': return <LossReasons deals={deals} />
+      case 'team': return isElevated && repPerformance?.length ? <RepPerformanceTable repPerformance={repPerformance} /> : <div style={{ fontSize: 12, color: '#9b9890' }}>Team data not available</div>
       default: return null
     }
   }
@@ -877,18 +886,7 @@ export default function AnalyticsClient({ deals, contacts, companies, tasks, sta
             </AnimatePresence>
           )}
 
-          {/* Team performance — elevated only, always shown below */}
-          {isElevated && repPerformance && repPerformance.length > 0 && (
-            <div style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 18, overflow: 'hidden' }}>
-              <div style={{ padding: '14px 18px 12px', borderBottom: `0.5px solid ${C.border}` }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: C.dark }}>Team performance</div>
-                <div style={{ fontSize: 11, color: C.faint, marginTop: 2 }}>{repPerformance.length} reps</div>
-              </div>
-              <div style={{ padding: '16px 18px' }}>
-                <RepPerformanceTable repPerformance={repPerformance} />
-              </div>
-            </div>
-          )}
+
 
         </div>
       </div>
