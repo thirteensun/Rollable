@@ -475,7 +475,7 @@ export default function SettingsClient({ name, email, initials, role, orgName, o
           )}
         </div>
 
-        <p style={{ margin: '0 0 24px', fontSize: 12, color: '#c8c5be', textAlign: 'center' }}>SDM Prototype 001</p>
+        <p style={{ margin: '0 0 24px', fontSize: 12, color: '#c8c5be', textAlign: 'center' }}>Rollable Prototype 001</p>
       </div>
     </main>
   )

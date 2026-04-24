@@ -11,10 +11,10 @@ import { createClient } from '@supabase/supabase-js'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'SDM — Sales & Deal Manager',
+  title: 'Rollable — Sales & Deal Manager',
   description: 'Liberate sales and marketing through effortless AI.',
   manifest: '/manifest.json',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'SDM' },
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Rollable' },
 }
 
 export const viewport: Viewport = {
@@ -55,37 +55,37 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           /* ── View Transitions ─────────────────────────────────────────────── */
 
           /* Default cross-page transition: fast fade + subtle upward drift */
-          @keyframes sdm-fade-in {
+          @keyframes Rollable-fade-in {
             from { opacity: 0; transform: translateY(6px); }
             to   { opacity: 1; transform: translateY(0); }
           }
-          @keyframes sdm-fade-out {
+          @keyframes Rollable-fade-out {
             from { opacity: 1; transform: translateY(0); }
             to   { opacity: 0; transform: translateY(-4px); }
           }
 
           ::view-transition-old(root) {
-            animation: 120ms cubic-bezier(0.4, 0, 1, 1) both sdm-fade-out;
+            animation: 120ms cubic-bezier(0.4, 0, 1, 1) both Rollable-fade-out;
           }
           ::view-transition-new(root) {
-            animation: 200ms cubic-bezier(0, 0, 0.2, 1) both sdm-fade-in;
+            animation: 200ms cubic-bezier(0, 0, 0.2, 1) both Rollable-fade-in;
           }
 
           /* Named transition for page-level content — faster, no drift */
           ::view-transition-old(page-content) {
-            animation: 90ms ease-in both sdm-fade-out;
+            animation: 90ms ease-in both Rollable-fade-out;
           }
           ::view-transition-new(page-content) {
-            animation: 160ms ease-out both sdm-fade-in;
+            animation: 160ms ease-out both Rollable-fade-in;
           }
 
           /* Cards slide in from slightly below on entry */
-          @keyframes sdm-card-in {
+          @keyframes Rollable-card-in {
             from { opacity: 0; transform: translateY(10px) scale(0.99); }
             to   { opacity: 1; transform: translateY(0) scale(1); }
           }
           ::view-transition-new(card) {
-            animation: 220ms cubic-bezier(0, 0, 0.2, 1) both sdm-card-in;
+            animation: 220ms cubic-bezier(0, 0, 0.2, 1) both Rollable-card-in;
           }
 
           /* Reduce motion: respect system preference */

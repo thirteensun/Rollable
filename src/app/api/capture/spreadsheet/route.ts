@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `You are a CRM data importer for SDM. The user has uploaded a spreadsheet. Extract contacts and companies from these rows.
+          content: `You are a CRM data importer for Rollable. The user has uploaded a spreadsheet. Extract contacts and companies from these rows.
 
 ROWS:
 ${rowsText}

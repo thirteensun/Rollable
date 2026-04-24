@@ -173,7 +173,7 @@ export default function LoginPage() {
       </div>
 
       <p style={{ margin: 0, fontSize: '12px', color: '#c8c5be', textAlign: 'center' }}>
-        SDM Prototype 001
+        Rollable Prototype 001
       </p>
     </main>
   )

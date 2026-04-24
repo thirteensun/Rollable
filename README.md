@@ -1,4 +1,4 @@
-# SDM Prototype 001
+# Rollable Prototype 001
 ### Liberate sales and marketing through effortless AI.
 
 A mobile-first AI CRM for SMB sales teams. Snap a photo, record a voice memo, or screenshot a conversation — AI extracts contacts, deals, and tasks automatically.
@@ -20,8 +20,8 @@ A mobile-first AI CRM for SMB sales teams. Snap a photo, record a voice memo, or
 ## Getting started
 
 ```bash
-git clone https://github.com/thirteensun/sdm-prototype
-cd sdm-prototype
+git clone https://github.com/thirteensun/Rollable-prototype
+cd Rollable-prototype
 npm install
 cp .env.local.example .env.local
 ```

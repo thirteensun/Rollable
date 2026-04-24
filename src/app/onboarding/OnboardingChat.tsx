@@ -25,7 +25,7 @@ export default function OnboardingChat({ onComplete }: Props) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: "Welcome! Before you dive in, I'd love to learn a bit about your business so SDM can be set up just for you. What does your company sell, and what industry are you in?"
+      content: "Welcome! Before you dive in, I'd love to learn a bit about your business so Rollable can be set up just for you. What does your company sell, and what industry are you in?"
     }
   ])
   const [chatHistory, setChatHistory] = useState<Message[]>([])
@@ -67,7 +67,7 @@ export default function OnboardingChat({ onComplete }: Props) {
           Here's your setup
         </p>
         <h1 style={{ margin: '0 0 24px', fontSize: '28px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.2 }}>
-          SDM is configured<br />for your team
+          Rollable is configured<br />for your team
         </h1>
 
         <div style={{ background: 'white', borderRadius: 18, padding: 24, border: '0.5px solid rgba(0,0,0,0.07)', marginBottom: 16 }}>

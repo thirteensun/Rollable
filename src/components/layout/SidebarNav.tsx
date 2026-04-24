@@ -34,7 +34,7 @@ export default function SidebarNav({ userName, userInitials, userRole }: Props) 
             <circle cx="6" cy="6" r="2" fill="#1a1a18"/>
           </svg>
         </div>
-        <span style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18', letterSpacing: '-0.01em' }}>SDM</span>
+        <span style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18', letterSpacing: '-0.01em' }}>Rollable</span>
       </div>
 
       {/* Nav */}

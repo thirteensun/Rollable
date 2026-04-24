@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
             },
             {
               type: 'text',
-              text: `You are an AI assistant for a CRM called SDM. Analyze this image and extract CRM-relevant information.
+              text: `You are an AI assistant for a CRM called Rollable. Analyze this image and extract CRM-relevant information.
 
 Respond ONLY with valid JSON in this exact format, no other text:
 {
