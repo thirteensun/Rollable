@@ -38,11 +38,12 @@ interface Props {
   stageTemplate?: string
 }
 
-function activityTag(days: number, stage: string) {
+function activityTag(days: number | undefined | null, stage: string) {
   if (stage === 'closed_won' || stage === 'closed_lost') return null
+  if (days === undefined || days === null || isNaN(days)) return null
   if (days >= 14) return { label: `${days}d`, style: { background: '#fdeaea', color: '#E24B4A' } }
   if (days >= 7)  return { label: `${days}d`, style: { background: '#fdf3e3', color: '#EF9F27' } }
-  return { label: `${days}d`, style: { background: '#f0f0ee', color: '#6b6960' } }
+  return null
 }
 
 function formatValue(v?: number) {
@@ -129,7 +130,7 @@ export default function KanbanBoard({ deals, stageTemplate }: Props) {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 10, padding: '16px', overflowX: 'auto', overflowY: 'hidden', flex: 1, alignItems: 'flex-start', justifyContent: 'center', minWidth: 'max-content' }}>
+      <div style={{ display: 'flex', gap: 10, padding: '16px', overflowX: 'auto', overflowY: 'hidden', flex: 1, alignItems: 'flex-start' }}>
         {STAGES.map((stage) => {
           const cards = grouped[stage.key] ?? []
           const isOver = overStage === stage.key
@@ -153,7 +154,7 @@ export default function KanbanBoard({ deals, stageTemplate }: Props) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minHeight: 80, borderRadius: 14, padding: isOver ? 4 : 0, background: isOver ? 'rgba(0,0,0,0.03)' : 'transparent', border: isOver ? '1.5px dashed rgba(0,0,0,0.12)' : '1.5px solid transparent', transition: 'all 0.15s' }}>
                 {cards.map(deal => {
                   const tag = activityTag(deal.days_since_activity, deal.stage)
-                  const atRisk = deal.days_since_activity >= 14 && !isWon && !isLost
+                  const atRisk = (deal.days_since_activity ?? 0) >= 14 && !isWon && !isLost
                   const isDragging = dragId === deal.id
                   const isPending = !!pendingChanges[deal.id]
                   return (
