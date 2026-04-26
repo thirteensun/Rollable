@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import OnboardingChat from './OnboardingChat'
+import OnboardingSliders from './OnboardingSliders'
 
 type Step = 'choose' | 'create' | 'join' | 'chat'
 
@@ -285,7 +285,7 @@ export default function OnboardingPage() {
 
         {/* Step: Chat */}
         {step === 'chat' && (
-          <OnboardingChat onComplete={() => { window.location.href = '/' }} />
+          <OnboardingSliders onComplete={() => { window.location.href = '/' }} />
         )}
       </div>
 
