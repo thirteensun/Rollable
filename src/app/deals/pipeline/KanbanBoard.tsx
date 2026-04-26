@@ -161,7 +161,7 @@ export default function KanbanBoard({ deals, stageTemplate }: Props) {
                     <div key={deal.id} draggable onDragStart={() => handleDragStart(deal.id)} onDragEnd={handleDragEnd}
                       style={{ background: isPending ? 'rgba(239,159,39,0.07)' : 'white', border: isPending ? '1px solid rgba(239,159,39,0.35)' : '0.5px solid rgba(0,0,0,0.07)', borderLeft: atRisk && !isPending ? '2.5px solid #EF9F27' : isPending ? '2.5px solid #EF9F27' : undefined, borderRadius: 12, padding: '11px 12px', cursor: 'grab', opacity: isDragging ? 0.4 : isWon || isLost ? 0.65 : 1, transition: 'opacity 0.15s, transform 0.1s', userSelect: 'none' }}
                       className="kanban-card">
-                      <Link href={`/tracking/deals/${deal.id}`} style={{ textDecoration: 'none', display: 'block' }} onClick={e => { if (dragId) e.preventDefault() }}>
+                      <Link href={`/deals/${deal.id}`} style={{ textDecoration: 'none', display: 'block' }} onClick={e => { if (dragId) e.preventDefault() }}>
                         <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18', marginBottom: 3 }}>{deal.name}</div>
                         {deal.company_name && <div style={{ fontSize: 11, color: '#9b9890', marginBottom: 8 }}>{deal.company_name}</div>}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

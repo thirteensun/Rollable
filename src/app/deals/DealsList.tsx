@@ -150,7 +150,7 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
           const value = formatValue(deal.value)
 
           return (
-            <Link key={deal.id} href={`/tracking/deals/${deal.id}`} style={{ textDecoration: 'none' }}>
+            <Link key={deal.id} href={`/deals/${deal.id}`} style={{ textDecoration: 'none' }}>
               <div
                 style={{
                   background: 'white',

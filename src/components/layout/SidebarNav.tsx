@@ -47,7 +47,7 @@ export default function SidebarNav({ userName, userInitials, userRole }: Props) 
 
         <NavItem href="/capture" active={isActive('/capture')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><circle cx="7.5" cy="7.5" r="6"/><path d="M7.5 4.5v6M4.5 7.5h6" strokeLinecap="round"/></svg>}>Capture</NavItem>
 
-        <NavItem href="/tracking" active={isActive('/tracking')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="1" y="2" width="4" height="11" rx="1.5"/><rect x="6" y="2" width="4" height="7" rx="1.5"/><rect x="11" y="2" width="3" height="9" rx="1.5"/></svg>}>Pipeline</NavItem>
+        <NavItem href="/deals/pipeline" active={isActive('/deals/pipeline')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="1" y="2" width="4" height="11" rx="1.5"/><rect x="6" y="2" width="4" height="7" rx="1.5"/><rect x="11" y="2" width="3" height="9" rx="1.5"/></svg>}>Pipeline</NavItem>
 
         <NavItem href="/tasks" active={isActive('/tasks') || isActive('/planning')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><rect x="1.5" y="1.5" width="12" height="12" rx="2.5"/><path d="M4 7.5l2 2 4-4" strokeLinecap="round" strokeLinejoin="round"/></svg>}>Tasks</NavItem>
 
@@ -58,7 +58,7 @@ export default function SidebarNav({ userName, userInitials, userRole }: Props) 
         {/* Records group */}
         <div style={{ fontSize: 10, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 8px', margin: '16px 0 4px' }}>Records</div>
 
-        <NavItem href="/deals" active={isActive('/deals')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M1.5 7.5h12M7.5 1.5l6 6-6 6" strokeLinecap="round" strokeLinejoin="round"/></svg>}>Deals</NavItem>
+        <NavItem href="/deals" active={isActive('/deals') && !isActive('/deals/pipeline')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M1.5 7.5h12M7.5 1.5l6 6-6 6" strokeLinecap="round" strokeLinejoin="round"/></svg>}>Deals</NavItem>
 
         <NavItem href="/contacts" active={isActive('/contacts')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><circle cx="7.5" cy="5" r="3"/><path d="M1.5 13.5c0-3 2.7-5 6-5s6 2 6 5" strokeLinecap="round"/></svg>}>Contacts</NavItem>
 
