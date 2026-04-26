@@ -5,9 +5,9 @@ import { usePathname } from 'next/navigation'
 
 export default function BottomNav() {
   const pathname = usePathname()
-  const isHome = pathname === '/' || pathname === '/planning'
-  const isTracking = pathname === '/tracking'
-  const hideNav = pathname === '/login' || pathname === '/onboarding' || pathname.startsWith('/auth')
+  const isHome     = pathname === '/' || pathname === '/planning'
+  const isDeals    = pathname === '/deals' || pathname.startsWith('/deals/')
+  const hideNav    = pathname === '/login' || pathname === '/onboarding' || pathname.startsWith('/auth')
 
   if (hideNav) return null
 
@@ -25,6 +25,7 @@ export default function BottomNav() {
       paddingBottom: 'max(20px, env(safe-area-inset-bottom))',
       flexShrink: 0,
     }}>
+      {/* Home */}
       <Link href="/" style={{ textDecoration: 'none' }}>
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
@@ -39,6 +40,7 @@ export default function BottomNav() {
         </div>
       </Link>
 
+      {/* Capture — pulse button */}
       <Link href="/capture" style={{ textDecoration: 'none' }}>
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
@@ -58,16 +60,19 @@ export default function BottomNav() {
         </div>
       </Link>
 
-      <Link href="/tracking" style={{ textDecoration: 'none' }}>
+      {/* Deals */}
+      <Link href="/deals" style={{ textDecoration: 'none' }}>
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-          opacity: isTracking ? 1 : 0.35, paddingBottom: '2px',
+          opacity: isDeals ? 1 : 0.35, paddingBottom: '2px',
           transition: 'opacity 0.2s ease',
         }}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M3 12h18M3 6h18M3 18h18" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="#1a1a18" strokeWidth="1.5" strokeLinejoin="round"/>
+            <path d="M2 17l10 5 10-5" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M2 12l10 5 10-5" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span style={{ fontSize: '10px', color: '#1a1a18', fontWeight: isTracking ? 500 : 400 }}>Tracking</span>
+          <span style={{ fontSize: '10px', color: '#1a1a18', fontWeight: isDeals ? 500 : 400 }}>Deals</span>
         </div>
       </Link>
     </nav>
