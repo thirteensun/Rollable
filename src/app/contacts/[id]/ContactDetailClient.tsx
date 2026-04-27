@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createBrowserSupabaseClient } from '@/lib/supabase'
+import FieldGrid from '@/components/FieldGrid'
+import { CONTACT_FIELDS } from '@/lib/entity-fields'
 
 const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   lead:        { bg: 'rgba(155,152,144,0.1)', text: '#9b9890' },
@@ -44,32 +46,68 @@ function getInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
-export default function ContactDetailClient({ contact, events, deals, tasks }: {
-  contact: any; events: any[]; deals: any[]; tasks: any[]
-}) {
+interface Props {
+  contact: any
+  events: any[]
+  deals: any[]
+  tasks: any[]
+  visibleFields: string[]
+}
+
+export default function ContactDetailClient({ contact, events, deals, tasks, visibleFields }: Props) {
   const router = useRouter()
   const supabase = createBrowserSupabaseClient()
 
   const [editing, setEditing] = useState(false)
-  const [fullName, setFullName] = useState(contact.full_name ?? '')
-  const [role, setRole] = useState(contact.role ?? '')
-  const [email, setEmail] = useState(contact.email ?? '')
-  const [phone, setPhone] = useState(contact.phone ?? '')
+  const [draft, setDraft] = useState<Record<string, any>>(() =>
+    Object.fromEntries(CONTACT_FIELDS.map(f => [f.key, contact[f.key] ?? null]))
+  )
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
   const timeline = [
     ...events.map(e => ({ ...e, _type: 'event' as const })),
     ...tasks.map(t => ({ ...t, _type: 'task' as const })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
+  function startEdit() {
+    setDraft(Object.fromEntries(CONTACT_FIELDS.map(f => [f.key, contact[f.key] ?? null])))
+    setEditing(true)
+    setError('')
+  }
+
+  function cancelEdit() {
+    setEditing(false)
+    setError('')
+  }
+
   async function saveContact() {
     setSaving(true)
-    await supabase.from('contacts').update({ full_name: fullName, role: role || null, email: email || null, phone: phone || null }).eq('id', contact.id)
+    setError('')
+
+    // Only persist visible fields — hidden fields stay untouched in DB
+    const update: Record<string, any> = {}
+    for (const key of visibleFields) {
+      if (key in draft) update[key] = draft[key]
+    }
+
+    const { error: err } = await supabase
+      .from('contacts')
+      .update(update)
+      .eq('id', contact.id)
+
     setSaving(false)
+
+    if (err) {
+      setError(err.message)
+      return
+    }
+
     setEditing(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+    router.refresh()
   }
 
   return (
@@ -100,52 +138,53 @@ export default function ContactDetailClient({ contact, events, deals, tasks }: {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            {contact.email && (
-              <a href={`mailto:${contact.email}`} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, background: '#f5f4f0', textDecoration: 'none', color: '#1a1a18', fontSize: 13, fontWeight: 500 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
-                Email
-              </a>
-            )}
-            {contact.phone && (
-              <a href={`tel:${contact.phone}`} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, background: '#f5f4f0', textDecoration: 'none', color: '#1a1a18', fontSize: 13, fontWeight: 500 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3-8.59A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                Call
-              </a>
-            )}
-            {contact.phone && (
-              <a href={`https://wa.me/${contact.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 0', borderRadius: 12, background: '#f5f4f0', textDecoration: 'none', color: '#1a1a18', fontSize: 13, fontWeight: 500 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                WhatsApp
-              </a>
-            )}
+            <ActionButton
+              href={contact.email ? `mailto:${contact.email}` : undefined}
+              label="Email"
+              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>}
+            />
+            <ActionButton
+              href={contact.phone ? `tel:${contact.phone}` : undefined}
+              label="Call"
+              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3-8.59A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>}
+            />
+            <ActionButton
+              href={contact.phone ? `https://wa.me/${contact.phone.replace(/\D/g, '')}` : undefined}
+              externalLink
+              label="WhatsApp"
+              icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>}
+            />
           </div>
         </div>
 
-        {/* Details */}
+        {/* Field grid (replaces hardcoded Details block) */}
         <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Details</p>
-            <button onClick={() => setEditing(e => !e)} style={{ fontSize: 13, color: '#1a1a18', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>{editing ? 'Cancel' : 'Edit'}</button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+              Contact info
+            </p>
+            {!editing ? (
+              <button onClick={startEdit} style={editBtn}>Edit</button>
+            ) : (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={cancelEdit} style={editBtn}>Cancel</button>
+                <button onClick={saveContact} disabled={saving} style={{ ...editBtn, color: '#1a1a18', fontWeight: 600, opacity: saving ? 0.5 : 1 }}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            )}
           </div>
-          {editing ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <input placeholder="Full name" value={fullName} onChange={e => setFullName(e.target.value)} style={inputStyle} />
-              <input placeholder="Job title / role" value={role} onChange={e => setRole(e.target.value)} style={inputStyle} />
-              <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} />
-              <input placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} />
-              <button onClick={saveContact} disabled={saving} style={{ marginTop: 4, padding: 12, borderRadius: 20, background: '#1a1a18', color: 'white', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <DetailRow label="Email" value={contact.email} href={`mailto:${contact.email}`} />
-              <DetailRow label="Phone" value={contact.phone} href={`tel:${contact.phone}`} />
-              <DetailRow label="Company" value={contact.companies?.name} />
-              <DetailRow label="Role" value={contact.role} />
-              {saved && <p style={{ fontSize: 12, color: '#1D9E75', textAlign: 'center' }}>Saved ✓</p>}
-            </div>
-          )}
+
+          <FieldGrid
+            entity="contacts"
+            values={editing ? draft : contact}
+            visibleFields={visibleFields}
+            editing={editing}
+            onChange={(key, v) => setDraft(d => ({ ...d, [key]: v }))}
+          />
+
+          {error && <p style={{ fontSize: 12, color: '#E24B4A', marginTop: 10 }}>{error}</p>}
+          {saved && !editing && <p style={{ fontSize: 12, color: '#1D9E75', textAlign: 'center', marginTop: 10 }}>Saved ✓</p>}
         </div>
 
         {/* Deals */}
@@ -155,7 +194,7 @@ export default function ContactDetailClient({ contact, events, deals, tasks }: {
             {deals.map((d: any) => {
               const sc = STAGE_COLORS[d.stage] ?? STAGE_COLORS.lead
               return (
-                <Link key={d.id} href={`/tracking/deals/${d.id}`} style={{ textDecoration: 'none' }}>
+                <Link key={d.id} href={`/deals/${d.id}`} style={{ textDecoration: 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
                     <div>
                       <p style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', margin: '0 0 3px' }}>{d.name}</p>
@@ -215,18 +254,51 @@ export default function ContactDetailClient({ contact, events, deals, tasks }: {
   )
 }
 
-function DetailRow({ label, value, href }: { label: string; value?: string | null; href?: string }) {
-  if (!value) return null
+function ActionButton({
+  href, label, icon, externalLink,
+}: {
+  href?: string
+  label: string
+  icon: React.ReactNode
+  externalLink?: boolean
+}) {
+  const disabled = !href
+  const baseStyle: React.CSSProperties = {
+    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    gap: 6, padding: '10px 0', borderRadius: 12,
+    background: '#f5f4f0',
+    textDecoration: 'none',
+    color: disabled ? '#c8c5be' : '#1a1a18',
+    fontSize: 13, fontWeight: 500,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.55 : 1,
+    border: 'none',
+    fontFamily: 'inherit',
+  }
+
+  if (disabled) {
+    return (
+      <button disabled style={baseStyle} aria-label={`${label} (not available)`}>
+        {icon}
+        {label}
+      </button>
+    )
+  }
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span style={{ fontSize: 13, color: '#6b6960' }}>{label}</span>
-      {href ? <a href={href} style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18', textDecoration: 'none' }}>{value}</a> : <span style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>{value}</span>}
-    </div>
+    <a
+      href={href}
+      target={externalLink ? '_blank' : undefined}
+      rel={externalLink ? 'noreferrer' : undefined}
+      style={baseStyle}
+    >
+      {icon}
+      {label}
+    </a>
   )
 }
 
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '10px 12px', borderRadius: 10,
-  border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 14,
-  color: '#1a1a18', background: '#f5f4f0', outline: 'none', boxSizing: 'border-box',
+const editBtn: React.CSSProperties = {
+  fontSize: 13, color: '#6b6960', background: 'none',
+  border: 'none', cursor: 'pointer', fontWeight: 500, padding: 0,
 }

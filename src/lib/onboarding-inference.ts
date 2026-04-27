@@ -56,6 +56,13 @@ const CORE_CONTACT_FIELDS  = ['full_name', 'role', 'email', 'phone', 'company', 
 const CORE_COMPANY_FIELDS  = ['name', 'industry', 'website', 'type', 'status', 'notes']
 const CORE_DEAL_FIELDS     = ['name', 'value', 'stage', 'expected_close_date', 'notes']
 
+// Entity-keyed fallback used by getVisibleFields when org context is missing
+const FALLBACK_FIELDS: Record<'contacts' | 'companies' | 'deals', string[]> = {
+  contacts:  CORE_CONTACT_FIELDS,
+  companies: CORE_COMPANY_FIELDS,
+  deals:     CORE_DEAL_FIELDS,
+}
+
 // ─── Main inference function ──────────────────────────────────────────────────
 
 export function inferFromScores(scores: OnboardingScores): InferredContext {
@@ -191,12 +198,14 @@ export function mergeIntoOrgContext(
 }
 
 // ─── Helper: get visible fields for an entity with fallback ──────────────────
+// FIX: previously returned CORE_DEAL_FIELDS for every entity. Now uses
+// FALLBACK_FIELDS keyed by entity so contacts and companies fall back correctly.
 
 export function getVisibleFields(
   orgContext: Record<string, any>,
   entity: 'contacts' | 'companies' | 'deals',
 ): string[] {
-  return orgContext?.visible_fields?.[entity] ?? CORE_DEAL_FIELDS
+  return orgContext?.visible_fields?.[entity] ?? FALLBACK_FIELDS[entity]
 }
 
 // ─── Slider question definitions (used by onboarding + settings UI) ──────────

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createBrowserSupabaseClient } from '@/lib/supabase'
+import FieldGrid from '@/components/FieldGrid'
+import { COMPANY_FIELDS } from '@/lib/entity-fields'
 
 const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   lead:        { bg: 'rgba(155,152,144,0.1)', text: '#9b9890' },
@@ -52,18 +54,28 @@ function getInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
-export default function CompanyDetailClient({ company, contacts, deals, events, tasks }: {
-  company: any; contacts: any[]; deals: any[]; events: any[]; tasks: any[]
-}) {
+interface Props {
+  company:       any
+  contacts:      any[]
+  deals:         any[]
+  events:        any[]
+  tasks:         any[]
+  visibleFields: string[]
+}
+
+export default function CompanyDetailClient({
+  company, contacts, deals, events, tasks, visibleFields,
+}: Props) {
   const router = useRouter()
   const supabase = createBrowserSupabaseClient()
 
   const [editing, setEditing] = useState(false)
-  const [name, setName] = useState(company.name ?? '')
-  const [industry, setIndustry] = useState(company.industry ?? '')
-  const [website, setWebsite] = useState(company.website ?? '')
+  const [draft, setDraft] = useState<Record<string, any>>(() =>
+    Object.fromEntries(COMPANY_FIELDS.map(f => [f.key, company[f.key] ?? null]))
+  )
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
   const totalValue = deals.reduce((s, d) => s + (d.value || 0), 0)
 
@@ -72,13 +84,42 @@ export default function CompanyDetailClient({ company, contacts, deals, events, 
     ...tasks.map(t => ({ ...t, _type: 'task' as const })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
+  function startEdit() {
+    setDraft(Object.fromEntries(COMPANY_FIELDS.map(f => [f.key, company[f.key] ?? null])))
+    setEditing(true)
+    setError('')
+  }
+
+  function cancelEdit() {
+    setEditing(false)
+    setError('')
+  }
+
   async function saveCompany() {
     setSaving(true)
-    await supabase.from('companies').update({ name: name || company.name, industry: industry || null, website: website || null }).eq('id', company.id)
+    setError('')
+
+    const update: Record<string, any> = {}
+    for (const key of visibleFields) {
+      if (key in draft) update[key] = draft[key]
+    }
+
+    const { error: err } = await supabase
+      .from('companies')
+      .update(update)
+      .eq('id', company.id)
+
     setSaving(false)
+
+    if (err) {
+      setError(err.message)
+      return
+    }
+
     setEditing(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+    router.refresh()
   }
 
   return (
@@ -92,7 +133,7 @@ export default function CompanyDetailClient({ company, contacts, deals, events, 
 
       <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* Header */}
+        {/* Header (always shown — identity, not configurable) */}
         <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: totalValue > 0 ? 16 : 0 }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, background: '#1a1a18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 600, color: 'white', flexShrink: 0 }}>
@@ -118,29 +159,34 @@ export default function CompanyDetailClient({ company, contacts, deals, events, 
           )}
         </div>
 
-        {/* Details */}
+        {/* Field grid (replaces hardcoded Details block) */}
         <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Details</p>
-            <button onClick={() => setEditing(e => !e)} style={{ fontSize: 13, color: '#1a1a18', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>{editing ? 'Cancel' : 'Edit'}</button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
+              Company info
+            </p>
+            {!editing ? (
+              <button onClick={startEdit} style={editBtn}>Edit</button>
+            ) : (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={cancelEdit} style={editBtn}>Cancel</button>
+                <button onClick={saveCompany} disabled={saving} style={{ ...editBtn, color: '#1a1a18', fontWeight: 600, opacity: saving ? 0.5 : 1 }}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            )}
           </div>
-          {editing ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <input placeholder="Company name" value={name} onChange={e => setName(e.target.value)} style={inputStyle} />
-              <input placeholder="Industry" value={industry} onChange={e => setIndustry(e.target.value)} style={inputStyle} />
-              <input placeholder="Website (https://...)" value={website} onChange={e => setWebsite(e.target.value)} style={inputStyle} />
-              <button onClick={saveCompany} disabled={saving} style={{ marginTop: 4, padding: 12, borderRadius: 20, background: '#1a1a18', color: 'white', fontWeight: 600, fontSize: 14, border: 'none', cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
-                {saving ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {company.industry && <DetailRow label="Industry" value={company.industry} />}
-              {company.website && <DetailRow label="Website" value={company.website.replace(/^https?:\/\//, '')} href={company.website} />}
-              {saved && <p style={{ fontSize: 12, color: '#1D9E75', textAlign: 'center' }}>Saved ✓</p>}
-              {!company.industry && !company.website && <p style={{ fontSize: 13, color: '#9b9890', textAlign: 'center', padding: '8px 0' }}>No details — tap Edit to add</p>}
-            </div>
-          )}
+
+          <FieldGrid
+            entity="companies"
+            values={editing ? draft : company}
+            visibleFields={visibleFields}
+            editing={editing}
+            onChange={(key, v) => setDraft(d => ({ ...d, [key]: v }))}
+          />
+
+          {error && <p style={{ fontSize: 12, color: '#E24B4A', marginTop: 10 }}>{error}</p>}
+          {saved && !editing && <p style={{ fontSize: 12, color: '#1D9E75', textAlign: 'center', marginTop: 10 }}>Saved ✓</p>}
         </div>
 
         {/* People */}
@@ -179,7 +225,7 @@ export default function CompanyDetailClient({ company, contacts, deals, events, 
             {deals.map((d: any) => {
               const sc = STAGE_COLORS[d.stage] ?? STAGE_COLORS.lead
               return (
-                <Link key={d.id} href={`/tracking/deals/${d.id}`} style={{ textDecoration: 'none' }}>
+                <Link key={d.id} href={`/deals/${d.id}`} style={{ textDecoration: 'none' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
                     <div>
                       <p style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', margin: '0 0 3px' }}>{d.name}</p>
@@ -239,18 +285,7 @@ export default function CompanyDetailClient({ company, contacts, deals, events, 
   )
 }
 
-function DetailRow({ label, value, href }: { label: string; value?: string | null; href?: string }) {
-  if (!value) return null
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span style={{ fontSize: 13, color: '#6b6960' }}>{label}</span>
-      {href ? <a href={href} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18', textDecoration: 'none' }}>{value}</a> : <span style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>{value}</span>}
-    </div>
-  )
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '10px 12px', borderRadius: 10,
-  border: '0.5px solid rgba(0,0,0,0.12)', fontSize: 14,
-  color: '#1a1a18', background: '#f5f4f0', outline: 'none', boxSizing: 'border-box',
+const editBtn: React.CSSProperties = {
+  fontSize: 13, color: '#6b6960', background: 'none',
+  border: 'none', cursor: 'pointer', fontWeight: 500, padding: 0,
 }
