@@ -2,8 +2,29 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
+import { getOrgContext } from '@/lib/org-context'
+import { getVisibleFields, getFieldOptions } from '@/lib/onboarding-inference'
+import { buildCaptureSchema } from '@/lib/capture-schema'
+import { coerceRecordToNarrowedSet, type FieldOptions } from '@/lib/entity-fields'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+interface ExtractedContact {
+  full_name: string | null
+  company_name?: string | null
+  [k: string]: any
+}
+interface ExtractedCompany {
+  name: string | null
+  [k: string]: any
+}
+
+interface SpreadsheetResponse {
+  contacts: ExtractedContact[]
+  companies: ExtractedCompany[]
+  skipped: number
+  notes: string
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,17 +48,46 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No rows provided' }, { status: 400 })
     }
 
-    // Cap at 200 rows to keep prompt size sane
     const capped = rows.slice(0, 200)
     const rowsText = JSON.stringify(capped, null, 0)
 
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: `You are a CRM data importer for Rollable. The user has uploaded a spreadsheet. Extract contacts and companies from these rows.
+    // ─── Org context ────────────────────────────────────────────────────────
+    const { data: membership } = await supabase
+      .from('organisation_members')
+      .select('org_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle()
+
+    const orgId = membership?.org_id
+    let visibleFields: { contacts: string[]; companies: string[] } = { contacts: [], companies: [] }
+    let fieldOptions: FieldOptions = {}
+    let scores: any = undefined
+
+    if (orgId) {
+      const orgCtx = await getOrgContext(orgId)
+      visibleFields = {
+        contacts:  getVisibleFields(orgCtx, 'contacts'),
+        companies: getVisibleFields(orgCtx, 'companies'),
+      }
+      fieldOptions = {
+        contacts:  getFieldOptions(orgCtx, 'contacts'),
+        companies: getFieldOptions(orgCtx, 'companies'),
+      }
+      scores = orgCtx.onboarding_scores
+    }
+
+    // Pass through buildCaptureSchema with empty deals (no deals from sheets)
+    const schema = buildCaptureSchema({
+      visibleFields: { contacts: visibleFields.contacts, companies: visibleFields.companies, deals: [] },
+      fieldOptions,
+      scores,
+    })
+
+    const promptText = `You are a CRM data importer for Rollable. The user has uploaded a spreadsheet. Extract contacts and companies from these rows.
+
+${schema.rationale}
 
 ROWS:
 ${rowsText}
@@ -46,18 +96,13 @@ Respond ONLY with valid JSON in this exact format, no other text:
 {
   "contacts": [
     {
-      "full_name": "Full name (required — skip row if missing)",
-      "role": "Job title or null",
-      "email": "email or null",
-      "phone": "phone or null",
-      "company_name": "Company name or null"
+${schema.contactsSchema}
+      "company_name": string or null  // helper to link contact to a company
     }
   ],
   "companies": [
     {
-      "name": "Company name (required — deduplicated list)",
-      "website": "website or null",
-      "industry": "industry or null"
+${schema.companiesSchema}
     }
   ],
   "skipped": 0,
@@ -71,9 +116,13 @@ Rules:
 - If no headers exist, use position heuristics
 - phone: preserve as-is including country codes
 - skipped: integer count of rows excluded
-- Keep notes concise`,
-        },
-      ],
+- Keep notes concise
+${schema.enumGuidance ? `\nEnum guidance:\n${schema.enumGuidance}` : ''}`
+
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: promptText }],
     })
 
     const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
@@ -87,7 +136,19 @@ Rules:
       return NextResponse.json({ error: 'Failed to parse AI response', raw: rawText }, { status: 500 })
     }
 
-    return NextResponse.json(parsed)
+    // ─── Coerce ─────────────────────────────────────────────────────────────
+    const out: SpreadsheetResponse = {
+      contacts:  (parsed.contacts  ?? [])
+        .filter((c: any) => c?.full_name)
+        .map((c: any) => coerceRecordToNarrowedSet('contacts',  c, fieldOptions)),
+      companies: (parsed.companies ?? [])
+        .filter((c: any) => c?.name)
+        .map((c: any) => coerceRecordToNarrowedSet('companies', c, fieldOptions)),
+      skipped:   typeof parsed.skipped === 'number' ? parsed.skipped : 0,
+      notes:     typeof parsed.notes === 'string' ? parsed.notes : '',
+    }
+
+    return NextResponse.json(out)
 
   } catch (error: any) {
     console.error('Spreadsheet capture error:', error)

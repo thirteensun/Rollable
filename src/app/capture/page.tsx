@@ -3,8 +3,41 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { FIELD_REGISTRY, type EntityKey } from '@/lib/entity-fields'
+
+// Build sets of valid registry column names per entity, for filtering
+// extracted records to only DB-known columns before insert/update.
+const REGISTRY_KEYS: Record<EntityKey, Set<string>> = {
+  contacts:  new Set(FIELD_REGISTRY.contacts.map(f => f.key)),
+  companies: new Set(FIELD_REGISTRY.companies.map(f => f.key)),
+  deals:     new Set(FIELD_REGISTRY.deals.map(f => f.key)),
+}
+
+// Pick only registry-defined keys from a record, dropping helpers like
+// company_name (which is used to link, not to store) and any null/empty values.
+// Identity columns (full_name on contacts, name on companies/deals) are also
+// dropped here because the save path sets them explicitly.
+function pickRegistryFields(
+  entity: EntityKey,
+  record: Record<string, any>,
+  exclude: string[] = [],
+): Record<string, any> {
+  const out: Record<string, any> = {}
+  const skip = new Set([...exclude])
+  for (const [k, v] of Object.entries(record)) {
+    if (!REGISTRY_KEYS[entity].has(k)) continue
+    if (skip.has(k)) continue
+    if (v === null || v === undefined || v === '') continue
+    out[k] = v
+  }
+  return out
+}
 
 type Mode = 'choose' | 'image_processing' | 'image_confirm' | 'assistant' | 'sheet_processing' | 'sheet_confirm'
+
+interface ExtractedRecord {
+  [k: string]: any
+}
 
 interface AIResult {
   summary: string
@@ -15,7 +48,13 @@ interface AIResult {
   deal_value?: number
   follow_up_date?: string
   event_type: string
-  creates: { label: string; type: 'contact' | 'deal' | 'task' | 'note' }[]
+  creates: { label: string; type: 'contact' | 'company' | 'deal' | 'task' | 'note' }[]
+  // Registry-keyed fields, populated by /api/capture (server-side coerced)
+  extracted?: {
+    contacts:  ExtractedRecord[]
+    companies: ExtractedRecord[]
+    deals:     ExtractedRecord[]
+  }
 }
 
 interface Message {
@@ -29,12 +68,16 @@ interface SheetContact {
   email?: string | null
   phone?: string | null
   company_name?: string | null
+  // Plus any registry-keyed enrichments from the org's visible_fields
+  [k: string]: any
 }
 
 interface SheetCompany {
   name: string
   website?: string | null
   industry?: string | null
+  // Plus any registry-keyed enrichments
+  [k: string]: any
 }
 
 interface SheetResult {
@@ -171,8 +214,8 @@ export default function CapturePage() {
     setSaving(true)
     const selectedItems = aiResult.creates.filter((_, i) => selectedCreates.includes(i))
     const shouldCreateContact = selectedItems.some(c => c.type === 'contact')
-    const shouldCreateDeal = selectedItems.some(c => c.type === 'deal')
-    const shouldCreateTask = selectedItems.some(c => c.type === 'task')
+    const shouldCreateDeal    = selectedItems.some(c => c.type === 'deal')
+    const shouldCreateTask    = selectedItems.some(c => c.type === 'task')
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
@@ -180,48 +223,150 @@ export default function CapturePage() {
       .from('organisation_members').select('org_id')
       .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle()
     const org_id = membership?.org_id || null
+
+    // Resolve extracted records — prefer server-coerced shape, fall back to
+    // legacy flat envelope if /api/capture is on an older deploy.
+    const extracted = aiResult.extracted ?? {
+      contacts:  aiResult.contacts?.length
+        ? aiResult.contacts
+        : (aiResult.contact_name ? [{ full_name: aiResult.contact_name }] : []),
+      companies: aiResult.company_name ? [{ name: aiResult.company_name }] : [],
+      deals:     aiResult.deal_name
+        ? [{ name: aiResult.deal_name, value: aiResult.deal_value ?? null }]
+        : [],
+    }
+
     try {
-      let company_id = null
-      if (aiResult.company_name) {
-        const { data: existing } = await supabase.from('companies').select('id').eq('user_id', user.id).ilike('name', aiResult.company_name).maybeSingle()
-        company_id = existing?.id
-        if (!company_id) {
-          const { data: newCo } = await supabase.from('companies').insert({ user_id: user.id, name: aiResult.company_name, org_id }).select('id').maybeSingle()
-          company_id = newCo?.id
+      // ─── Companies ────────────────────────────────────────────────────────
+      // Build a name → id map of all extracted companies (used to link contacts/deals)
+      const companyMap: Record<string, string> = {}
+      for (const co of extracted.companies) {
+        if (!co?.name) continue
+        const { data: existing } = await supabase
+          .from('companies').select('id')
+          .eq('user_id', user.id).ilike('name', co.name).maybeSingle()
+        if (existing) {
+          companyMap[co.name.toLowerCase()] = existing.id
+          // Update with any new enrichments (only fields not already populated would be nicer,
+          // but we trust coerced output from server)
+          const enrich = pickRegistryFields('companies', co, ['name'])
+          if (Object.keys(enrich).length > 0) {
+            await supabase.from('companies').update(enrich).eq('id', existing.id)
+          }
+        } else {
+          const insert = { user_id: user.id, org_id, name: co.name, ...pickRegistryFields('companies', co, ['name']) }
+          const { data: newCo } = await supabase.from('companies').insert(insert).select('id').maybeSingle()
+          if (newCo) companyMap[co.name.toLowerCase()] = newCo.id
         }
       }
-      let contact_id = null
-      const allContacts = shouldCreateContact
-        ? (aiResult.contacts?.length ? aiResult.contacts : aiResult.contact_name ? [{ full_name: aiResult.contact_name }] : [])
-        : []
-      for (const c of allContacts) {
-        let cCompanyId = company_id
-        if (c.company_name && c.company_name !== aiResult.company_name) {
-          const { data: existingCo } = await supabase.from('companies').select('id').eq('user_id', user.id).ilike('name', c.company_name).maybeSingle()
-          if (existingCo) { cCompanyId = existingCo.id } else {
-            const { data: newCo } = await supabase.from('companies').insert({ user_id: user.id, name: c.company_name, org_id }).select('id').maybeSingle()
-            cCompanyId = newCo?.id
+
+      // Primary company id (first extracted) — used as fallback link
+      const primaryCompanyName = extracted.companies[0]?.name
+      const primaryCompanyId   = primaryCompanyName ? companyMap[primaryCompanyName.toLowerCase()] : null
+
+      // ─── Contacts ─────────────────────────────────────────────────────────
+      let primaryContactId: string | null = null
+      const contactsToCreate = shouldCreateContact ? extracted.contacts : []
+
+      for (const c of contactsToCreate) {
+        if (!c?.full_name) continue
+
+        // Per-contact company link: if the contact specifies its own company_name
+        // and we haven't already mapped it, look it up / create it.
+        let contactCompanyId: string | null = primaryCompanyId
+        if (c.company_name && c.company_name !== primaryCompanyName) {
+          const lookup = c.company_name.toLowerCase()
+          if (companyMap[lookup]) {
+            contactCompanyId = companyMap[lookup]
+          } else {
+            const { data: existingCo } = await supabase
+              .from('companies').select('id')
+              .eq('user_id', user.id).ilike('name', c.company_name).maybeSingle()
+            if (existingCo) {
+              contactCompanyId = existingCo.id
+              companyMap[lookup] = existingCo.id
+            } else {
+              const { data: newCo } = await supabase.from('companies')
+                .insert({ user_id: user.id, name: c.company_name, org_id })
+                .select('id').maybeSingle()
+              if (newCo) {
+                contactCompanyId = newCo.id
+                companyMap[lookup] = newCo.id
+              }
+            }
           }
         }
-        const { data: existing } = await supabase.from('contacts').select('id').eq('user_id', user.id).ilike('full_name', c.full_name).maybeSingle()
+
+        const enrich = pickRegistryFields('contacts', c, ['full_name'])
+
+        const { data: existing } = await supabase
+          .from('contacts').select('id')
+          .eq('user_id', user.id).ilike('full_name', c.full_name).maybeSingle()
+
         if (existing) {
-          if (!contact_id) contact_id = existing.id
-          await supabase.from('contacts').update({ last_contacted_at: new Date().toISOString(), company_id: cCompanyId || undefined, role: c.role || undefined, email: c.email || undefined, phone: c.phone || undefined }).eq('id', existing.id)
+          await supabase.from('contacts').update({
+            last_contacted_at: new Date().toISOString(),
+            company_id: contactCompanyId || undefined,
+            ...enrich,
+          }).eq('id', existing.id)
+          if (!primaryContactId) primaryContactId = existing.id
         } else {
-          const { data: newContact } = await supabase.from('contacts').insert({ user_id: user.id, full_name: c.full_name, company_id: cCompanyId, role: c.role || null, email: c.email || null, phone: c.phone || null, last_contacted_at: new Date().toISOString(), org_id }).select('id').maybeSingle()
-          if (!contact_id) contact_id = newContact?.id
+          const { data: newContact } = await supabase.from('contacts').insert({
+            user_id: user.id, org_id,
+            full_name: c.full_name,
+            company_id: contactCompanyId,
+            last_contacted_at: new Date().toISOString(),
+            ...enrich,
+          }).select('id').maybeSingle()
+          if (!primaryContactId) primaryContactId = newContact?.id ?? null
         }
       }
-      let deal_id = null
-      if (shouldCreateDeal && aiResult.deal_name) {
-        const { data: newDeal } = await supabase.from('deals').insert({ user_id: user.id, company_id, name: aiResult.deal_name, value: aiResult.deal_value || null, stage: 'lead', last_activity_at: new Date().toISOString(), org_id }).select('id').maybeSingle()
-        deal_id = newDeal?.id
-        if (deal_id && contact_id) await supabase.from('deal_contacts').upsert({ deal_id, contact_id }, { onConflict: 'deal_id,contact_id' })
+
+      // ─── Deal ─────────────────────────────────────────────────────────────
+      let dealId: string | null = null
+      if (shouldCreateDeal && extracted.deals[0]?.name) {
+        const d = extracted.deals[0]
+        const enrich = pickRegistryFields('deals', d, ['name', 'stage'])
+        const { data: newDeal } = await supabase.from('deals').insert({
+          user_id: user.id, org_id,
+          company_id: primaryCompanyId,
+          name: d.name,
+          stage: 'lead',
+          last_activity_at: new Date().toISOString(),
+          ...enrich,
+        }).select('id').maybeSingle()
+        dealId = newDeal?.id ?? null
+        if (dealId && primaryContactId) {
+          await supabase.from('deal_contacts')
+            .upsert({ deal_id: dealId, contact_id: primaryContactId }, { onConflict: 'deal_id,contact_id' })
+        }
       }
-      await supabase.from('events').insert({ user_id: user.id, deal_id, contact_id, company_id, org_id, type: aiResult.event_type || 'meeting', summary: aiResult.summary, ai_confidence: 0.9, metadata: { raw_ai_result: aiResult } })
+
+      // ─── Event log ────────────────────────────────────────────────────────
+      await supabase.from('events').insert({
+        user_id: user.id, org_id,
+        deal_id: dealId, contact_id: primaryContactId, company_id: primaryCompanyId,
+        type: aiResult.event_type || 'meeting',
+        summary: aiResult.summary,
+        ai_confidence: 0.9,
+        metadata: { raw_ai_result: aiResult },
+      })
+
+      // ─── Follow-up task ───────────────────────────────────────────────────
       if (shouldCreateTask && aiResult.follow_up_date) {
-        await supabase.from('tasks').insert({ user_id: user.id, deal_id, contact_id, org_id, title: `Follow up with ${aiResult.contact_name || aiResult.company_name || 'contact'}`, due_date: new Date(aiResult.follow_up_date).toISOString(), ai_generated: true })
+        const followUpName =
+          extracted.contacts[0]?.full_name ??
+          extracted.companies[0]?.name ??
+          'contact'
+        await supabase.from('tasks').insert({
+          user_id: user.id, org_id,
+          deal_id: dealId, contact_id: primaryContactId,
+          title: `Follow up with ${followUpName}`,
+          due_date: new Date(aiResult.follow_up_date).toISOString(),
+          ai_generated: true,
+        })
       }
+
       router.push('/')
       router.refresh()
     } catch (err: any) {
@@ -380,13 +525,17 @@ export default function CapturePage() {
       const companyMap: Record<string, string> = {}
       const chosenCompanies = sheetResult.companies.filter((_, i) => selectedCompanies.includes(i))
       for (const co of chosenCompanies) {
+        const enrich = pickRegistryFields('companies', co, ['name'])
         const { data: existing } = await supabase.from('companies').select('id').eq('user_id', user.id).ilike('name', co.name).maybeSingle()
         if (existing) {
           companyMap[co.name.toLowerCase()] = existing.id
+          if (Object.keys(enrich).length > 0) {
+            await supabase.from('companies').update(enrich).eq('id', existing.id)
+          }
         } else {
           const { data: newCo } = await supabase.from('companies').insert({
             user_id: user.id, org_id, name: co.name,
-            website: co.website || null, industry: co.industry || null,
+            ...enrich,
           }).select('id').maybeSingle()
           if (newCo) companyMap[co.name.toLowerCase()] = newCo.id
         }
@@ -397,19 +546,20 @@ export default function CapturePage() {
       const chosenContacts = sheetResult.contacts.filter((_, i) => selectedContacts.includes(i))
       for (const c of chosenContacts) {
         const company_id = c.company_name ? (companyMap[c.company_name.toLowerCase()] || null) : null
+        const enrich = pickRegistryFields('contacts', c, ['full_name'])
         const { data: existing } = await supabase.from('contacts').select('id').eq('user_id', user.id).ilike('full_name', c.full_name).maybeSingle()
         if (existing) {
           await supabase.from('contacts').update({
             company_id: company_id || undefined,
-            role: c.role || undefined,
-            email: c.email || undefined,
-            phone: c.phone || undefined,
+            ...enrich,
           }).eq('id', existing.id)
           updated++
         } else {
           await supabase.from('contacts').insert({
-            user_id: user.id, org_id, full_name: c.full_name,
-            company_id, role: c.role || null, email: c.email || null, phone: c.phone || null,
+            user_id: user.id, org_id,
+            full_name: c.full_name,
+            company_id,
+            ...enrich,
           })
           created++
         }
