@@ -1,9 +1,15 @@
-import { createAnonSupabaseClient } from '@/lib/org-scope'
-import { notFound } from 'next/navigation'
+import { getUserContext } from '@/lib/org-scope'
+import { getOrgContext } from '@/lib/org-context'
+import { getVisibleFields } from '@/lib/onboarding-inference'
+import { notFound, redirect } from 'next/navigation'
 import CompanyDetailClient from './CompanyDetailClient'
 
 export default async function CompanyDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createAnonSupabaseClient()
+  const userCtx = await getUserContext()
+  if (!userCtx) redirect('/login')
+  if (!userCtx.orgId) redirect('/onboarding')
+
+  const supabase = userCtx.anon
 
   const { data: company, error } = await supabase
     .from('companies')
@@ -13,7 +19,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
 
   if (error || !company) notFound()
 
-  const [{ data: contacts }, { data: deals }, { data: events }] = await Promise.all([
+  const [{ data: contacts }, { data: deals }, { data: events }, orgContext] = await Promise.all([
     supabase
       .from('contacts')
       .select('id, full_name, role, email, phone')
@@ -30,6 +36,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       .eq('company_id', params.id)
       .order('created_at', { ascending: false })
       .limit(30),
+    getOrgContext(userCtx.orgId),
   ])
 
   const dealIds = (deals ?? []).map((d: any) => d.id)
@@ -41,5 +48,16 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
         .order('created_at', { ascending: false })
     : { data: [] }
 
-  return <CompanyDetailClient company={company} contacts={contacts ?? []} deals={deals ?? []} events={events ?? []} tasks={tasks ?? []} />
+  const visibleFields = getVisibleFields(orgContext, 'companies')
+
+  return (
+    <CompanyDetailClient
+      company={company}
+      contacts={contacts ?? []}
+      deals={deals ?? []}
+      events={events ?? []}
+      tasks={tasks ?? []}
+      visibleFields={visibleFields}
+    />
+  )
 }

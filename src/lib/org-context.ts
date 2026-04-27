@@ -1,13 +1,21 @@
 import { createClient } from '@supabase/supabase-js'
+import type { OnboardingScores, VisibleFields } from './onboarding-inference'
 
 export interface OrgContext {
   industry?: string
   cycle_days?: number
   stage_names?: string[]
+  stage_template?: string
   at_risk_days?: number
   team_size?: number
   terminology?: string
   pain_points?: string[]
+  // Onboarding slider system
+  onboarding_scores?: OnboardingScores
+  visible_fields?: VisibleFields
+  // User overrides
+  home_priority?: string
+  analytics_layout?: any
 }
 
 export async function getOrgContext(orgId: string): Promise<OrgContext> {

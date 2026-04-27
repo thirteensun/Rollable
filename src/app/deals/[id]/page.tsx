@@ -1,9 +1,15 @@
-import { createAnonSupabaseClient } from '@/lib/org-scope'
-import { notFound } from 'next/navigation'
+import { getUserContext } from '@/lib/org-scope'
+import { getOrgContext } from '@/lib/org-context'
+import { getVisibleFields } from '@/lib/onboarding-inference'
+import { notFound, redirect } from 'next/navigation'
 import DealDetailClient from './DealDetailClient'
 
 export default async function DealDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createAnonSupabaseClient()
+  const userCtx = await getUserContext()
+  if (!userCtx) redirect('/login')
+  if (!userCtx.orgId) redirect('/onboarding')
+
+  const supabase = userCtx.anon
 
   const { data: deal, error } = await supabase
     .from('deals')
@@ -19,7 +25,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
 
   if (error || !deal) notFound()
 
-  const [{ data: events }, { data: tasks }] = await Promise.all([
+  const [{ data: events }, { data: tasks }, orgContext] = await Promise.all([
     supabase
       .from('events')
       .select('id, type, summary, created_at, metadata')
@@ -32,7 +38,17 @@ export default async function DealDetailPage({ params }: { params: { id: string 
       .eq('deal_id', params.id)
       .order('created_at', { ascending: false })
       .limit(50),
+    getOrgContext(userCtx.orgId),
   ])
 
-  return <DealDetailClient deal={deal} events={events ?? []} tasks={tasks ?? []} />
+  const visibleFields = getVisibleFields(orgContext, 'deals')
+
+  return (
+    <DealDetailClient
+      deal={deal}
+      events={events ?? []}
+      tasks={tasks ?? []}
+      visibleFields={visibleFields}
+    />
+  )
 }

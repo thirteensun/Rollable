@@ -1,9 +1,15 @@
-import { createAnonSupabaseClient } from '@/lib/org-scope'
-import { notFound } from 'next/navigation'
+import { getUserContext } from '@/lib/org-scope'
+import { getOrgContext } from '@/lib/org-context'
+import { getVisibleFields } from '@/lib/onboarding-inference'
+import { notFound, redirect } from 'next/navigation'
 import ContactDetailClient from './ContactDetailClient'
 
 export default async function ContactDetailPage({ params }: { params: { id: string } }) {
-  const supabase = createAnonSupabaseClient()
+  const userCtx = await getUserContext()
+  if (!userCtx) redirect('/login')
+  if (!userCtx.orgId) redirect('/onboarding')
+
+  const supabase = userCtx.anon
 
   const { data: contact, error } = await supabase
     .from('contacts')
@@ -21,7 +27,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
   const deals = dealContacts?.map((dc: any) => dc.deals).filter(Boolean) ?? []
   const dealIds = deals.map((d: any) => d.id)
 
-  const [{ data: events }, { data: contactTasks }, { data: dealTasks }] = await Promise.all([
+  const [{ data: events }, { data: contactTasks }, { data: dealTasks }, orgContext] = await Promise.all([
     supabase
       .from('events')
       .select('id, type, summary, created_at, metadata')
@@ -41,9 +47,19 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
           .is('contact_id', null)
           .order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
+    getOrgContext(userCtx.orgId),
   ])
 
   const allTasks = [...(contactTasks ?? []), ...(dealTasks ?? [])]
+  const visibleFields = getVisibleFields(orgContext, 'contacts')
 
-  return <ContactDetailClient contact={contact} events={events ?? []} deals={deals} tasks={allTasks} />
+  return (
+    <ContactDetailClient
+      contact={contact}
+      events={events ?? []}
+      deals={deals}
+      tasks={allTasks}
+      visibleFields={visibleFields}
+    />
+  )
 }
