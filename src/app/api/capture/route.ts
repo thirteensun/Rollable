@@ -31,6 +31,12 @@ interface CaptureResponse {
     companies: ExtractedCompany[]
     deals:     ExtractedDeal[]
   }
+
+  // Org config — sent so the client can render extracted fields without re-fetching
+  config: {
+    visibleFields: { contacts: string[]; companies: string[]; deals: string[] }
+    fieldOptions:  FieldOptions
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -167,7 +173,7 @@ ${schema.enumGuidance ? `\nEnum guidance:\n${schema.enumGuidance}` : ''}`
     const firstCompany = coerced.companies[0]
     const firstDeal    = coerced.deals[0]
 
-    const envelope: Omit<CaptureResponse, 'extracted'> = {
+    const envelope: Omit<CaptureResponse, 'extracted' | 'config'> = {
       event_type:     parsed.event_type ?? 'note',
       summary:        parsed.summary ?? '',
       contact_name:   firstContact?.full_name ?? null,
@@ -185,7 +191,11 @@ ${schema.enumGuidance ? `\nEnum guidance:\n${schema.enumGuidance}` : ''}`
       creates:        Array.isArray(parsed.creates) ? parsed.creates : [],
     }
 
-    const out: CaptureResponse = { ...envelope, extracted: coerced }
+    const out: CaptureResponse = {
+      ...envelope,
+      extracted: coerced,
+      config: { visibleFields, fieldOptions },
+    }
     return NextResponse.json(out)
 
   } catch (error: any) {

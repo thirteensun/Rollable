@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { FIELD_REGISTRY, type EntityKey } from '@/lib/entity-fields'
+import { FIELD_REGISTRY, type EntityKey, type FieldOptions } from '@/lib/entity-fields'
+import ExtractedFieldList from './ExtractedFieldList'
 
 // Build sets of valid registry column names per entity, for filtering
 // extracted records to only DB-known columns before insert/update.
@@ -33,6 +34,71 @@ function pickRegistryFields(
   return out
 }
 
+// Display-item model for the confirm card. Each item is a togglable pill;
+// entity items also get an editable field list. Tasks/notes still come from
+// Haiku's creates[] because there's no extracted.tasks[] equivalent.
+type DisplayItem =
+  | { kind: 'entity'; entityType: 'contact' | 'company' | 'deal'; recordIndex: number; label: string; selectionKey: string }
+  | { kind: 'create'; createType: 'task' | 'note'; createIndex: number; label: string; selectionKey: string }
+
+function buildDisplayItems(aiResult: AIResult): DisplayItem[] {
+  const items: DisplayItem[] = []
+  const ex = aiResult.extracted
+
+  // Modern path: derive entity pills from extracted[]
+  if (ex) {
+    ex.contacts.forEach((c, i) => {
+      if (!c?.full_name) return
+      items.push({
+        kind: 'entity', entityType: 'contact', recordIndex: i,
+        label: `Contact — ${c.full_name}`,
+        selectionKey: `contact:${i}`,
+      })
+    })
+    ex.companies.forEach((co, i) => {
+      if (!co?.name) return
+      items.push({
+        kind: 'entity', entityType: 'company', recordIndex: i,
+        label: `Company — ${co.name}`,
+        selectionKey: `company:${i}`,
+      })
+    })
+    ex.deals.forEach((d, i) => {
+      if (!d?.name) return
+      items.push({
+        kind: 'entity', entityType: 'deal', recordIndex: i,
+        label: `Deal — ${d.name}`,
+        selectionKey: `deal:${i}`,
+      })
+    })
+  } else {
+    // Legacy fallback: build entity pills from creates[] with synthetic indices
+    // so the existing /api/capture deploy keeps working mid-rollout. No inline
+    // field editor is shown for these (no extracted records to edit).
+    let cIdx = 0, coIdx = 0, dIdx = 0
+    aiResult.creates.forEach((c) => {
+      if (c.type === 'contact')      items.push({ kind: 'entity', entityType: 'contact', recordIndex: cIdx++,  label: c.label, selectionKey: `contact:${cIdx - 1}` })
+      else if (c.type === 'company') items.push({ kind: 'entity', entityType: 'company', recordIndex: coIdx++, label: c.label, selectionKey: `company:${coIdx - 1}` })
+      else if (c.type === 'deal')    items.push({ kind: 'entity', entityType: 'deal',    recordIndex: dIdx++,  label: c.label, selectionKey: `deal:${dIdx - 1}` })
+    })
+  }
+
+  // Tasks and notes from Haiku's creates[] — no extracted parallel for these
+  let tIdx = 0, nIdx = 0
+  aiResult.creates.forEach((c) => {
+    if (c.type === 'task') items.push({ kind: 'create', createType: 'task', createIndex: tIdx++, label: c.label, selectionKey: `task:${tIdx - 1}` })
+    else if (c.type === 'note') items.push({ kind: 'create', createType: 'note', createIndex: nIdx++, label: c.label, selectionKey: `note:${nIdx - 1}` })
+  })
+  return items
+}
+
+// Map entity type → registry plural key
+const ENTITY_PLURAL: Record<'contact' | 'company' | 'deal', EntityKey> = {
+  contact: 'contacts',
+  company: 'companies',
+  deal:    'deals',
+}
+
 type Mode = 'choose' | 'image_processing' | 'image_confirm' | 'assistant' | 'sheet_processing' | 'sheet_confirm'
 
 interface ExtractedRecord {
@@ -54,6 +120,11 @@ interface AIResult {
     contacts:  ExtractedRecord[]
     companies: ExtractedRecord[]
     deals:     ExtractedRecord[]
+  }
+  // Org config — sent so the client can render extracted fields
+  config?: {
+    visibleFields: { contacts: string[]; companies: string[]; deals: string[] }
+    fieldOptions:  FieldOptions
   }
 }
 
@@ -109,7 +180,8 @@ export default function CapturePage() {
   const [processingStep, setProcessingStep] = useState(0)
   const [displayedSummary, setDisplayedSummary] = useState('')
   const [visibleCreates, setVisibleCreates] = useState(0)
-  const [selectedCreates, setSelectedCreates] = useState<number[]>([])
+  // Selection keys: 'contact:0' | 'company:1' | 'deal:0' | 'task:0' | 'note:0'
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [messages, setMessages] = useState<Message[]>([])
   const [inputText, setInputText] = useState('')
   const [isThinking, setIsThinking] = useState(false)
@@ -154,13 +226,15 @@ export default function CapturePage() {
   }, [mode, aiResult])
 
   useEffect(() => {
-    if (mode !== 'image_confirm' || !aiResult?.creates.length) { setVisibleCreates(0); return }
+    if (mode !== 'image_confirm' || !aiResult) { setVisibleCreates(0); return }
+    const items = buildDisplayItems(aiResult)
+    if (items.length === 0) { setVisibleCreates(0); return }
     setVisibleCreates(0)
     let i = 0
     const interval = setInterval(() => {
       i++
       setVisibleCreates(i)
-      if (i >= aiResult.creates.length) clearInterval(interval)
+      if (i >= items.length) clearInterval(interval)
     }, 150)
     return () => clearInterval(interval)
   }, [mode, aiResult])
@@ -201,7 +275,8 @@ export default function CapturePage() {
       if (!response.ok) throw new Error('AI processing failed')
       const result = await response.json()
       setAiResult(result)
-      setSelectedCreates(result.creates.map((_: any, i: number) => i))
+      const items = buildDisplayItems(result)
+      setSelectedItems(new Set(items.map(it => it.selectionKey)))
       setMode('image_confirm')
     } catch {
       setMode('choose')
@@ -212,10 +287,9 @@ export default function CapturePage() {
   const handleImageSave = async () => {
     if (!aiResult) return
     setSaving(true)
-    const selectedItems = aiResult.creates.filter((_, i) => selectedCreates.includes(i))
-    const shouldCreateContact = selectedItems.some(c => c.type === 'contact')
-    const shouldCreateDeal    = selectedItems.some(c => c.type === 'deal')
-    const shouldCreateTask    = selectedItems.some(c => c.type === 'task')
+    const shouldCreateContact = Array.from(selectedItems).some(k => k.startsWith('contact:'))
+    const shouldCreateDeal    = Array.from(selectedItems).some(k => k.startsWith('deal:'))
+    const shouldCreateTask    = Array.from(selectedItems).some(k => k.startsWith('task:'))
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
@@ -226,7 +300,7 @@ export default function CapturePage() {
 
     // Resolve extracted records — prefer server-coerced shape, fall back to
     // legacy flat envelope if /api/capture is on an older deploy.
-    const extracted = aiResult.extracted ?? {
+    const fullExtracted = aiResult.extracted ?? {
       contacts:  aiResult.contacts?.length
         ? aiResult.contacts
         : (aiResult.contact_name ? [{ full_name: aiResult.contact_name }] : []),
@@ -234,6 +308,13 @@ export default function CapturePage() {
       deals:     aiResult.deal_name
         ? [{ name: aiResult.deal_name, value: aiResult.deal_value ?? null }]
         : [],
+    }
+
+    // Filter to only the records whose pill is toggled on
+    const extracted = {
+      contacts:  fullExtracted.contacts .filter((_, i) => selectedItems.has(`contact:${i}`)),
+      companies: fullExtracted.companies.filter((_, i) => selectedItems.has(`company:${i}`)),
+      deals:     fullExtracted.deals    .filter((_, i) => selectedItems.has(`deal:${i}`)),
     }
 
     try {
@@ -753,32 +834,70 @@ export default function CapturePage() {
             </p>
           </div>
 
-          {aiResult.creates.length > 0 && (
+          {(() => {
+            const items = buildDisplayItems(aiResult)
+            if (items.length === 0) return null
+            return (
             <div style={{ marginBottom: '16px' }}>
               <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>I'll create or update</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {aiResult.creates.map((item, i) => {
-                  const selected = selectedCreates.includes(i)
+                {items.map((item, i) => {
+                  const selected = selectedItems.has(item.selectionKey)
                   const visible = i < visibleCreates
+                  const pillType = item.kind === 'entity' ? item.entityType : item.createType
+                  const toggle = () => {
+                    setSelectedItems(prev => {
+                      const next = new Set(prev)
+                      if (next.has(item.selectionKey)) next.delete(item.selectionKey)
+                      else next.add(item.selectionKey)
+                      return next
+                    })
+                  }
                   return (
-                    <div key={i} style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(12px)', transition: 'opacity 0.3s ease, transform 0.3s ease' }}>
-                      <button onClick={() => setSelectedCreates(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])} style={{
+                    <div key={item.selectionKey}
+                      style={{
+                        opacity: visible ? 1 : 0,
+                        transform: visible ? 'translateY(0)' : 'translateY(12px)',
+                        transition: 'opacity 0.3s ease, transform 0.3s ease',
+                      }}
+                    >
+                      <button onClick={toggle} style={{
                         display: 'flex', alignItems: 'center', gap: '12px',
-                        background: selected ? pillColors[item.type]?.bg ?? '#f5f4f0' : '#f5f4f0',
-                        border: selected ? `1px solid ${pillColors[item.type]?.color ?? '#9b9890'}20` : '1px solid rgba(0,0,0,0.08)',
+                        background: selected ? pillColors[pillType]?.bg ?? '#f5f4f0' : '#f5f4f0',
+                        border: selected ? `1px solid ${pillColors[pillType]?.color ?? '#9b9890'}20` : '1px solid rgba(0,0,0,0.08)',
                         borderRadius: '14px', padding: '11px 14px', cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 0.15s ease',
                       }}>
-                        <div style={{ width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, background: selected ? pillColors[item.type]?.color ?? '#9b9890' : 'white', border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
+                        <div style={{ width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, background: selected ? pillColors[pillType]?.color ?? '#9b9890' : 'white', border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
                           {selected && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </div>
-                        <span style={{ fontSize: '14px', fontWeight: 500, color: selected ? pillColors[item.type]?.color ?? '#9b9890' : '#9b9890', transition: 'color 0.15s ease' }}>{item.label}</span>
+                        <span style={{ fontSize: '14px', fontWeight: 500, color: selected ? pillColors[pillType]?.color ?? '#9b9890' : '#9b9890', transition: 'color 0.15s ease' }}>{item.label}</span>
                       </button>
+
+                      {/* Inline field editor for entity items, when toggled on */}
+                      {item.kind === 'entity' && selected && aiResult.extracted && aiResult.config && (
+                        <ExtractedFieldList
+                          entity={ENTITY_PLURAL[item.entityType]}
+                          record={aiResult.extracted[ENTITY_PLURAL[item.entityType]][item.recordIndex] ?? {}}
+                          visibleKeys={aiResult.config.visibleFields[ENTITY_PLURAL[item.entityType]] ?? []}
+                          fieldOptions={aiResult.config.fieldOptions}
+                          onChange={(next) => {
+                            setAiResult(prev => {
+                              if (!prev?.extracted) return prev
+                              const plural = ENTITY_PLURAL[item.entityType]
+                              const arr = [...prev.extracted[plural]]
+                              arr[item.recordIndex] = next
+                              return { ...prev, extracted: { ...prev.extracted, [plural]: arr } }
+                            })
+                          }}
+                        />
+                      )}
                     </div>
                   )
                 })}
               </div>
             </div>
-          )}
+            )
+          })()}
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
             <button onClick={() => setMode('choose')} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: '22px', padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
