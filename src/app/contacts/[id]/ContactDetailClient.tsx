@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createBrowserSupabaseClient } from '@/lib/supabase'
 import FieldGrid from '@/components/FieldGrid'
-import { CONTACT_FIELDS } from '@/lib/entity-fields'
+import { CONTACT_FIELDS, type FieldOptions } from '@/lib/entity-fields'
 
 const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   lead:        { bg: 'rgba(155,152,144,0.1)', text: '#9b9890' },
@@ -52,9 +52,10 @@ interface Props {
   deals: any[]
   tasks: any[]
   visibleFields: string[]
+  fieldOptions: FieldOptions
 }
 
-export default function ContactDetailClient({ contact, events, deals, tasks, visibleFields }: Props) {
+export default function ContactDetailClient({ contact, events, deals, tasks, visibleFields, fieldOptions }: Props) {
   const router = useRouter()
   const supabase = createBrowserSupabaseClient()
 
@@ -179,6 +180,7 @@ export default function ContactDetailClient({ contact, events, deals, tasks, vis
             entity="contacts"
             values={editing ? draft : contact}
             visibleFields={visibleFields}
+            fieldOptions={fieldOptions}
             editing={editing}
             onChange={(key, v) => setDraft(d => ({ ...d, [key]: v }))}
           />

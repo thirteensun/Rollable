@@ -1,6 +1,6 @@
 import { getUserContext } from '@/lib/org-scope'
 import { getOrgContext } from '@/lib/org-context'
-import { getVisibleFields } from '@/lib/onboarding-inference'
+import { getVisibleFields, getFieldOptions } from '@/lib/onboarding-inference'
 import { notFound, redirect } from 'next/navigation'
 import DealDetailClient from './DealDetailClient'
 
@@ -42,6 +42,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
   ])
 
   const visibleFields = getVisibleFields(orgContext, 'deals')
+  const fieldOptions  = { deals: getFieldOptions(orgContext, 'deals') }
 
   return (
     <DealDetailClient
@@ -49,6 +50,7 @@ export default async function DealDetailPage({ params }: { params: { id: string 
       events={events ?? []}
       tasks={tasks ?? []}
       visibleFields={visibleFields}
+      fieldOptions={fieldOptions}
     />
   )
 }

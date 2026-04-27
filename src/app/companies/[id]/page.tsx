@@ -1,6 +1,6 @@
 import { getUserContext } from '@/lib/org-scope'
 import { getOrgContext } from '@/lib/org-context'
-import { getVisibleFields } from '@/lib/onboarding-inference'
+import { getVisibleFields, getFieldOptions } from '@/lib/onboarding-inference'
 import { notFound, redirect } from 'next/navigation'
 import CompanyDetailClient from './CompanyDetailClient'
 
@@ -49,6 +49,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
     : { data: [] }
 
   const visibleFields = getVisibleFields(orgContext, 'companies')
+  const fieldOptions  = { companies: getFieldOptions(orgContext, 'companies') }
 
   return (
     <CompanyDetailClient
@@ -58,6 +59,7 @@ export default async function CompanyDetailPage({ params }: { params: { id: stri
       events={events ?? []}
       tasks={tasks ?? []}
       visibleFields={visibleFields}
+      fieldOptions={fieldOptions}
     />
   )
 }

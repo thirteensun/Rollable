@@ -1,6 +1,6 @@
 import { getUserContext } from '@/lib/org-scope'
 import { getOrgContext } from '@/lib/org-context'
-import { getVisibleFields } from '@/lib/onboarding-inference'
+import { getVisibleFields, getFieldOptions } from '@/lib/onboarding-inference'
 import { notFound, redirect } from 'next/navigation'
 import ContactDetailClient from './ContactDetailClient'
 
@@ -52,6 +52,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
 
   const allTasks = [...(contactTasks ?? []), ...(dealTasks ?? [])]
   const visibleFields = getVisibleFields(orgContext, 'contacts')
+  const fieldOptions  = { contacts: getFieldOptions(orgContext, 'contacts') }
 
   return (
     <ContactDetailClient
@@ -60,6 +61,7 @@ export default async function ContactDetailPage({ params }: { params: { id: stri
       deals={deals}
       tasks={allTasks}
       visibleFields={visibleFields}
+      fieldOptions={fieldOptions}
     />
   )
 }

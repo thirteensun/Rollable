@@ -5,8 +5,10 @@ import {
   type EntityKey,
   type FieldDef,
   type FieldSection,
+  type FieldOptions,
   getVisibleFieldDefs,
   groupBySection,
+  getEffectiveOptions,
   SECTION_LABELS,
 } from '@/lib/entity-fields'
 
@@ -14,6 +16,8 @@ interface FieldGridProps {
   entity:        EntityKey
   values:        Record<string, any>
   visibleFields: string[]
+  /** Org-level enum subset overrides per field. Falls back to registry defaults. */
+  fieldOptions?: FieldOptions
   editing?:      boolean
   onChange?:     (key: string, value: any) => void
   /** When true, in read mode also hide rows whose value is empty.
@@ -27,6 +31,7 @@ export default function FieldGrid({
   entity,
   values,
   visibleFields,
+  fieldOptions,
   editing = false,
   onChange,
   hideEmpty = false,
@@ -66,8 +71,10 @@ export default function FieldGrid({
                 editing ? (
                   <FieldInput
                     key={field.key}
+                    entity={entity}
                     field={field}
                     value={values[field.key]}
+                    fieldOptions={fieldOptions}
                     onChange={v => onChange?.(field.key, v)}
                   />
                 ) : (
@@ -127,10 +134,12 @@ function FieldRow({ field, value }: { field: FieldDef; value: any }) {
 // ─── Edit-mode input ─────────────────────────────────────────────────────────
 
 function FieldInput({
-  field, value, onChange,
+  entity, field, value, fieldOptions, onChange,
 }: {
+  entity: EntityKey
   field: FieldDef
   value: any
+  fieldOptions?: FieldOptions
   onChange: (v: any) => void
 }) {
   const [local, setLocal] = useState<any>(value ?? '')
@@ -142,6 +151,7 @@ function FieldInput({
   const labelStyle: React.CSSProperties = { fontSize: 11, color: '#9b9890', fontWeight: 500 }
 
   if (field.type === 'enum') {
+    const options = getEffectiveOptions(entity, field, fieldOptions)
     return (
       <div style={wrapStyle}>
         <label style={labelStyle}>{field.label}</label>
@@ -151,7 +161,7 @@ function FieldInput({
           style={inputStyle}
         >
           <option value="">—</option>
-          {(field.options ?? []).map(opt => (
+          {options.map(opt => (
             <option key={opt} value={opt}>
               {field.optionLabels?.[opt] ?? prettify(opt)}
             </option>

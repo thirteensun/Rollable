@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { OnboardingScores, VisibleFields } from './onboarding-inference'
+import type { OnboardingScores, VisibleFields, FieldOptionOverrides } from './onboarding-inference'
 
 export interface OrgContext {
   industry?: string
@@ -13,6 +13,7 @@ export interface OrgContext {
   // Onboarding slider system
   onboarding_scores?: OnboardingScores
   visible_fields?: VisibleFields
+  field_options?: FieldOptionOverrides
   // User overrides
   home_priority?: string
   analytics_layout?: any

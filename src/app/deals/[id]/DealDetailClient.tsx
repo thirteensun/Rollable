@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createBrowserSupabaseClient } from '@/lib/supabase'
 import FieldGrid from '@/components/FieldGrid'
-import { DEAL_FIELDS } from '@/lib/entity-fields'
+import { DEAL_FIELDS, type FieldOptions } from '@/lib/entity-fields'
 
 const STAGES = ['lead', 'qualified', 'demo', 'proposal', 'negotiation', 'closed_won', 'closed_lost']
 const STAGE_LABELS: Record<string, string> = {
@@ -53,9 +53,10 @@ interface Props {
   events:        any[]
   tasks:         any[]
   visibleFields: string[]
+  fieldOptions:  FieldOptions
 }
 
-export default function DealDetailClient({ deal, events, tasks, visibleFields }: Props) {
+export default function DealDetailClient({ deal, events, tasks, visibleFields, fieldOptions }: Props) {
   const router = useRouter()
   const supabase = createBrowserSupabaseClient()
 
@@ -224,6 +225,7 @@ export default function DealDetailClient({ deal, events, tasks, visibleFields }:
               entity="deals"
               values={editing ? draft : deal}
               visibleFields={gridVisibleFields}
+              fieldOptions={fieldOptions}
               editing={editing}
               onChange={(key, v) => setDraft(d => ({ ...d, [key]: v }))}
             />

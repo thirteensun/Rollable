@@ -18,8 +18,17 @@ export interface VisibleFields {
   deals:     string[]
 }
 
+// Score-driven enum subsets. Stored on org context, consumed by FieldGrid.
+// Shape mirrors visible_fields: { entity: { fieldKey: subset[] } }
+export interface FieldOptionOverrides {
+  contacts?:  Record<string, string[]>
+  companies?: Record<string, string[]>
+  deals?:     Record<string, string[]>
+}
+
 export interface InferredContext {
   visible_fields:    VisibleFields
+  field_options:     FieldOptionOverrides
   at_risk_days:      number
   stage_template:    string
   pain_points:       string[]
@@ -166,6 +175,54 @@ export function inferFromScores(scores: OnboardingScores): InferredContext {
   const orderedCompanies = ALL_COMPANY_FIELDS.filter(f => companyFields.has(f))
   const orderedDeals     = ALL_DEAL_FIELDS.filter(f => dealFields.has(f))
 
+  // ── field_options ──
+  // Score-driven enum subsets. Returned override is consumed by FieldGrid.
+  // Order within each subset matches the registry superset, so dropdowns stay
+  // visually consistent across orgs.
+
+  // payment_status — driven by pricing_complexity
+  // Low: just paid/unpaid. High: full lifecycle including partial + overdue.
+  const paymentStatus =
+    pricing_complexity <= 2 ? ['none', 'paid'] :
+    pricing_complexity <= 4 ? ['none', 'invoiced', 'paid'] :
+    pricing_complexity <= 6 ? ['none', 'invoiced', 'paid', 'overdue'] :
+                              ['none', 'invoiced', 'partial', 'paid', 'overdue']
+
+  // priority — driven by data_maturity
+  // Low: simple high/medium/low. High: tiered P0-P3 system.
+  const priority =
+    data_maturity <= 2 ? ['high', 'low'] :
+    data_maturity <= 4 ? ['low', 'medium', 'high'] :
+    data_maturity <= 6 ? ['low', 'medium', 'high', 'critical'] :
+                         ['p0', 'p1', 'p2', 'p3']
+
+  // deal_type — driven by buyer_complexity + relationship_driven
+  // Transactional / SMB orgs only do new business. Mature SaaS does full lifecycle.
+  const dealType =
+    buyer_complexity <= 2 && relationship_driven <= 3 ? ['new_business'] :
+    buyer_complexity <= 3 ? ['new_business', 'renewal'] :
+    buyer_complexity <= 5 ? ['new_business', 'expansion', 'renewal', 'upsell'] :
+                            ['new_business', 'expansion', 'renewal', 'upsell', 'cross_sell', 'win_back']
+
+  // seniority_level — driven by buyer_complexity
+  // Solo buyers: junior/senior. Committees: full enterprise ladder.
+  const seniorityLevel =
+    buyer_complexity <= 2 ? ['junior', 'senior'] :
+    buyer_complexity <= 4 ? ['junior', 'mid', 'senior', 'exec'] :
+    buyer_complexity <= 6 ? ['junior', 'mid', 'senior', 'lead', 'exec', 'c_level'] :
+                            ['intern', 'junior', 'mid', 'senior', 'lead', 'exec', 'c_level']
+
+  const field_options: FieldOptionOverrides = {
+    contacts: {
+      seniority_level: seniorityLevel,
+    },
+    deals: {
+      payment_status: paymentStatus,
+      priority:       priority,
+      deal_type:      dealType,
+    },
+  }
+
   return {
     at_risk_days,
     stage_template,
@@ -176,6 +233,7 @@ export function inferFromScores(scores: OnboardingScores): InferredContext {
       companies: orderedCompanies,
       deals:     orderedDeals,
     },
+    field_options,
   }
 }
 
@@ -194,6 +252,7 @@ export function mergeIntoOrgContext(
     pain_points:       inferred.pain_points,
     onboarding_scores: inferred.onboarding_scores,
     visible_fields:    inferred.visible_fields,
+    field_options:     inferred.field_options,
   }
 }
 
@@ -206,6 +265,18 @@ export function getVisibleFields(
   entity: 'contacts' | 'companies' | 'deals',
 ): string[] {
   return orgContext?.visible_fields?.[entity] ?? FALLBACK_FIELDS[entity]
+}
+
+// ─── Helper: get field_options overrides for an entity ────────────────────
+// Returns the per-field option subsets for this org, or {} if none configured.
+// FieldGrid resolves each field's effective options by checking this map first
+// and falling back to the registry's superset.
+
+export function getFieldOptions(
+  orgContext: Record<string, any>,
+  entity: 'contacts' | 'companies' | 'deals',
+): Record<string, string[]> {
+  return orgContext?.field_options?.[entity] ?? {}
 }
 
 // ─── Slider question definitions (used by onboarding + settings UI) ──────────

@@ -48,8 +48,8 @@ export const CONTACT_FIELDS: FieldDef[] = [
     options: ['active', 'inactive', 'do_not_contact'] },
   { key: 'department',         label: 'Department',        type: 'text',     section: 'core' },
   { key: 'seniority_level',    label: 'Seniority',         type: 'enum',     section: 'core',
-    options: ['junior', 'mid', 'senior', 'exec', 'c_level'],
-    optionLabels: { c_level: 'C-level' } },
+    options: ['intern', 'junior', 'mid', 'senior', 'lead', 'exec', 'c_level'],
+    optionLabels: { mid: 'Mid-level', c_level: 'C-level' } },
 
   // meta
   { key: 'linkedin_url',       label: 'LinkedIn',          type: 'url',      section: 'meta' },
@@ -97,9 +97,10 @@ export const DEAL_FIELDS: FieldDef[] = [
     options: ['lead', 'qualified', 'demo', 'proposal', 'negotiation', 'closed_won', 'closed_lost'],
     optionLabels: { closed_won: 'Won', closed_lost: 'Lost' } },
   { key: 'priority',            label: 'Priority',            type: 'enum',    section: 'core',
-    options: ['low', 'medium', 'high'] },
+    options: ['low', 'medium', 'high', 'critical', 'p0', 'p1', 'p2', 'p3'],
+    optionLabels: { p0: 'P0', p1: 'P1', p2: 'P2', p3: 'P3' } },
   { key: 'deal_type',           label: 'Deal type',           type: 'enum',    section: 'core',
-    options: ['new_business', 'expansion', 'renewal', 'upsell'] },
+    options: ['new_business', 'expansion', 'renewal', 'upsell', 'cross_sell', 'win_back'] },
   { key: 'expected_close_date', label: 'Expected close',      type: 'date',    section: 'core' },
   { key: 'next_step',           label: 'Next step',           type: 'text',    section: 'core' },
   { key: 'probability',         label: 'Probability',         type: 'percent', section: 'core' },
@@ -114,7 +115,7 @@ export const DEAL_FIELDS: FieldDef[] = [
   { key: 'invoice_date',         label: 'Invoice date',        type: 'date',     section: 'financial' },
   { key: 'po_date',              label: 'PO date',             type: 'date',     section: 'financial' },
   { key: 'payment_status',       label: 'Payment status',      type: 'enum',     section: 'financial',
-    options: ['none', 'invoiced', 'paid'] },
+    options: ['none', 'invoiced', 'partial', 'paid', 'overdue'] },
 
   // meta
   { key: 'lead_source',         label: 'Lead source',         type: 'text',     section: 'meta' },
@@ -156,4 +157,29 @@ export const SECTION_LABELS: Record<FieldSection, string> = {
   core:      'Details',
   financial: 'Financial',
   meta:      'More',
+}
+
+// ─── Field options override system ───────────────────────────────────────────
+// Org context can specify a narrowed enum subset per field.
+// Shape:
+//   { contacts: { seniority_level: ['junior', 'senior'] },
+//     deals:    { payment_status: ['none', 'paid'] } }
+// FieldGrid uses this to narrow what shows in <select>.
+// Falls back to registry's full superset when no override exists.
+
+export type FieldOptions = Partial<Record<EntityKey, Record<string, string[]>>>
+
+export function getEffectiveOptions(
+  entity: EntityKey,
+  field: FieldDef,
+  fieldOptions?: FieldOptions,
+): string[] {
+  const override = fieldOptions?.[entity]?.[field.key]
+  if (override && override.length > 0) {
+    // Preserve registry order, filter to override set
+    // (this also drops any garbage values that aren't in the registry superset)
+    const supersetSet = new Set(field.options ?? [])
+    return (field.options ?? []).filter(o => override.includes(o) && supersetSet.has(o))
+  }
+  return field.options ?? []
 }
