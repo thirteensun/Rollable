@@ -49,6 +49,8 @@ export default function SettingsClient({
 }: Props) {
   const router = useRouter()
 
+  const isAdmin = role === 'admin'
+
   const [inviteEmail, setInviteEmail]       = useState('')
   const [inviteRole, setInviteRole]         = useState<'manager' | 'member'>('member')
   const [inviting, setInviting]             = useState(false)
@@ -163,8 +165,8 @@ export default function SettingsClient({
           </div>
         </div>
 
-        {/* ── Customise — admin/manager only ── */}
-        {(role === 'admin' || role === 'manager') && (
+        {/* ── Customise — admin only ── */}
+        {isAdmin && (
           <div>
             <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               Customise
@@ -174,6 +176,20 @@ export default function SettingsClient({
                 Describe your sales process — Rollable configures fields, pipeline stages, and AI behaviour automatically.
               </p>
               <SettingsSliders orgId={orgId} orgContext={orgContext} />
+            </div>
+          </div>
+        )}
+
+        {/* ── Customise — read-only notice for non-admins ── */}
+        {!isAdmin && (
+          <div>
+            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              Customise
+            </p>
+            <div style={{ background: 'white', borderRadius: 18, border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px' }}>
+              <p style={{ margin: 0, fontSize: 13, color: '#6b6960', lineHeight: 1.5 }}>
+                Workspace configuration is managed by your admin. Reach out to them if you'd like to adjust pipeline stages, fields, or AI focus areas.
+              </p>
             </div>
           </div>
         )}
@@ -230,7 +246,7 @@ export default function SettingsClient({
         </div>
 
         {/* ── Invite — admin only ── */}
-        {role === 'admin' && (
+        {isAdmin && (
           <div>
             <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
               Invite teammate
