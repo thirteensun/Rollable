@@ -350,7 +350,7 @@ export default function SettingsClient({
         </div>
 
         <p style={{ margin: '0 0 24px', fontSize: 12, color: '#c8c5be', textAlign: 'center' }}>
-          Rollable Prototype 001
+          rollable app
         </p>
       </div>
     </main>

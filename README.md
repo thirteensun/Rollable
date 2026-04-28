@@ -1,4 +1,4 @@
-# Rollable Prototype 001
+# rollable app
 ### Liberate sales and marketing through effortless AI.
 
 A mobile-first AI CRM for SMB sales teams. Snap a photo, record a voice memo, or screenshot a conversation — AI extracts contacts, deals, and tasks automatically.
