@@ -27,6 +27,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   let userName = ''
   let userInitials = ''
   let userRole = ''
+  let userAvatar = ''
 
   try {
     const supabase = await createServerSupabaseClient()
@@ -47,6 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       userName = name
       userInitials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
       userRole = membership?.role || 'rep'
+      userAvatar = user.user_metadata?.avatar_url || ''
     }
   } catch {}
 
@@ -93,7 +95,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className={inter.className}>
         <ProgressBar />
-        <NavVisibilityWrapper userName={userName} userInitials={userInitials} userRole={userRole}>
+        <NavVisibilityWrapper userName={userName} userInitials={userInitials} userRole={userRole} userAvatar={userAvatar}>
           {children}
         </NavVisibilityWrapper>
       </body>

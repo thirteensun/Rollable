@@ -7,9 +7,10 @@ type Props = {
   userName: string
   userInitials: string
   userRole: string
+  userAvatar?: string
 }
 
-export default function SidebarNav({ userName, userInitials, userRole }: Props) {
+export default function SidebarNav({ userName, userInitials, userRole, userAvatar }: Props) {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
@@ -69,8 +70,12 @@ export default function SidebarNav({ userName, userInitials, userRole }: Props) 
       {/* User row */}
       <div style={{ padding: '12px 10px 0', borderTop: '0.5px solid rgba(0,0,0,0.07)' }}>
         <Link href="/settings" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 9, textDecoration: 'none' }} className="sidebar-user-row">
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#1a1a18', color: 'white', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            {userInitials || '?'}
+          <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: '#1a1a18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {userAvatar ? (
+              <img src={userAvatar} alt={userName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+            ) : (
+              <span style={{ color: 'white', fontSize: 10, fontWeight: 600 }}>{userInitials || '?'}</span>
+            )}
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 500, color: '#1a1a18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName || 'Account'}</div>

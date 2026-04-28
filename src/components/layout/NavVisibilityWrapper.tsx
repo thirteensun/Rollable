@@ -11,9 +11,10 @@ interface Props {
   userName: string
   userInitials: string
   userRole: string
+  userAvatar: string
 }
 
-export default function NavVisibilityWrapper({ children, userName, userInitials, userRole }: Props) {
+export default function NavVisibilityWrapper({ children, userName, userInitials, userRole, userAvatar }: Props) {
   const pathname = usePathname()
   const hideNav = HIDDEN_ROUTES.some((route) => pathname.startsWith(route))
 
@@ -26,7 +27,7 @@ export default function NavVisibilityWrapper({ children, userName, userInitials,
   return (
     <>
       <div className="hidden md:block">
-        <SidebarNav userName={userName} userInitials={userInitials} userRole={userRole} />
+        <SidebarNav userName={userName} userInitials={userInitials} userRole={userRole} userAvatar={userAvatar} />
       </div>
       <div
         className="app-shell md:ml-[210px]"
