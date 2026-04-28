@@ -43,33 +43,42 @@ export default function LoginPage() {
       minHeight: '100dvh',
       background: '#f5f4f0',
       display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'space-between',
-      padding: '64px 24px 48px',
+      justifyContent: 'center',
+      padding: '24px',
     }}>
-      <div>
-        {/* Logo */}
-        <div style={{
-          width: '48px', height: '48px', borderRadius: '14px',
-          background: '#1a1a18', display: 'flex', alignItems: 'center',
-          justifyContent: 'center', marginBottom: '32px',
-        }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
-          </svg>
+      <div style={{
+        width: '100%',
+        maxWidth: '420px',
+        margin: '0 auto',
+        minHeight: 'min(760px, calc(100dvh - 48px))',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '40px 0 24px',
+      }}>
+        <div>
+          {/* Logo */}
+          <div style={{
+            width: '48px', height: '48px', borderRadius: '14px',
+            background: '#1a1a18', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', marginBottom: '32px',
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+          </div>
+
+          <h1 style={{ margin: '0 0 8px', fontSize: '28px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.2 }}>
+            Liberate your<br />sales team.
+          </h1>
+          <p style={{ margin: '0 0 40px', fontSize: '16px', color: '#9b9890', lineHeight: 1.5 }}>
+            Snap, speak, or screenshot — AI handles the rest.
+          </p>
         </div>
 
-        <h1 style={{ margin: '0 0 8px', fontSize: '28px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.2 }}>
-          Liberate your<br />sales team.
-        </h1>
-        <p style={{ margin: '0 0 40px', fontSize: '16px', color: '#9b9890', lineHeight: 1.5 }}>
-          Snap, speak, or screenshot — AI handles the rest.
-        </p>
-      </div>
-
-      <div>
-        {!sent ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div>
+          {!sent ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
             {/* OAuth buttons */}
             <button onClick={handleGoogle} style={{
@@ -138,13 +147,13 @@ export default function LoginPage() {
                 No password needed. We'll email you a link.
               </p>
             </form>
-          </div>
-        ) : (
-          <div style={{
-            background: 'white', borderRadius: '18px',
-            border: '0.5px solid rgba(0,0,0,0.07)',
-            padding: '24px', textAlign: 'center',
-          }} className="animate-fade-in-up">
+            </div>
+          ) : (
+            <div style={{
+              background: 'white', borderRadius: '18px',
+              border: '0.5px solid rgba(0,0,0,0.07)',
+              padding: '24px', textAlign: 'center',
+            }} className="animate-fade-in-up">
             <div style={{
               width: '48px', height: '48px', borderRadius: '50%',
               background: '#E1F5EE', display: 'flex', alignItems: 'center',
@@ -168,13 +177,14 @@ export default function LoginPage() {
             }}>
               Use a different email
             </button>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
 
-      <p style={{ margin: 0, fontSize: '12px', color: '#c8c5be', textAlign: 'center' }}>
-        rollable app
-      </p>
+        <p style={{ margin: 0, fontSize: '12px', color: '#c8c5be', textAlign: 'center' }}>
+          rollable app
+        </p>
+      </div>
     </main>
   )
 }
