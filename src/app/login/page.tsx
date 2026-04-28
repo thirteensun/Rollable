@@ -58,11 +58,13 @@ export default function LoginPage() {
       }}>
         <div>
           {/* Logo */}
-          <img
-            src="/rollable-logo.svg"
-            alt="Rollable"
-            style={{ height: 32, width: 'auto', marginBottom: '32px' }}
-          />
+          {/* Logo */}
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 56" height="32" style={{ marginBottom: '32px' }}>
+            <text y="44" fontFamily="Inter, -apple-system, BlinkMacSystemFont, sans-serif" fontSize="40" letterSpacing="-1">
+              <tspan fontWeight="700" fill="#1a1a18">Roll</tspan>
+              <tspan fontWeight="300" fill="#9b9890">able</tspan>
+            </text>
+          </svg>
 
           <h1 style={{ margin: '0 0 8px', fontSize: '28px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.2 }}>
             Liberate your<br />sales team.
