@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import ProgressBar from '@/components/layout/ProgressBar'
 import NavVisibilityWrapper from '@/components/layout/NavVisibilityWrapper'
+import AppHeader from '@/components/layout/AppHeader'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
 
@@ -28,6 +29,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   let userInitials = ''
   let userRole = ''
   let userAvatar = ''
+  let nudgeCount = 0
 
   try {
     const supabase = await createServerSupabaseClient()
@@ -48,7 +50,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       userName = name
       userInitials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
       userRole = membership?.role || 'rep'
-      userAvatar = user.user_metadata?.avatar_url || ''
+      userAvatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? ''
     }
   } catch {}
 
@@ -95,7 +97,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body className={inter.className}>
         <ProgressBar />
-        <NavVisibilityWrapper userName={userName} userInitials={userInitials} userRole={userRole} userAvatar={userAvatar}>
+        <NavVisibilityWrapper
+          userName={userName}
+          userInitials={userInitials}
+          userRole={userRole}
+          userAvatar={userAvatar}
+          appHeader={<AppHeader notificationCount={nudgeCount} />}
+        >
           {children}
         </NavVisibilityWrapper>
       </body>

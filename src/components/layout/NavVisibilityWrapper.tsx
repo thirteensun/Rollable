@@ -12,9 +12,10 @@ interface Props {
   userInitials: string
   userRole: string
   userAvatar: string
+  appHeader?: React.ReactNode
 }
 
-export default function NavVisibilityWrapper({ children, userName, userInitials, userRole, userAvatar }: Props) {
+export default function NavVisibilityWrapper({ children, userName, userInitials, userRole, userAvatar, appHeader }: Props) {
   const pathname = usePathname()
   const hideNav = HIDDEN_ROUTES.some((route) => pathname.startsWith(route))
 
@@ -33,6 +34,7 @@ export default function NavVisibilityWrapper({ children, userName, userInitials,
         className="app-shell md:ml-[210px]"
         style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', overflow: 'hidden' }}
       >
+        {appHeader}
         <main
           className="page-content"
           style={{
