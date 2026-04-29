@@ -189,7 +189,7 @@ function SectionShell({
         overflow: 'hidden',
         marginBottom: 16,
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        ...(stretch ? { flex: 1, display: 'flex', flexDirection: 'column' } : {}),
+        ...(stretch && !collapsed ? { flex: 1, display: 'flex', flexDirection: 'column' } : {}),
       }}
     >
       <div style={{
