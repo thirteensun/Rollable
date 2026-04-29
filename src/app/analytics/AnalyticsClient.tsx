@@ -107,30 +107,44 @@ function FunnelChart({ deals, stageLabels }: { deals: Deal[]; stageLabels: Recor
 function WinLossDonut({ deals }: { deals: Deal[] }) {
   const won = deals.filter(d => d.stage === 'closed_won').length
   const lost = deals.filter(d => d.stage === 'closed_lost').length
-  const total = won + lost; const winRate = total > 0 ? Math.round((won / total) * 100) : 0
-  const r = 38; const cx = 50; const cy = 50; const stroke = 10; const circ = 2 * Math.PI * r
-  const wonArc = total > 0 ? (won / total) * circ : 0; const lostArc = total > 0 ? (lost / total) * circ : 0
+  const total = won + lost
+  const winRate = total > 0 ? Math.round((won / total) * 100) : 0
+  const wonPct = total > 0 ? Math.round((won / total) * 100) : 0
+  const lostPct = total > 0 ? Math.round((lost / total) * 100) : 0
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-      <svg width={100} height={100} viewBox="0 0 100 100">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={C.bg} strokeWidth={stroke} />
-        {total > 0 && <>
-          <motion.circle cx={cx} cy={cy} r={r} fill="none" stroke={C.green} strokeWidth={stroke} strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} initial={{ strokeDasharray: `0 ${circ}` }} animate={{ strokeDasharray: `${wonArc} ${circ}` }} transition={{ duration: 0.9, ease: 'easeOut' }} />
-          <motion.circle cx={cx} cy={cy} r={r} fill="none" stroke={C.red} strokeWidth={stroke} strokeLinecap="round" transform={`rotate(-90 ${cx} ${cy})`} initial={{ strokeDasharray: `0 ${circ}`, strokeDashoffset: 0 }} animate={{ strokeDasharray: `${lostArc} ${circ - lostArc}`, strokeDashoffset: -wonArc }} transition={{ duration: 0.9, ease: 'easeOut', delay: 0.1 }} />
-        </>}
-        <text x={cx} y={cy - 4} textAnchor="middle" fontSize={14} fontWeight={600} fill={C.dark}>{winRate}%</text>
-        <text x={cx} y={cy + 10} textAnchor="middle" fontSize={8} fill={C.faint}>win rate</text>
-      </svg>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {[{ label: 'Won', count: won, color: C.green }, { label: 'Lost', count: lost, color: C.red }].map(x => (
-          <div key={x.label}>
-            <div style={{ fontSize: 11, color: C.faint, marginBottom: 2 }}>{x.label}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 2, background: x.color }} />
-              <span style={{ fontSize: 22, fontWeight: 600, color: C.dark, letterSpacing: '-0.02em' }}>{x.count}</span>
-            </div>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 32, fontWeight: 600, color: '#1a1a18', lineHeight: 1 }}>{winRate}%</div>
+          <div style={{ fontSize: 11, color: '#9b9890', marginTop: 3 }}>win rate · {total} closed</div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, color: '#6b6960' }}>Won</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#1D9E75' }}>{won}</span>
           </div>
-        ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, color: '#6b6960' }}>Lost</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#E24B4A' }}>{lost}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bar */}
+      <div style={{ height: 8, borderRadius: 99, background: 'rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+        {total > 0 && (
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${wonPct}%` }}
+            transition={{ duration: 0.9, ease: 'easeOut' }}
+            style={{ height: '100%', background: '#1D9E75', borderRadius: 99 }}
+          />
+        )}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+        <span style={{ fontSize: 10, color: '#1D9E75' }}>{wonPct}% won</span>
+        <span style={{ fontSize: 10, color: '#E24B4A' }}>{lostPct}% lost</span>
       </div>
     </div>
   )
