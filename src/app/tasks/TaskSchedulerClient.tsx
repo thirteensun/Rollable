@@ -467,6 +467,153 @@ function WeekView({
   )
 }
 
+// ── Day Popover (shows all tasks for a clicked "+N more" day) ─────────────────
+function DayPopover({
+  date,
+  tasks,
+  anchorRect,
+  onClose,
+}: {
+  date: string
+  tasks: Task[]
+  anchorRect: DOMRect
+  onClose: () => void
+}) {
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [onClose])
+
+  const formatted = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  })
+  const today = date === dateKey(new Date())
+
+  // Position the popover near the cell, but keep it on screen
+  const POPOVER_WIDTH = 280
+  const margin = 12
+  let left = anchorRect.left + window.scrollX
+  let top = anchorRect.bottom + window.scrollY + 4
+
+  // Flip horizontally if it would overflow the right edge
+  if (left + POPOVER_WIDTH > window.innerWidth - margin) {
+    left = anchorRect.right + window.scrollX - POPOVER_WIDTH
+  }
+  // Flip vertically if it would overflow bottom
+  const estimatedHeight = Math.min(60 + tasks.length * 40, 360)
+  if (top + estimatedHeight > window.innerHeight + window.scrollY - margin) {
+    top = anchorRect.top + window.scrollY - estimatedHeight - 4
+  }
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'transparent' }}
+      />
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'absolute',
+          top, left,
+          width: POPOVER_WIDTH,
+          maxHeight: 360,
+          background: 'white',
+          borderRadius: 12,
+          border: '0.5px solid rgba(0,0,0,0.08)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          zIndex: 91,
+          display: 'flex', flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{
+          padding: '12px 14px',
+          borderBottom: '0.5px solid rgba(0,0,0,0.06)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>
+              {formatted}
+            </span>
+            {today && (
+              <span style={{
+                fontSize: 9, fontWeight: 600, color: '#4a7a8a',
+                background: 'rgba(74,122,138,0.1)', borderRadius: 4,
+                padding: '2px 6px', letterSpacing: '0.05em',
+              }}>
+                TODAY
+              </span>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              padding: 4, color: '#9b9890', display: 'flex',
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div style={{
+          padding: '8px 10px', overflowY: 'auto', flex: 1,
+          display: 'flex', flexDirection: 'column', gap: 4,
+        }}>
+          {tasks.length === 0 ? (
+            <div style={{ fontSize: 12, color: '#9b9890', padding: '12px 4px', textAlign: 'center' }}>
+              No tasks
+            </div>
+          ) : (
+            tasks.map((t) => {
+              const overdue = isOverdue(t)
+              const done = t.status === 'done'
+              const inProgress = t.status === 'in_progress'
+
+              const bg = overdue ? '#FCEBEB'
+                : inProgress ? '#FAEEDA'
+                : done ? '#E1F5EE'
+                : '#f5f4f0'
+
+              const color = overdue ? '#791F1F'
+                : inProgress ? '#854F0B'
+                : done ? '#085041'
+                : '#1a1a18'
+
+              const accent = overdue ? '#E24B4A'
+                : inProgress ? '#EF9F27'
+                : done ? '#1D9E75'
+                : null
+
+              return (
+                <Link
+                  key={t.id}
+                  href={`/tasks/${t.id}`}
+                  style={{
+                    fontSize: 12, padding: '8px 10px', borderRadius: 6,
+                    background: bg, color: color,
+                    borderLeft: accent ? `2px solid ${accent}` : 'none',
+                    textDecoration: done ? 'line-through' : 'none',
+                    display: 'block',
+                  }}
+                >
+                  {t.title ?? 'Task'}
+                </Link>
+              )
+            })
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── Month View (desktop) — improved calendar ──────────────────────────────────
 function MonthView({
   tasks,
@@ -485,6 +632,11 @@ function MonthView({
   const month = date.getMonth()
   const days = getMonthDays(year, month)
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+  const [popover, setPopover] = useState<{ date: string; rect: DOMRect } | null>(null)
+  const popoverTasks = popover
+    ? tasks.filter((t) => taskDateKey(t) === popover.date).filter(isActive)
+    : []
 
   return (
     <div style={{
@@ -611,15 +763,36 @@ function MonthView({
                 })}
 
                 {activeDayTasks.length > 3 && (
-                  <div style={{ fontSize: 10, color: '#9b9890', paddingLeft: 6 }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setPopover({ date: key, rect })
+                    }}
+                    style={{
+                      fontSize: 10, color: '#6b6960', paddingLeft: 6,
+                      background: 'transparent', border: 'none',
+                      textAlign: 'left', cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
                     +{activeDayTasks.length - 3} more
-                  </div>
+                  </button>
                 )}
               </div>
             </div>
           )
         })}
       </div>
+
+      {popover && (
+        <DayPopover
+          date={popover.date}
+          tasks={popoverTasks}
+          anchorRect={popover.rect}
+          onClose={() => setPopover(null)}
+        />
+      )}
     </div>
   )
 }
