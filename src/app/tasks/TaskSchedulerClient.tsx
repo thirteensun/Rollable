@@ -306,7 +306,7 @@ function KanbanSection({
           <div key={col.key} style={{
             background: 'white', borderRadius: 10,
             border: '0.5px solid rgba(0,0,0,0.06)', padding: 12,
-            maxHeight: 220, display: 'flex', flexDirection: 'column',
+            display: 'flex', flexDirection: 'column',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -317,7 +317,7 @@ function KanbanSection({
               </div>
               <span style={{ fontSize: 11, color: '#9b9890', fontWeight: 500 }}>{col.items.length}</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflowY: 'auto', flex: 1 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {col.items.length === 0 ? (
                 <div style={{ fontSize: 11, color: '#c8c5be', textAlign: 'center', padding: '12px 0' }}>
                   Nothing here
@@ -353,7 +353,7 @@ function WeekView({
   })
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
 
       {weekOffset === 0 && <KanbanSection tasks={weekTasks} onToggle={onToggle} />}
 
@@ -363,7 +363,7 @@ function WeekView({
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, padding: '0 16px 16px', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', gap: 8, padding: '0 16px 16px' }}>
         {days.map((day) => {
           const key = dateKey(day)
           const dayTasks = tasks.filter((t) => taskDateKey(t) === key)
@@ -381,7 +381,7 @@ function WeekView({
                 borderRadius: 12,
                 padding: '12px 8px',
                 display: 'flex', flexDirection: 'column',
-                overflow: 'hidden',
+                minHeight: 200,
                 opacity: past && !today ? 0.7 : 1,
                 cursor: 'pointer',
               }}
@@ -415,7 +415,7 @@ function WeekView({
                 )}
               </div>
 
-              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {dayTasks.map((t) => {
                   const overdue = isOverdue(t)
                   const done = t.status === 'done'
@@ -488,9 +488,10 @@ function MonthView({
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column',
       background: 'white', margin: '14px 16px 16px',
       borderRadius: 12, border: '0.5px solid rgba(0,0,0,0.06)',
+      overflow: 'hidden',
     }}>
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
@@ -508,8 +509,7 @@ function MonthView({
 
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
-        gridAutoRows: 'minmax(0, 1fr)',
-        flex: 1, overflow: 'hidden',
+        gridAutoRows: '110px',
       }}>
         {days.map((day, i) => {
           if (!day) {
@@ -983,11 +983,12 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div style={{
-        height: 56, flexShrink: 0, background: 'white',
+        flexShrink: 0, background: 'white',
         borderBottom: '0.5px solid rgba(0,0,0,0.07)',
-        display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12,
+        display: 'flex', alignItems: 'center', padding: '12px 20px', gap: 12,
+        borderRadius: '14px 14px 0 0',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
           <span style={{ fontSize: 15, fontWeight: 500, color: '#1a1a18' }}>Tasks</span>
@@ -1061,7 +1062,7 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
         </Link>
       </div>
 
-      <div style={{ flex: 1, overflow: 'hidden', background: '#f5f4f0' }}>
+      <div style={{ background: '#f5f4f0', borderRadius: '0 0 14px 14px' }}>
         {view === 'week' ? (
           <WeekView tasks={localTasks} weekOffset={weekOffset} onToggle={toggleTask} onDayClick={handleDayClick} />
         ) : (
