@@ -1204,10 +1204,8 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div style={{
-        flexShrink: 0, background: 'white',
-        borderBottom: '0.5px solid rgba(0,0,0,0.07)',
+        flexShrink: 0, background: 'transparent',
         display: 'flex', alignItems: 'center', padding: '12px 20px', gap: 12,
-        borderRadius: '14px 14px 0 0',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
           <span style={{ fontSize: 15, fontWeight: 500, color: '#1a1a18' }}>Tasks</span>
@@ -1281,7 +1279,7 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
         </Link>
       </div>
 
-      <div style={{ background: '#f5f4f0', borderRadius: '0 0 14px 14px' }}>
+      <div style={{ background: '#f5f4f0' }}>
         {view === 'week' ? (
           <WeekView tasks={localTasks} weekOffset={weekOffset} onMoveStatus={updateTaskStatus} onDayClick={handleDayClick} />
         ) : (
