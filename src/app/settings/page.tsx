@@ -54,12 +54,14 @@ export default async function SettingsPage() {
 
   const name = profile?.full_name || user.email?.split('@')[0] || 'You'
   const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+  const avatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? undefined
 
   return (
     <SettingsClient
       name={name}
       email={user.email || ''}
       initials={initials}
+      avatar={avatar}
       role={role}
       orgName={org?.name || ''}
       orgId={org?.id || ''}

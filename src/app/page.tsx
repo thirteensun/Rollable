@@ -56,11 +56,13 @@ export default async function HomePage() {
 
   const name = profile?.full_name || user.email?.split('@')[0] || 'there'
   const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+  const avatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? undefined
 
   return (
     <HomeClient
       name={name}
       initials={initials}
+      avatar={avatar}
       tasks={tasks ?? []}
       events={events ?? []}
       deals={deals ?? []}
