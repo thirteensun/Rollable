@@ -17,6 +17,7 @@ interface Props {
   name: string
   email: string
   initials: string
+  avatar?: string
   role: string
   orgName: string
   orgId: string
@@ -45,7 +46,7 @@ const planColor: Record<string, string> = {
 }
 
 export default function SettingsClient({
-  name, email, initials, role, orgName, orgId, orgContext, members, plan, seats,
+  name, email, initials, avatar, role, orgName, orgId, orgContext, members, plan, seats,
 }: Props) {
   const router = useRouter()
 
@@ -123,9 +124,12 @@ export default function SettingsClient({
             <div style={{
               width: 52, height: 52, borderRadius: '50%', background: '#1a1a18',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16, fontWeight: 500, color: 'white', flexShrink: 0,
+              fontSize: 16, fontWeight: 500, color: 'white', flexShrink: 0, overflow: 'hidden',
             }}>
-              {initials}
+              {avatar
+                ? <img src={avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+                : initials
+              }
             </div>
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontSize: 16, fontWeight: 500, color: '#1a1a18' }}>{name}</p>

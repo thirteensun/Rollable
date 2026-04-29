@@ -49,6 +49,7 @@ interface Deal {
 interface Props {
   name: string
   initials: string
+  avatar?: string
   tasks: Task[]
   events: Event[]
   deals: Deal[]
@@ -599,7 +600,7 @@ const GREETINGS = [
 ]
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function HomeClient({ name, initials, tasks, events, deals, atRiskDeals, orgName, userRole, homePriority }: Props) {
+export default function HomeClient({ name, initials, avatar, tasks, events, deals, atRiskDeals, orgName, userRole, homePriority }: Props) {
   const greeting = GREETINGS[new Date().getDay() % GREETINGS.length]
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
@@ -642,11 +643,14 @@ export default function HomeClient({ name, initials, tasks, events, deals, atRis
               background: '#1a1a18',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 13, fontWeight: 600, color: '#f5f4f0',
-              cursor: 'pointer',
+              cursor: 'pointer', overflow: 'hidden',
               boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             }}
           >
-            {initials}
+            {avatar
+              ? <img src={avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} referrerPolicy="no-referrer" />
+              : initials
+            }
           </motion.div>
         </Link>
       </div>
