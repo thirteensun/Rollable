@@ -165,7 +165,7 @@ function SlideBody({ visible, children }: { visible: boolean; children: React.Re
 }
 
 function SectionShell({
-  label, badge, badgeColor, link, linkLabel, collapsed, onToggle, children,
+  label, badge, badgeColor, link, linkLabel, collapsed, onToggle, children, stretch,
 }: {
   label: string
   badge?: string
@@ -175,6 +175,7 @@ function SectionShell({
   collapsed: boolean
   onToggle: () => void
   children: React.ReactNode
+  stretch?: boolean
 }) {
   return (
     <motion.div
@@ -188,6 +189,7 @@ function SectionShell({
         overflow: 'hidden',
         marginBottom: 16,
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        ...(stretch ? { flex: 1, display: 'flex', flexDirection: 'column' } : {}),
       }}
     >
       <div style={{
@@ -263,6 +265,7 @@ function AISignalsSection({ collapsed, onToggle }: { collapsed: boolean; onToggl
       badgeColor={badgeColor}
       collapsed={collapsed}
       onToggle={onToggle}
+      stretch
     >
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -434,7 +437,12 @@ function ActivitySection({ events, collapsed, onToggle }: { events: Event[]; col
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
+    const el = scrollRef.current
+    if (!el) return
+    const scroll = () => { el.scrollLeft = el.scrollWidth }
+    // rAF ensures the DOM has painted and scrollWidth is correct
+    const raf = requestAnimationFrame(scroll)
+    return () => cancelAnimationFrame(raf)
   }, [])
 
   const countByDate = useMemo(() => {
@@ -684,25 +692,25 @@ export default function HomeClient({ name, initials, avatar, tasks, events, deal
 
       {/* ── Two-column layout on desktop ── */}
       <div className="md:flex md:gap-5 md:items-start">
-        {/* Left */}
+        {/* Left — Tasks + Activity */}
         <div className="md:flex-1 md:min-w-0">
           <TasksSection
             tasks={tasks}
             collapsed={collapsed.tasks}
             onToggle={() => toggle('tasks')}
           />
-          <AISignalsSection
-            collapsed={collapsed.signals}
-            onToggle={() => toggle('signals')}
-          />
-        </div>
-
-        {/* Right */}
-        <div className="md:flex-1 md:min-w-0">
           <ActivitySection
             events={events}
             collapsed={collapsed.activity}
             onToggle={() => toggle('activity')}
+          />
+        </div>
+
+        {/* Right — Signals alone, stretches to match left height */}
+        <div className="md:flex-1 md:min-w-0 md:self-stretch md:flex md:flex-col">
+          <AISignalsSection
+            collapsed={collapsed.signals}
+            onToggle={() => toggle('signals')}
           />
         </div>
       </div>
@@ -715,6 +723,8 @@ export default function HomeClient({ name, initials, avatar, tasks, events, deal
           .md\\:items-start { align-items: flex-start !important; }
           .md\\:flex-1 { flex: 1 !important; }
           .md\\:min-w-0 { min-width: 0 !important; }
+          .md\\:self-stretch { align-self: stretch !important; }
+          .md\\:flex-col { flex-direction: column !important; }
         }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
