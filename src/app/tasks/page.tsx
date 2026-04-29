@@ -12,9 +12,6 @@ export default async function TasksPage() {
     supabase
       .from('tasks')
       .select('id, title, status, due_date, priority, deal_id, contact_id, created_at')
-      // Fetch all non-done tasks including postponed/cancelled so they render correctly
-      // Calendar still shows them, just styled differently
-      .neq('status', 'done')
       .order('due_date', { ascending: true, nullsFirst: false }),
 
     supabase

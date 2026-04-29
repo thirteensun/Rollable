@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 type Task = {
   id: string
@@ -219,7 +219,13 @@ function TaskChip({
 }
 
 // ── Kanban Card ───────────────────────────────────────────────────────────────
-function KanbanCard({ task, onToggle }: { task: Task; onToggle: (id: string, done: boolean) => void }) {
+function KanbanCard({
+  task,
+  onDragStart,
+}: {
+  task: Task
+  onDragStart: (id: string) => void
+}) {
   const done = task.status === 'done'
   const overdue = isOverdue(task)
   const inProgress = task.status === 'in_progress'
@@ -248,6 +254,8 @@ function KanbanCard({ task, onToggle }: { task: Task; onToggle: (id: string, don
   return (
     <Link
       href={`/tasks/${task.id}`}
+      draggable
+      onDragStart={() => onDragStart(task.id)}
       style={{
         background: bg, borderRadius: 7, padding: '8px 10px',
         textDecoration: 'none', display: 'block',
@@ -273,11 +281,12 @@ function KanbanCard({ task, onToggle }: { task: Task; onToggle: (id: string, don
 // ── Kanban Section ────────────────────────────────────────────────────────────
 function KanbanSection({
   tasks,
-  onToggle,
+  onMove,
 }: {
   tasks: Task[]
-  onToggle: (id: string, done: boolean) => void
+  onMove: (id: string, status: 'todo' | 'in_progress' | 'done') => void
 }) {
+  const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null)
   const todo = tasks.filter(t => !t.status || t.status === 'todo')
   const inProgress = tasks.filter(t => t.status === 'in_progress' || (isOverdue(t) && t.status !== 'done'))
   const done = tasks.filter(t => t.status === 'done')
@@ -303,7 +312,16 @@ function KanbanSection({
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
         {columns.map(col => (
-          <div key={col.key} style={{
+          <div
+            key={col.key}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              if (!draggingTaskId) return
+              onMove(draggingTaskId, col.key as 'todo' | 'in_progress' | 'done')
+              setDraggingTaskId(null)
+            }}
+            style={{
             background: 'white', borderRadius: 10,
             border: '0.5px solid rgba(0,0,0,0.06)', padding: 12,
             display: 'flex', flexDirection: 'column',
@@ -323,7 +341,13 @@ function KanbanSection({
                   Nothing here
                 </div>
               ) : (
-                col.items.map(t => <KanbanCard key={t.id} task={t} onToggle={onToggle} />)
+                col.items.map((t) => (
+                  <KanbanCard
+                    key={t.id}
+                    task={t}
+                    onDragStart={(id) => setDraggingTaskId(id)}
+                  />
+                ))
               )}
             </div>
           </div>
@@ -337,12 +361,12 @@ function KanbanSection({
 function WeekView({
   tasks,
   weekOffset,
-  onToggle,
+  onMoveStatus,
   onDayClick,
 }: {
   tasks: Task[]
   weekOffset: number
-  onToggle: (id: string, done: boolean) => void
+  onMoveStatus: (id: string, status: 'todo' | 'in_progress' | 'done') => void
   onDayClick: (date: string) => void
 }) {
   const days = getWeekDays(weekOffset)
@@ -355,7 +379,7 @@ function WeekView({
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
 
-      {weekOffset === 0 && <KanbanSection tasks={weekTasks} onToggle={onToggle} />}
+      {weekOffset === 0 && <KanbanSection tasks={weekTasks} onMove={onMoveStatus} />}
 
       <div style={{ padding: '14px 16px 6px', flexShrink: 0 }}>
         <div style={{ fontSize: 10, fontWeight: 600, color: '#9b9890', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
@@ -661,7 +685,7 @@ function MonthView({
 
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)',
-        gridAutoRows: '110px',
+        gridAutoRows: '140px',
       }}>
         {days.map((day, i) => {
           if (!day) {
@@ -1120,22 +1144,37 @@ function MobileCalendarView({
 export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
   const isDesktop = useIsDesktop()
   const router = useRouter()
-  const [view, setView] = useState<'week' | 'month'>('month')
-  const [weekOffset, setWeekOffset] = useState(0)
-  const [monthOffset, setMonthOffset] = useState(0)
+  const searchParams = useSearchParams()
+  const [view, setView] = useState<'week' | 'month'>(() => searchParams.get('view') === 'week' ? 'week' : 'month')
+  const [weekOffset, setWeekOffset] = useState(() => Number(searchParams.get('week') ?? 0) || 0)
+  const [monthOffset, setMonthOffset] = useState(() => Number(searchParams.get('month') ?? 0) || 0)
   const [localTasks, setLocalTasks] = useState<Task[]>(tasks)
   const [confirmDate, setConfirmDate] = useState<string | null>(null)
 
-  async function toggleTask(id: string, done: boolean) {
-    setLocalTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: done ? 'done' : 'todo' } : t)))
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams.toString())
+    next.set('view', view)
+    next.set('week', String(weekOffset))
+    next.set('month', String(monthOffset))
+    router.replace(`/tasks?${next.toString()}`, { scroll: false })
+  }, [view, weekOffset, monthOffset, router, searchParams])
+
+  async function updateTaskStatus(id: string, status: 'todo' | 'in_progress' | 'done') {
+    const previous = localTasks.find((t) => t.id === id)?.status
+    setLocalTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)))
     try {
       await fetch(`/api/tasks/${id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: done ? 'done' : 'todo', done }),
+        body: JSON.stringify({ status, done: status === 'done' }),
       })
     } catch {
-      setLocalTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: done ? 'todo' : 'done' } : t)))
+      if (!previous) return
+      setLocalTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: previous } : t)))
     }
+  }
+
+  async function toggleTask(id: string, done: boolean) {
+    await updateTaskStatus(id, done ? 'done' : 'todo')
   }
 
   function handleDayClick(date: string) {
@@ -1237,7 +1276,7 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
 
       <div style={{ background: '#f5f4f0', borderRadius: '0 0 14px 14px' }}>
         {view === 'week' ? (
-          <WeekView tasks={localTasks} weekOffset={weekOffset} onToggle={toggleTask} onDayClick={handleDayClick} />
+          <WeekView tasks={localTasks} weekOffset={weekOffset} onMoveStatus={updateTaskStatus} onDayClick={handleDayClick} />
         ) : (
           <MonthView tasks={localTasks} monthOffset={monthOffset} onToggle={toggleTask} onDayClick={handleDayClick} />
         )}
