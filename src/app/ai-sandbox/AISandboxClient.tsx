@@ -518,8 +518,22 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
 
   return (
     <>
-      <div style={{ height: '100vh' }} />
-      <div style={{ position: 'fixed', top: 0, left: 210, right: 0, bottom: 0, display: 'flex', zIndex: 10, background: C.bg }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        width: '100%',
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: 1080,
+          display: 'flex',
+          minHeight: 'calc(100dvh - 170px)',
+          maxHeight: 'calc(100dvh - 170px)',
+          borderRadius: 14,
+          overflow: 'hidden',
+          border: `0.5px solid ${C.border}`,
+          background: C.bg,
+        }}>
 
         {/* ── Chat ─────────────────────────────────────────────────────── */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.card, minWidth: 0, borderRight: `0.5px solid ${C.border}` }}>
@@ -655,6 +669,7 @@ export default function AISandboxClient({ deals, contacts, tasks }: Props) {
           </div>
         </div>
 
+      </div>
       </div>
 
       <style>{`
