@@ -437,12 +437,12 @@ function ActivitySection({ events, collapsed, onToggle }: { events: Event[]; col
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (collapsed) return
     const el = scrollRef.current
     if (!el) return
-    // setTimeout gives React time to finish rendering the full grid width
     const t = setTimeout(() => { el.scrollLeft = el.scrollWidth }, 50)
     return () => clearTimeout(t)
-  }, [events])
+  }, [events, collapsed])
 
   const countByDate = useMemo(() => {
     const map: Record<string, number> = {}
