@@ -387,7 +387,12 @@ function WeekView({
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, padding: '0 16px 16px' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+        gap: 8,
+        padding: '0 16px 16px',
+      }}>
         {days.map((day) => {
           const key = dateKey(day)
           const dayTasks = tasks.filter((t) => taskDateKey(t) === key)
@@ -399,7 +404,7 @@ function WeekView({
               key={key}
               onClick={() => onDayClick(key)}
               style={{
-                flex: 1,
+                minWidth: 0,
                 background: today ? 'rgba(74,122,138,0.05)' : 'white',
                 border: today ? '0.5px solid rgba(74,122,138,0.25)' : '0.5px solid rgba(0,0,0,0.06)',
                 borderRadius: 12,
@@ -466,6 +471,8 @@ function WeekView({
                       href={`/tasks/${t.id}`}
                       onClick={(e) => e.stopPropagation()}
                       style={{
+                        display: 'block',
+                        minWidth: 0,
                         fontSize: 10, padding: '4px 6px', borderRadius: 5,
                         background: bg, color: color,
                         borderLeft: accent ? `2px solid ${accent}` : 'none',
