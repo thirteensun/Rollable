@@ -9,6 +9,12 @@ import { coerceRecordToNarrowedSet, type FieldOptions } from '@/lib/entity-field
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+// Tuning knobs
+const ROW_CAP        = 500   // hard upper bound — anything bigger, ask user to split
+const BATCH_SIZE     = 30    // rows per Haiku call (safe under the 16k output ceiling)
+const BATCH_PARALLEL = 3     // concurrent batches — keeps total time down without hammering the API
+const MAX_TOKENS     = 16384
+
 interface ExtractedContact {
   full_name: string | null
   company_name?: string | null
@@ -20,11 +26,136 @@ interface ExtractedCompany {
 }
 
 interface SpreadsheetResponse {
-  contacts: ExtractedContact[]
+  contacts:  ExtractedContact[]
   companies: ExtractedCompany[]
-  skipped: number
-  notes: string
+  skipped:   number
+  notes:     string
 }
+
+interface BatchResult {
+  contacts:  ExtractedContact[]
+  companies: ExtractedCompany[]
+  skipped:   number
+  notes:     string
+  truncated: boolean
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Strip ```json fences Haiku occasionally adds even when told not to. */
+function stripJsonFences(s: string): string {
+  return s
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
+    .trim()
+}
+
+/** Run an async mapper over items with bounded concurrency. */
+async function mapWithConcurrency<T, R>(
+  items:    T[],
+  limit:    number,
+  fn:       (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let cursor = 0
+
+  async function worker() {
+    while (cursor < items.length) {
+      const idx = cursor++
+      results[idx] = await fn(items[idx], idx)
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return results
+}
+
+/** Build the prompt for one batch of rows. Schema + rules are stable across batches. */
+function buildBatchPrompt(
+  rows:    any[],
+  schema:  ReturnType<typeof buildCaptureSchema>,
+  batchIx: number,
+  total:   number,
+): string {
+  const rowsText = JSON.stringify(rows, null, 0)
+
+  return `You are a CRM data importer for Rollable. The user has uploaded a spreadsheet — this is batch ${batchIx + 1} of ${total}. Extract contacts and companies from these rows.
+
+${schema.rationale}
+
+ROWS:
+${rowsText}
+
+Respond ONLY with valid JSON in this exact format, no other text, no markdown fences:
+{
+  "contacts": [
+    {
+${schema.contactsSchema}
+      "company_name": string or null
+    }
+  ],
+  "companies": [
+    {
+${schema.companiesSchema}
+    }
+  ],
+  "skipped": 0,
+  "notes": "One sentence describing what was found."
+}
+
+Rules:
+- Only include contacts with a full_name — skip rows with no identifiable person name
+- Deduplicate companies within this batch — list each unique company once
+- Infer column meaning from header names (name, email, company, title, phone, etc.)
+- If no headers exist, use position heuristics
+- phone: preserve as-is including country codes
+- skipped: integer count of rows excluded
+- Keep notes concise
+${schema.enumGuidance ? `\nEnum guidance:\n${schema.enumGuidance}` : ''}`
+}
+
+/** Process one batch through Haiku. Returns raw extracted records + truncation flag. */
+async function processBatch(
+  rows:    any[],
+  schema:  ReturnType<typeof buildCaptureSchema>,
+  batchIx: number,
+  total:   number,
+): Promise<BatchResult> {
+  const prompt = buildBatchPrompt(rows, schema, batchIx, total)
+
+  const response = await anthropic.messages.create({
+    model:      'claude-haiku-4-5-20251001',
+    max_tokens: MAX_TOKENS,
+    messages:   [{ role: 'user', content: prompt }],
+  })
+
+  const truncated = response.stop_reason === 'max_tokens'
+  const rawText   = response.content[0].type === 'text' ? response.content[0].text : ''
+  const cleaned   = stripJsonFences(rawText)
+
+  let parsed: any
+  try {
+    parsed = JSON.parse(cleaned)
+  } catch {
+    console.error(`[capture/spreadsheet] Batch ${batchIx + 1} parse failed. Truncated=${truncated}. Raw:`, rawText.slice(0, 500))
+    throw new Error(
+      truncated
+        ? `Batch ${batchIx + 1} too large — Haiku ran out of tokens. Try a smaller file.`
+        : `Batch ${batchIx + 1} returned invalid JSON.`
+    )
+  }
+
+  return {
+    contacts:  Array.isArray(parsed.contacts)  ? parsed.contacts  : [],
+    companies: Array.isArray(parsed.companies) ? parsed.companies : [],
+    skipped:   typeof parsed.skipped === 'number' ? parsed.skipped : 0,
+    notes:     typeof parsed.notes === 'string'   ? parsed.notes   : '',
+    truncated,
+  }
+}
+
+// ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,8 +179,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No rows provided' }, { status: 400 })
     }
 
-    const capped = rows.slice(0, 200)
-    const rowsText = JSON.stringify(capped, null, 0)
+    if (rows.length > ROW_CAP) {
+      return NextResponse.json({
+        error: `Too many rows (${rows.length}). Please split your file into chunks of ${ROW_CAP} or fewer.`,
+      }, { status: 413 })
+    }
 
     // ─── Org context ────────────────────────────────────────────────────────
     const { data: membership } = await supabase
@@ -78,80 +212,73 @@ export async function POST(request: NextRequest) {
       scores = orgCtx.onboarding_scores
     }
 
-    // Pass through buildCaptureSchema with empty deals (no deals from sheets)
     const schema = buildCaptureSchema({
       visibleFields: { contacts: visibleFields.contacts, companies: visibleFields.companies, deals: [] },
       fieldOptions,
       scores,
     })
 
-    const promptText = `You are a CRM data importer for Rollable. The user has uploaded a spreadsheet. Extract contacts and companies from these rows.
-
-${schema.rationale}
-
-ROWS:
-${rowsText}
-
-Respond ONLY with valid JSON in this exact format, no other text:
-{
-  "contacts": [
-    {
-${schema.contactsSchema}
-      "company_name": string or null  // helper to link contact to a company
+    // ─── Split into batches ─────────────────────────────────────────────────
+    const batches: any[][] = []
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      batches.push(rows.slice(i, i + BATCH_SIZE))
     }
-  ],
-  "companies": [
-    {
-${schema.companiesSchema}
-    }
-  ],
-  "skipped": 0,
-  "notes": "One sentence describing what was found, e.g. '42 contacts from 8 companies extracted. 3 rows skipped (no name).'"
-}
 
-Rules:
-- Only include contacts with a full_name — skip rows with no identifiable person name
-- Deduplicate companies — list each unique company once
-- Infer column meaning from header names (name, email, company, title, phone, etc.)
-- If no headers exist, use position heuristics
-- phone: preserve as-is including country codes
-- skipped: integer count of rows excluded
-- Keep notes concise
-${schema.enumGuidance ? `\nEnum guidance:\n${schema.enumGuidance}` : ''}`
-
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: promptText }],
-    })
-
-    const rawText = response.content[0].type === 'text' ? response.content[0].text : ''
-    const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-
-    let parsed: any
+    // ─── Run batches with bounded concurrency ───────────────────────────────
+    let batchResults: BatchResult[]
     try {
-      parsed = JSON.parse(cleaned)
-    } catch {
-      console.error('Failed to parse Haiku spreadsheet response:', rawText)
-      return NextResponse.json({ error: 'Failed to parse AI response', raw: rawText }, { status: 500 })
+      batchResults = await mapWithConcurrency(
+        batches,
+        BATCH_PARALLEL,
+        (batch, ix) => processBatch(batch, schema, ix, batches.length),
+      )
+    } catch (err: any) {
+      // A single batch failure (parse error / truncation) fails the whole import.
+      // Better to surface clearly than to silently drop rows.
+      return NextResponse.json({ error: err.message ?? 'Batch processing failed' }, { status: 500 })
     }
 
-    // ─── Coerce ─────────────────────────────────────────────────────────────
+    // ─── Merge results ──────────────────────────────────────────────────────
+    const allContacts:   ExtractedContact[] = []
+    const allCompaniesRaw: ExtractedCompany[] = []
+    let totalSkipped = 0
+    let anyTruncated = false
+
+    for (const r of batchResults) {
+      allContacts.push(...r.contacts)
+      allCompaniesRaw.push(...r.companies)
+      totalSkipped += r.skipped
+      if (r.truncated) anyTruncated = true
+    }
+
+    // Dedupe companies across batches by lowercased name
+    const companyMap = new Map<string, ExtractedCompany>()
+    for (const c of allCompaniesRaw) {
+      if (!c?.name) continue
+      const key = c.name.trim().toLowerCase()
+      if (!companyMap.has(key)) companyMap.set(key, c)
+    }
+
+    // ─── Coerce to narrowed field options ───────────────────────────────────
     const out: SpreadsheetResponse = {
-      contacts:  (parsed.contacts  ?? [])
-        .filter((c: any) => c?.full_name)
-        .map((c: any) => coerceRecordToNarrowedSet('contacts',  c, fieldOptions)),
-      companies: (parsed.companies ?? [])
-        .filter((c: any) => c?.name)
-        .map((c: any) => coerceRecordToNarrowedSet('companies', c, fieldOptions)),
-      skipped:   typeof parsed.skipped === 'number' ? parsed.skipped : 0,
-      notes:     typeof parsed.notes === 'string' ? parsed.notes : '',
+      contacts: allContacts
+        .filter(c => c?.full_name)
+        .map(c => coerceRecordToNarrowedSet('contacts', c, fieldOptions)),
+      companies: Array.from(companyMap.values())
+        .map(c => coerceRecordToNarrowedSet('companies', c, fieldOptions)),
+      skipped: totalSkipped,
+      notes: anyTruncated
+        ? `${allContacts.length} contacts from ${companyMap.size} companies extracted across ${batches.length} batches. Some batches were truncated — results may be incomplete.`
+        : `${allContacts.length} contacts from ${companyMap.size} companies extracted across ${batches.length} batches.`,
     }
 
     return NextResponse.json(out)
 
   } catch (error: any) {
-    console.error('Spreadsheet capture error:', error)
-    return NextResponse.json({ error: error.message || 'Spreadsheet capture failed' }, { status: 500 })
+    console.error('[capture/spreadsheet]', error)
+    return NextResponse.json(
+      { error: error.message || 'Spreadsheet capture failed' },
+      { status: 500 }
+    )
   }
 }
