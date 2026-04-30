@@ -4,6 +4,8 @@ import { usePathname } from 'next/navigation'
 import BottomNav from '@/components/layout/BottomNav'
 import SidebarNav from '@/components/layout/SidebarNav'
 
+import SearchModal from '@/components/layout/SearchModal'
+
 const HIDDEN_ROUTES = ['/login', '/onboarding', '/auth']
 
 interface Props {
@@ -27,6 +29,7 @@ export default function NavVisibilityWrapper({ children, userName, userInitials,
   // Normal app pages — full shell with sidebar + bottom nav
   return (
     <>
+      <SearchModal />
       <div className="hidden md:block">
         <SidebarNav userName={userName} userInitials={userInitials} userRole={userRole} userAvatar={userAvatar} />
       </div>
