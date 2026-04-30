@@ -34,10 +34,10 @@ function SliderInput({
       </p>
 
       <div style={{ position: 'relative', marginBottom: 8 }}>
-        <div style={{ height: 4, borderRadius: 2, background: 'rgba(0,0,0,0.07)', position: 'relative' }}>
+        <div style={{ height: 3, borderRadius: 999, background: 'rgba(0,0,0,0.07)', position: 'relative' }}>
           <div style={{
             position: 'absolute', left: 0, top: 0, bottom: 0,
-            width: `${pct}%`, background: '#1a1a18', borderRadius: 2,
+            width: `${pct}%`, background: '#1a1a18', borderRadius: 999,
             transition: 'width 0.1s ease',
           }} />
         </div>
@@ -52,15 +52,15 @@ function SliderInput({
         />
         <div style={{
           display: 'flex', justifyContent: 'space-between',
-          position: 'absolute', top: -3, left: 0, right: 0,
+          position: 'absolute', top: -2, left: 0, right: 0,
           pointerEvents: 'none',
         }}>
           {[1,2,3,4,5,6,7].map(v => (
             <div key={v} style={{
-              width: 10, height: 10, borderRadius: '50%',
+              width: 8, height: 8, borderRadius: '50%',
               background: v <= value ? '#1a1a18' : 'rgba(0,0,0,0.12)',
-              border: v === value ? '2px solid white' : 'none',
-              boxShadow: v === value ? '0 0 0 2px #1a1a18' : 'none',
+              border: v === value ? '1.5px solid white' : 'none',
+              boxShadow: v === value ? '0 0 0 1.5px #1a1a18' : 'none',
               transition: 'all 0.1s ease', flexShrink: 0,
             }} />
           ))}

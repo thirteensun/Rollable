@@ -90,6 +90,10 @@ export default function DealDetailClient({ deal, events, tasks, visibleFields, f
   const showConfirmedRevenue = visibleFields.includes('confirmed_revenue') && deal.confirmed_revenue != null
 
   async function updateStage(newStage: string) {
+    if (newStage === stage) return
+    const confirmed = window.confirm(`Change deal stage to "${STAGE_LABELS[newStage] ?? newStage}"?`)
+    if (!confirmed) return
+
     setStage(newStage)
     await supabase.from('deals').update({ stage: newStage }).eq('id', deal.id)
     router.refresh()
