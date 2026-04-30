@@ -89,7 +89,7 @@ export async function GET() {
       company,
       days: daysSince,
       action_label: 'Log activity',
-      action_href: `/tracking/deals/${deal.id}`,
+      action_href: `/deals/${deal.id}`,
     })
   }
 
@@ -174,7 +174,7 @@ export async function GET() {
       company,
       days: daysUntil,
       action_label: 'Update stage',
-      action_href: `/tracking/deals/${deal.id}`,
+      action_href: `/deals/${deal.id}`,
     })
   }
 
@@ -210,7 +210,7 @@ export async function GET() {
       company,
       days: daysWon,
       action_label: 'Add invoice',
-      action_href: `/tracking/deals/${deal.id}`,
+      action_href: `/deals/${deal.id}`,
     })
   }
 
