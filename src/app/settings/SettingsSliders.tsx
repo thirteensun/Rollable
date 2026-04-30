@@ -33,46 +33,57 @@ function SliderInput({
         {question}
       </p>
 
-      <div style={{ position: 'relative', marginBottom: 8 }}>
-        <div style={{ height: 1, borderRadius: 999, background: 'rgba(0,0,0,0.07)', position: 'relative' }}>
-          <div style={{
-            position: 'absolute', left: 0, top: 0, bottom: 0,
-            width: `${pct}%`, background: '#1a1a18', borderRadius: 999,
-            transition: 'width 0.1s ease',
-          }} />
+      <div style={{ position: 'relative', marginBottom: 10, paddingTop: 26 }}>
+        <div style={{ height: 4, borderRadius: 999, background: 'rgba(0,0,0,0.08)', position: 'relative' }}>
+          <div
+            style={{
+              position: 'absolute',
+              left: `${pct}%`,
+              top: '50%',
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: '#e9e8e5',
+              border: '1px solid rgba(0,0,0,0.2)',
+              transform: 'translate(-50%, -50%)',
+              transition: 'left 0.1s ease',
+            }}
+          />
         </div>
         <input
           type="range" min={1} max={7} step={1} value={value}
           onChange={e => onChange(Number(e.target.value))}
           style={{
-            position: 'absolute', top: -8, left: 0,
+            position: 'absolute', top: 18, left: 0,
             width: '100%', height: 20, opacity: 0,
             cursor: 'pointer', margin: 0,
           }}
         />
-        <div style={{
-          display: 'flex', justifyContent: 'space-between',
-          position: 'absolute', top: -2, left: 0, right: 0,
-          pointerEvents: 'none',
-        }}>
-          {[1,2,3,4,5,6,7].map(v => (
-            <div key={v} style={{
-              width: 8, height: 8, borderRadius: '50%',
-              background: v <= value ? '#1a1a18' : 'rgba(0,0,0,0.12)',
-              border: v === value ? '1.5px solid white' : 'none',
-              boxShadow: v === value ? '0 0 0 1.5px #1a1a18' : 'none',
-              transition: 'all 0.1s ease', flexShrink: 0,
-            }} />
-          ))}
+        <div
+          style={{
+            position: 'absolute',
+            left: `${pct}%`,
+            top: 0,
+            transform: 'translateX(-50%)',
+            pointerEvents: 'none',
+            background: '#1a1a18',
+            color: 'white',
+            borderRadius: 8,
+            fontSize: 12,
+            fontWeight: 600,
+            lineHeight: 1,
+            padding: '6px 9px',
+            minWidth: 28,
+            textAlign: 'center',
+            transition: 'left 0.1s ease',
+          }}
+        >
+          {value}
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
         <span style={{ fontSize: 11, color: '#9b9890', maxWidth: '40%', lineHeight: 1.3 }}>{low}</span>
-        <span style={{
-          fontSize: 12, fontWeight: 600, color: '#1a1a18',
-          background: '#f5f4f0', borderRadius: 6, padding: '2px 10px',
-        }}>{value}</span>
         <span style={{ fontSize: 11, color: '#9b9890', maxWidth: '40%', textAlign: 'right', lineHeight: 1.3 }}>{high}</span>
       </div>
 
