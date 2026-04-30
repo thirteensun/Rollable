@@ -34,7 +34,7 @@ function SliderInput({
       </p>
 
       <div style={{ position: 'relative', marginBottom: 8 }}>
-        <div style={{ height: 3, borderRadius: 999, background: 'rgba(0,0,0,0.07)', position: 'relative' }}>
+        <div style={{ height: 1, borderRadius: 999, background: 'rgba(0,0,0,0.07)', position: 'relative' }}>
           <div style={{
             position: 'absolute', left: 0, top: 0, bottom: 0,
             width: `${pct}%`, background: '#1a1a18', borderRadius: 999,
