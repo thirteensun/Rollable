@@ -26,6 +26,7 @@ function SliderInput({
   onChange: (v: number) => void
 }) {
   const pct = ((value - 1) / 6) * 100
+  const hintText = value <= 2 ? lowHint : value >= 6 ? highHint : ''
 
   return (
     <div style={{ paddingBottom: 20, borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
@@ -87,11 +88,19 @@ function SliderInput({
         <span style={{ fontSize: 11, color: '#9b9890', maxWidth: '40%', textAlign: 'right', lineHeight: 1.3 }}>{high}</span>
       </div>
 
-      {(value <= 2 || value >= 6) && (
-        <p style={{ margin: '8px 0 0', fontSize: 12, color: '#6b6960', lineHeight: 1.4 }}>
-          {value <= 2 ? lowHint : highHint}
+      <div style={{ marginTop: 8, minHeight: 34 }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            color: '#6b6960',
+            lineHeight: 1.4,
+            visibility: hintText ? 'visible' : 'hidden',
+          }}
+        >
+          {hintText || 'placeholder'}
         </p>
-      )}
+      </div>
     </div>
   )
 }
