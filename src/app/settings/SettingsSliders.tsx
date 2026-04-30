@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import {
   ONBOARDING_QUESTIONS,
@@ -106,19 +107,21 @@ function SliderInput({
 }
 
 export default function SettingsSliders({ orgId, orgContext }: Props) {
-  // Restore previous scores or default to 4
-  const saved = orgContext?.onboarding_scores
+  const router = useRouter()
+
+  // Restore previously saved scores from org context, or fall back to defaults
+  const savedScores = orgContext?.onboarding_scores
   const [scores, setScores] = useState<OnboardingScores>({
-    deal_length:         saved?.deal_length         ?? 4,
-    buyer_complexity:    saved?.buyer_complexity     ?? 3,
-    relationship_driven: saved?.relationship_driven  ?? 4,
-    pricing_complexity:  saved?.pricing_complexity   ?? 3,
-    competitiveness:     saved?.competitiveness      ?? 3,
-    data_maturity:       saved?.data_maturity        ?? 3,
+    deal_length:         savedScores?.deal_length         ?? 4,
+    buyer_complexity:    savedScores?.buyer_complexity    ?? 3,
+    relationship_driven: savedScores?.relationship_driven ?? 4,
+    pricing_complexity:  savedScores?.pricing_complexity  ?? 3,
+    competitiveness:     savedScores?.competitiveness     ?? 3,
+    data_maturity:       savedScores?.data_maturity       ?? 3,
   })
-  const [saving, setSaving] = useState(false)
-  const [saved2, setSaved2] = useState(false)
-  const [error, setError] = useState('')
+  const [saving, setSaving]       = useState(false)
+  const [justSaved, setJustSaved] = useState(false)
+  const [error, setError]         = useState('')
 
   const setScore = (key: keyof OnboardingScores, value: number) =>
     setScores(prev => ({ ...prev, [key]: value }))
@@ -136,8 +139,13 @@ export default function SettingsSliders({ orgId, orgContext }: Props) {
         .update({ context: merged })
         .eq('id', orgId)
       if (err) throw err
-      setSaved2(true)
-      setTimeout(() => setSaved2(false), 2500)
+
+      // Refresh server components so visible_fields, field_options, stage_template
+      // pick up the new context everywhere (capture, detail pages, kanban, analytics).
+      router.refresh()
+
+      setJustSaved(true)
+      setTimeout(() => setJustSaved(false), 2500)
     } catch (e: any) {
       setError(e.message || 'Failed to save.')
     } finally {
@@ -207,7 +215,7 @@ export default function SettingsSliders({ orgId, orgContext }: Props) {
         >
           {saving ? 'Saving...' : 'Save changes'}
         </button>
-        {saved2 && (
+        {justSaved && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#1D9E75' }} />
             <span style={{ fontSize: 13, color: '#1D9E75' }}>Saved</span>
