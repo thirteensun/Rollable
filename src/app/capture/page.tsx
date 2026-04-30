@@ -589,78 +589,194 @@ export default function CapturePage() {
       alert(err.message || 'Something went wrong. Please try again.')
     }
   }
+// ─────────────────────────────────────────────────────────────────────────────
+// Replacement for handleSheetSave in src/app/capture/page.tsx
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Fixes three bugs:
+//   1. Supabase errors were silently ignored (only `data` was destructured)
+//   2. No console logging meant nothing showed in DevTools when imports failed
+//   3. Missing org_id was treated as benign — now we surface it
+//
+// Drop this in to replace the existing handleSheetSave function.
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const handleSheetSave = async () => {
-    if (!sheetResult) return
-    setSheetSaving(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSheetSaving(false); return }
-    const { data: membership } = await supabase
-      .from('organisation_members').select('org_id')
-      .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle()
-    const org_id = membership?.org_id || null
+const handleSheetSave = async () => {
+  if (!sheetResult) return
+  setSheetSaving(true)
 
-    try {
-      // Upsert selected companies first, build name→id map
-      const companyMap: Record<string, string> = {}
-      const chosenCompanies = sheetResult.companies.filter((_, i) => selectedCompanies.includes(i))
-      for (const co of chosenCompanies) {
-        const enrich = pickRegistryFields('companies', co, ['name'])
-        const { data: existing } = await supabase.from('companies').select('id').eq('user_id', user.id).ilike('name', co.name).maybeSingle()
-        if (existing) {
-          companyMap[co.name.toLowerCase()] = existing.id
-          if (Object.keys(enrich).length > 0) {
-            await supabase.from('companies').update(enrich).eq('id', existing.id)
-          }
-        } else {
-          const { data: newCo } = await supabase.from('companies').insert({
-            user_id: user.id, org_id, name: co.name,
-            ...enrich,
-          }).select('id').maybeSingle()
-          if (newCo) companyMap[co.name.toLowerCase()] = newCo.id
-        }
-      }
-
-      // Upsert selected contacts
-      let created = 0, updated = 0
-      const chosenContacts = sheetResult.contacts.filter((_, i) => selectedContacts.includes(i))
-      for (const c of chosenContacts) {
-        const company_id = c.company_name ? (companyMap[c.company_name.toLowerCase()] || null) : null
-        const enrich = pickRegistryFields('contacts', c, ['full_name'])
-        const { data: existing } = await supabase.from('contacts').select('id').eq('user_id', user.id).ilike('full_name', c.full_name).maybeSingle()
-        if (existing) {
-          await supabase.from('contacts').update({
-            company_id: company_id || undefined,
-            ...enrich,
-          }).eq('id', existing.id)
-          updated++
-        } else {
-          await supabase.from('contacts').insert({
-            user_id: user.id, org_id,
-            full_name: c.full_name,
-            company_id,
-            ...enrich,
-          })
-          created++
-        }
-      }
-
-      // Log import event
-      await supabase.from('events').insert({
-        user_id: user.id, org_id, type: 'other',
-        summary: `Spreadsheet import: ${created} contacts created, ${updated} updated, ${chosenCompanies.length} companies.`,
-        metadata: { source: 'spreadsheet_import', created, updated, companies: chosenCompanies.length },
-      })
-
-      router.push('/')
-      router.refresh()
-    } catch (err: any) {
-      alert(err.message || 'Failed to save.')
-      setSheetSaving(false)
-    }
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    setSheetSaving(false)
+    alert('Not signed in.')
+    return
   }
 
+  const { data: membership, error: memErr } = await supabase
+    .from('organisation_members').select('org_id')
+    .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle()
+
+  if (memErr) {
+    console.error('[sheet save] membership lookup failed:', memErr)
+    alert(`Could not load your workspace: ${memErr.message}`)
+    setSheetSaving(false)
+    return
+  }
+
+  const org_id = membership?.org_id ?? null
+  if (!org_id) {
+    console.error('[sheet save] no active org_id for user', user.id)
+    alert('No active workspace found. Please re-onboard.')
+    setSheetSaving(false)
+    return
+  }
+
+  // Track failures across the loop so we can show one consolidated error
+  const failures: string[] = []
+  let companiesCreated = 0, companiesUpdated = 0
+  let contactsCreated = 0, contactsUpdated = 0
+
+  try {
+    // ─── Companies ────────────────────────────────────────────────────────
+    const companyMap: Record<string, string> = {}
+    const chosenCompanies = sheetResult.companies.filter((_, i) => selectedCompanies.includes(i))
+
+    for (const co of chosenCompanies) {
+      if (!co?.name) continue
+      const enrich = pickRegistryFields('companies', co, ['name'])
+
+      const { data: existing, error: lookupErr } = await supabase
+        .from('companies').select('id')
+        .eq('user_id', user.id).ilike('name', co.name).maybeSingle()
+
+      if (lookupErr) {
+        console.error('[sheet save] company lookup failed:', co.name, lookupErr)
+        failures.push(`Company lookup ${co.name}: ${lookupErr.message}`)
+        continue
+      }
+
+      if (existing) {
+        companyMap[co.name.toLowerCase()] = existing.id
+        if (Object.keys(enrich).length > 0) {
+          const { error: updErr } = await supabase
+            .from('companies').update(enrich).eq('id', existing.id)
+          if (updErr) {
+            console.error('[sheet save] company update failed:', co.name, enrich, updErr)
+            failures.push(`Update ${co.name}: ${updErr.message}`)
+          } else {
+            companiesUpdated++
+          }
+        }
+      } else {
+        const insert = { user_id: user.id, org_id, name: co.name, ...enrich }
+        const { data: newCo, error: insErr } = await supabase
+          .from('companies').insert(insert).select('id').maybeSingle()
+        if (insErr) {
+          console.error('[sheet save] company insert failed:', insert, insErr)
+          failures.push(`Insert ${co.name}: ${insErr.message}`)
+          continue
+        }
+        if (newCo) {
+          companyMap[co.name.toLowerCase()] = newCo.id
+          companiesCreated++
+        }
+      }
+    }
+
+    // ─── Contacts ─────────────────────────────────────────────────────────
+    const chosenContacts = sheetResult.contacts.filter((_, i) => selectedContacts.includes(i))
+
+    for (const c of chosenContacts) {
+      if (!c?.full_name) continue
+      const company_id = c.company_name ? (companyMap[c.company_name.toLowerCase()] || null) : null
+      const enrich = pickRegistryFields('contacts', c, ['full_name'])
+
+      const { data: existing, error: lookupErr } = await supabase
+        .from('contacts').select('id')
+        .eq('user_id', user.id).ilike('full_name', c.full_name).maybeSingle()
+
+      if (lookupErr) {
+        console.error('[sheet save] contact lookup failed:', c.full_name, lookupErr)
+        failures.push(`Contact lookup ${c.full_name}: ${lookupErr.message}`)
+        continue
+      }
+
+      if (existing) {
+        const { error: updErr } = await supabase.from('contacts').update({
+          company_id: company_id || undefined,
+          ...enrich,
+        }).eq('id', existing.id)
+        if (updErr) {
+          console.error('[sheet save] contact update failed:', c.full_name, enrich, updErr)
+          failures.push(`Update ${c.full_name}: ${updErr.message}`)
+        } else {
+          contactsUpdated++
+        }
+      } else {
+        const insert = {
+          user_id: user.id, org_id,
+          full_name: c.full_name,
+          company_id,
+          ...enrich,
+        }
+        const { error: insErr } = await supabase.from('contacts').insert(insert)
+        if (insErr) {
+          console.error('[sheet save] contact insert failed:', insert, insErr)
+          failures.push(`Insert ${c.full_name}: ${insErr.message}`)
+        } else {
+          contactsCreated++
+        }
+      }
+    }
+
+    // ─── If everything failed, don't redirect ─────────────────────────────
+    const totalAttempted = chosenCompanies.length + chosenContacts.length
+    const totalSucceeded = companiesCreated + companiesUpdated + contactsCreated + contactsUpdated
+    if (totalSucceeded === 0 && totalAttempted > 0) {
+      const msg = failures.length > 0
+        ? `Import failed. First error:\n\n${failures[0]}`
+        : 'Import failed silently — no records were written.'
+      alert(msg)
+      setSheetSaving(false)
+      return
+    }
+
+    // ─── Log import event ─────────────────────────────────────────────────
+    const summaryNote =
+      `Spreadsheet import: ${contactsCreated} contacts created, ${contactsUpdated} updated, ` +
+      `${companiesCreated} companies created, ${companiesUpdated} updated.` +
+      (failures.length ? ` ${failures.length} rows failed.` : '')
+
+    const { error: evErr } = await supabase.from('events').insert({
+      user_id: user.id, org_id, type: 'other',
+      summary: summaryNote,
+      metadata: {
+        source: 'spreadsheet_import',
+        contactsCreated, contactsUpdated, companiesCreated, companiesUpdated,
+        failures: failures.slice(0, 20),  // cap to keep metadata small
+      },
+    })
+    if (evErr) {
+      console.warn('[sheet save] event log failed:', evErr)
+      // Non-fatal — don't block the redirect
+    }
+
+    if (failures.length > 0) {
+      alert(
+        `Imported ${totalSucceeded} of ${totalAttempted} records. ` +
+        `${failures.length} failed — check console for details.`
+      )
+    }
+
+    router.push('/')
+    router.refresh()
+  } catch (err: any) {
+    console.error('[sheet save] unexpected error:', err)
+    alert(err.message || 'Failed to save.')
+    setSheetSaving(false)
+  }
+}
   return (
     <main style={{ background: '#f5f4f0', paddingBottom: '90px', display: 'flex', flexDirection: 'column' }}>
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }}
