@@ -54,6 +54,13 @@ function getInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
+function normalizeWebsiteUrl(website?: string | null) {
+  if (!website) return ''
+  const trimmed = website.trim()
+  if (!trimmed) return ''
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
 interface Props {
   company:       any
   contacts:      any[]
@@ -77,6 +84,7 @@ export default function CompanyDetailClient({
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  const websiteHref = normalizeWebsiteUrl(company.website)
 
   const totalValue = deals.reduce((s, d) => s + (d.value || 0), 0)
 
@@ -143,7 +151,11 @@ export default function CompanyDetailClient({
             <div style={{ flex: 1 }}>
               <h1 style={{ fontSize: 20, fontWeight: 600, color: '#1a1a18', margin: '0 0 2px' }}>{company.name}</h1>
               {company.industry && <p style={{ fontSize: 13, color: '#6b6960', margin: 0 }}>{company.industry}</p>}
-              {company.website && <a href={company.website} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: '#9b9890', textDecoration: 'none' }}>{company.website.replace(/^https?:\/\//, '')}</a>}
+              {websiteHref && (
+                <a href={websiteHref} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: '#9b9890', textDecoration: 'none' }}>
+                  {company.website.replace(/^https?:\/\//i, '')}
+                </a>
+              )}
             </div>
           </div>
           {totalValue > 0 && (

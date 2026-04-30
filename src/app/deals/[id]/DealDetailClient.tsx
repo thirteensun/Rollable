@@ -157,8 +157,27 @@ export default function DealDetailClient({ deal, events, tasks, visibleFields, f
               </div>
             )}
           </div>
-          {deal.companies?.name && <p style={{ fontSize: 13, color: '#9b9890', margin: '0 0 14px' }}>{deal.companies.name}</p>}
-          <div style={{ display: 'flex', gap: 20 }}>
+          {deal.companies?.name && (
+            <Link
+              href={`/companies/${deal.companies.id}`}
+              style={{
+                fontSize: 13,
+                color: '#6b6960',
+                margin: '0 0 14px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                textDecoration: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {deal.companies.name}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M7 17L17 7M17 7H8M17 7v9" />
+              </svg>
+            </Link>
+          )}
+          <div style={{ display: 'flex', gap: 20, marginTop: deal.companies?.name ? 14 : 0 }}>
             <div>
               <p style={{ fontSize: 11, color: '#9b9890', margin: '0 0 2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 {showConfirmedRevenue ? 'Expected' : 'Value'}

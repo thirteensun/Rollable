@@ -37,7 +37,9 @@ export default function NavVisibilityWrapper({ children, userName, userInitials,
         className="app-shell md:ml-[210px]"
         style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', overflow: 'hidden' }}
       >
-        {appHeader}
+        <div className="hidden md:block">
+          {appHeader}
+        </div>
         <main
           className="page-content"
           style={{
