@@ -297,57 +297,105 @@ const QUESTION_GROUPS = [
   { group: 'Strategy', questions: ['What should I focus on today?', 'Draft a follow-up email for my most at-risk deal', 'If I could only close one deal this week, which should it be?', 'What objections should I prepare for my next proposal?', 'Give me a full pipeline health summary'] },
 ]
 
-// ─── Signal card — list-row style, matching home page ────────────────────────
-function SignalCard({ s, onSend, onDismiss, isLast }: {
-  s: Signal; onSend: (msg: string) => void; onDismiss: () => void; isLast: boolean
+// Type label + accent color per signal type
+const SIGNAL_LABEL: Record<Signal['type'], { label: string; color: string }> = {
+  risk:        { label: 'Risk',        color: '#A32D2D' },
+  opportunity: { label: 'Opportunity', color: '#0F6E56' },
+  action:      { label: 'Action',      color: '#854F0B' },
+  info:        { label: 'Info',        color: '#5F5E5A' },
+}
+
+// Quick action presets — same three for any signal with taskActions: true
+const QUICK_ACTIONS = (title: string) => [
+  { label: 'Schedule call', prompt: `Draft a calendar invite for a call about: ${title}` },
+  { label: 'Email',         prompt: `Write a concise email to address: ${title}` },
+  { label: 'Task',          prompt: `Create a follow-up task for: ${title}` },
+]
+
+// Truncate secondary prompt for display on the chip
+function truncateLabel(text: string, max = 26): string {
+  return text.length > max ? text.slice(0, max) + '…' : text
+}
+
+// ─── Signal card — full card with all actions visible (Option B) ─────────────
+function SignalCard({ s, onSend, onDismiss }: {
+  s: Signal; onSend: (msg: string) => void; onDismiss: () => void
 }) {
-  const [expanded, setExpanded] = useState(false)
   const icon = SIGNAL_ICON[s.type]
+  const meta = SIGNAL_LABEL[s.type]
+
+  // Try to extract a value badge from the subtitle (e.g., "€42k · 23d no activity")
+  const valueMatch = s.subtitle.match(/^(€[\d.,]+[km]?)/i)
+  const value = valueMatch ? valueMatch[1] : null
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 10,
-      padding: '11px 0',
-      borderBottom: isLast ? 'none' : '0.5px solid rgba(0,0,0,0.06)',
+      background: C.card,
+      borderRadius: 12,
+      border: `0.5px solid ${C.border}`,
+      padding: '11px 12px',
     }}>
-      {/* Icon square */}
-      <div style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: icon.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={icon.stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          {icon.path}
-        </svg>
-      </div>
-
-      {/* Text + actions */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: C.dark, lineHeight: 1.4, marginBottom: 2 }}>{s.title}</div>
-        <div style={{ fontSize: 11, color: C.faint }}>{s.subtitle}</div>
-        {expanded && (
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>
-            <button onClick={() => { onSend(s.prompt); setExpanded(false) }} style={{ background: C.dark, color: 'white', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
-              Ask AI →
-            </button>
-            {s.secondaryPrompt && (
-              <button onClick={() => { onSend(s.secondaryPrompt!); setExpanded(false) }} style={{ background: 'rgba(0,0,0,0.06)', color: C.muted, border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
-                {s.secondaryPrompt.length > 26 ? s.secondaryPrompt.slice(0, 26) + '…' : s.secondaryPrompt}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Expand + dismiss */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0, marginTop: 2 }}>
-        <button onClick={() => setExpanded(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 3, color: C.faint, display: 'flex', lineHeight: 1 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            {expanded ? <path d="M18 15l-6-6-6 6"/> : <path d="M6 9l6 6 6-6"/>}
+      {/* Header: icon + type label + value + dismiss */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+        <div style={{ width: 22, height: 22, borderRadius: 6, background: icon.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={icon.stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            {icon.path}
           </svg>
-        </button>
-        <button onClick={onDismiss} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 3, color: C.faint, display: 'flex', lineHeight: 1 }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 600, color: meta.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          {meta.label}
+        </span>
+        {value && (
+          <span style={{ fontSize: 11, fontWeight: 600, color: C.dark, marginLeft: 'auto' }}>
+            {value}
+          </span>
+        )}
+        <button
+          onClick={onDismiss}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: C.faint, display: 'flex', lineHeight: 1, marginLeft: value ? 0 : 'auto' }}
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M18 6 6 18M6 6l12 12"/>
           </svg>
         </button>
       </div>
+
+      {/* Title + subtitle */}
+      <div style={{ fontSize: 12, fontWeight: 500, color: C.dark, marginBottom: 2 }}>{s.title}</div>
+      <div style={{ fontSize: 11, color: C.faint, marginBottom: 9 }}>{s.subtitle}</div>
+
+      {/* Primary + secondary CTAs */}
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: s.taskActions ? 7 : 0 }}>
+        <button
+          onClick={() => onSend(s.prompt)}
+          style={{ background: C.dark, color: 'white', border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 11, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          Ask AI →
+        </button>
+        {s.secondaryPrompt && (
+          <button
+            onClick={() => onSend(s.secondaryPrompt!)}
+            style={{ background: 'rgba(0,0,0,0.06)', color: C.muted, border: 'none', borderRadius: 7, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            {truncateLabel(s.secondaryPrompt)}
+          </button>
+        )}
+      </div>
+
+      {/* Quick actions row (call / email / task) */}
+      {s.taskActions && (
+        <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)', paddingTop: 7, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {QUICK_ACTIONS(s.title).map((a, i) => (
+            <button
+              key={i}
+              onClick={() => onSend(a.prompt)}
+              style={{ background: 'transparent', border: '0.5px solid rgba(0,0,0,0.12)', borderRadius: 6, padding: '4px 8px', fontSize: 10.5, color: C.muted, cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -368,9 +416,9 @@ function SignalsPanel({ signals, dismissed, onSend, onDismiss }: {
     )
   }
   return (
-    <div style={{ background: C.card, borderRadius: 14, border: `0.5px solid ${C.border}`, padding: '0 14px' }}>
-      {visible.map((s, idx) => (
-        <SignalCard key={s.id} s={s} isLast={idx === visible.length - 1}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      {visible.map(s => (
+        <SignalCard key={s.id} s={s}
           onSend={onSend} onDismiss={() => onDismiss(s.id)} />
       ))}
     </div>
