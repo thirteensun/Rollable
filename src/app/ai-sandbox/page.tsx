@@ -22,11 +22,18 @@ export default async function AISandboxPage() {
     .order('due_date', { ascending: true })
     .limit(20)
 
+  const { data: companies } = await supabase
+    .from('companies')
+    .select('id, name')
+    .order('updated_at', { ascending: false })
+    .limit(50)
+
   return (
     <AISandboxClient
       deals={deals ?? []}
       contacts={contacts ?? []}
       tasks={tasks ?? []}
+      companies={companies ?? []}
     />
   )
 }
