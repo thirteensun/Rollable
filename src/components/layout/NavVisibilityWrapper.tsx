@@ -1,8 +1,11 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 import BottomNav from '@/components/layout/BottomNav'
 import SidebarNav from '@/components/layout/SidebarNav'
+import AppHeader from '@/components/layout/AppHeader'
+import FeedbackModal from '@/components/FeedbackModal'
 
 import SearchModal from '@/components/layout/SearchModal'
 
@@ -14,10 +17,14 @@ interface Props {
   userInitials: string
   userRole: string
   userAvatar: string
-  appHeader?: React.ReactNode
+  /** Shown on the header bell; wire feedback from this wrapper (layout is a server component). */
+  notificationCount?: number
 }
 
-export default function NavVisibilityWrapper({ children, userName, userInitials, userRole, userAvatar, appHeader }: Props) {
+export default function NavVisibilityWrapper({
+  children, userName, userInitials, userRole, userAvatar, notificationCount = 0,
+}: Props) {
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const pathname = usePathname()
   const hideNav = HIDDEN_ROUTES.some((route) => pathname.startsWith(route))
 
@@ -30,6 +37,7 @@ export default function NavVisibilityWrapper({ children, userName, userInitials,
   return (
     <>
       <SearchModal />
+      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
       <div className="hidden md:block">
         <SidebarNav userName={userName} userInitials={userInitials} userRole={userRole} userAvatar={userAvatar} />
       </div>
@@ -38,7 +46,10 @@ export default function NavVisibilityWrapper({ children, userName, userInitials,
         style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', overflow: 'hidden' }}
       >
         <div className="hidden md:block">
-          {appHeader}
+          <AppHeader
+            notificationCount={notificationCount}
+            onFeedback={() => setFeedbackOpen(true)}
+          />
         </div>
         <main
           className="page-content"
