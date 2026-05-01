@@ -2,6 +2,10 @@
 // Maps six 1-7 slider scores to visible_fields, at_risk_days, stage_template,
 // and AI pain_points. Called from onboarding and settings save.
 // The scores are stored in org context so sliders can be restored.
+//
+// IMPORTANT: every field key here must exist in FIELD_REGISTRY (entity-fields.ts).
+// every value in field_options must be within the registry superset for that field.
+// Run the dev-time guard in entity-fields.ts to catch drift automatically.
 
 export interface OnboardingScores {
   deal_length:         number  // 1=days  → 7=years
@@ -18,8 +22,6 @@ export interface VisibleFields {
   deals:     string[]
 }
 
-// Score-driven enum subsets. Stored on org context, consumed by FieldGrid.
-// Shape mirrors visible_fields: { entity: { fieldKey: subset[] } }
 export interface FieldOptionOverrides {
   contacts?:  Record<string, string[]>
   companies?: Record<string, string[]>
@@ -36,21 +38,27 @@ export interface InferredContext {
 }
 
 // ─── All possible fields per entity (superset) ───────────────────────────────
+// Keys MUST match FIELD_REGISTRY keys in entity-fields.ts exactly.
+// Do NOT include FK links (company_id, contact_id) — those render as entity
+// cards in detail pages, not form fields.
+// Export so entity-fields.ts dev guard can verify them at module load.
 
-const ALL_CONTACT_FIELDS = [
-  'full_name', 'role', 'email', 'phone', 'linkedin_url', 'twitter_url',
-  'company', 'location', 'department', 'seniority_level',
-  'preferred_channel', 'lead_source', 'status',
+export const ALL_CONTACT_FIELDS = [
+  'full_name', 'role', 'email', 'phone',
+  'status', 'department', 'seniority_level',
+  'linkedin_url', 'twitter_url', 'location',
+  'preferred_channel', 'lead_source',
   'last_contacted_at', 'next_followup_date', 'notes',
 ]
 
-const ALL_COMPANY_FIELDS = [
-  'name', 'type', 'industry', 'website', 'linkedin_url',
-  'city', 'country', 'employee_count', 'annual_revenue',
-  'lead_source', 'status', 'tags', 'notes',
+export const ALL_COMPANY_FIELDS = [
+  'name', 'type', 'industry', 'website', 'status',
+  'linkedin_url', 'city', 'country',
+  'employee_count', 'annual_revenue',
+  'lead_source', 'tags', 'notes',
 ]
 
-const ALL_DEAL_FIELDS = [
+export const ALL_DEAL_FIELDS = [
   'name', 'value', 'currency', 'stage', 'priority',
   'deal_type', 'lead_source', 'expected_close_date',
   'probability', 'next_step', 'competitors',
@@ -60,12 +68,13 @@ const ALL_DEAL_FIELDS = [
 ]
 
 // ─── Core fields always shown regardless of scores ───────────────────────────
+// These are the minimum viable field set for each entity.
+// No FK links — company_id/contact_id render separately as linked entity cards.
 
-const CORE_CONTACT_FIELDS  = ['full_name', 'role', 'email', 'phone', 'company', 'status', 'notes']
+const CORE_CONTACT_FIELDS  = ['full_name', 'role', 'email', 'phone', 'status', 'notes']
 const CORE_COMPANY_FIELDS  = ['name', 'industry', 'website', 'type', 'status', 'notes']
 const CORE_DEAL_FIELDS     = ['name', 'value', 'stage', 'expected_close_date', 'notes']
 
-// Entity-keyed fallback used by getVisibleFields when org context is missing
 const FALLBACK_FIELDS: Record<'contacts' | 'companies' | 'deals', string[]> = {
   contacts:  CORE_CONTACT_FIELDS,
   companies: CORE_COMPANY_FIELDS,
@@ -85,39 +94,33 @@ export function inferFromScores(scores: OnboardingScores): InferredContext {
   } = scores
 
   // ── at_risk_days ──
-  // Short deals → risk triggers fast; long deals → more patience
   const at_risk_days =
-    deal_length <= 2 ? 3 :
-    deal_length <= 3 ? 7 :
+    deal_length <= 2 ? 3  :
+    deal_length <= 3 ? 7  :
     deal_length <= 5 ? 14 :
     deal_length <= 6 ? 21 : 30
 
   // ── stage_template ──
   const stage_template =
-    deal_length <= 2 ? 'transactional' :
-    deal_length <= 4 && buyer_complexity <= 3 ? 'smb' :
-    deal_length <= 4 && buyer_complexity >= 4 ? 'saas' :
-    pricing_complexity >= 5 && buyer_complexity >= 5 ? 'enterprise' :
-    buyer_complexity >= 5 ? 'enterprise' :
+    deal_length <= 2                                     ? 'transactional' :
+    deal_length <= 4 && buyer_complexity <= 3            ? 'smb'           :
+    deal_length <= 4 && buyer_complexity >= 4            ? 'saas'          :
+    pricing_complexity >= 5 && buyer_complexity >= 5     ? 'enterprise'    :
+    buyer_complexity >= 5                                ? 'enterprise'    :
     'other'
 
   // ── contact fields ──
   const contactFields = new Set(CORE_CONTACT_FIELDS)
 
-  // Relationship-driven → communication preference matters
   if (relationship_driven >= 4) contactFields.add('preferred_channel')
   if (relationship_driven >= 5) contactFields.add('next_followup_date')
   if (relationship_driven >= 5) contactFields.add('last_contacted_at')
   if (relationship_driven >= 6) contactFields.add('twitter_url')
   if (relationship_driven >= 6) contactFields.add('linkedin_url')
-
-  // Complex buyers → org structure matters
-  if (buyer_complexity >= 4) contactFields.add('department')
-  if (buyer_complexity >= 4) contactFields.add('seniority_level')
-  if (buyer_complexity >= 5) contactFields.add('location')
-
-  // Data maturity → source tracking matters
-  if (data_maturity >= 4) contactFields.add('lead_source')
+  if (buyer_complexity >= 4)    contactFields.add('department')
+  if (buyer_complexity >= 4)    contactFields.add('seniority_level')
+  if (buyer_complexity >= 5)    contactFields.add('location')
+  if (data_maturity >= 4)       contactFields.add('lead_source')
 
   // ── company fields ──
   const companyFields = new Set(CORE_COMPANY_FIELDS)
@@ -138,16 +141,11 @@ export function inferFromScores(scores: OnboardingScores): InferredContext {
   dealFields.add('deal_type')
   dealFields.add('next_step')
 
-  // Data maturity → tracking and source
-  if (data_maturity >= 3) dealFields.add('lead_source')
-  if (data_maturity >= 4) dealFields.add('probability')
-  if (data_maturity >= 5) dealFields.add('tags')
-
-  // Competitive → track competitors
-  if (competitiveness >= 4) dealFields.add('competitors')
-  if (competitiveness >= 5) dealFields.add('loss_reason')
-
-  // Complex pricing → financial fields
+  if (data_maturity >= 3)      dealFields.add('lead_source')
+  if (data_maturity >= 4)      dealFields.add('probability')
+  if (data_maturity >= 5)      dealFields.add('tags')
+  if (competitiveness >= 4)    dealFields.add('competitors')
+  if (competitiveness >= 5)    dealFields.add('loss_reason')
   if (pricing_complexity >= 4) dealFields.add('contracted_value')
   if (pricing_complexity >= 5) dealFields.add('confirmed_revenue')
   if (pricing_complexity >= 5) dealFields.add('invoice_ref')
@@ -155,62 +153,63 @@ export function inferFromScores(scores: OnboardingScores): InferredContext {
   if (pricing_complexity >= 6) dealFields.add('invoice_date')
   if (pricing_complexity >= 6) dealFields.add('po_date')
   if (pricing_complexity >= 6) dealFields.add('payment_status')
-
-  // Long complex deals → close date tracking more important
-  if (deal_length >= 4) dealFields.add('expected_close_date')
+  if (deal_length >= 4)        dealFields.add('expected_close_date')
 
   // ── pain_points for AI ──
   const pain_points: string[] = []
 
-  if (deal_length >= 5)          pain_points.push('deals take a long time to close — watch for stalls')
-  if (buyer_complexity >= 5)     pain_points.push('multiple stakeholders involved — stakeholder mapping is critical')
-  if (relationship_driven >= 5)  pain_points.push('relationship quality drives outcomes — flag relationship decay early')
-  if (pricing_complexity >= 5)   pain_points.push('pricing is complex and custom — track contracted vs invoiced value')
-  if (competitiveness >= 5)      pain_points.push('highly competitive deals — win/loss analysis is important')
-  if (data_maturity <= 2)        pain_points.push('team is early on data habits — keep prompts simple and actionable')
-  if (data_maturity >= 6)        pain_points.push('team is analytically mature — surface detailed pipeline metrics')
+  if (deal_length >= 5)         pain_points.push('deals take a long time to close — watch for stalls')
+  if (buyer_complexity >= 5)    pain_points.push('multiple stakeholders involved — stakeholder mapping is critical')
+  if (relationship_driven >= 5) pain_points.push('relationship quality drives outcomes — flag relationship decay early')
+  if (pricing_complexity >= 5)  pain_points.push('pricing is complex and custom — track contracted vs invoiced value')
+  if (competitiveness >= 5)     pain_points.push('highly competitive deals — win/loss analysis is important')
+  if (data_maturity <= 2)       pain_points.push('team is early on data habits — keep prompts simple and actionable')
+  if (data_maturity >= 6)       pain_points.push('team is analytically mature — surface detailed pipeline metrics')
 
   // ── preserve field order from ALL_* arrays ──
-  const orderedContacts  = ALL_CONTACT_FIELDS.filter(f => contactFields.has(f))
-  const orderedCompanies = ALL_COMPANY_FIELDS.filter(f => companyFields.has(f))
-  const orderedDeals     = ALL_DEAL_FIELDS.filter(f => dealFields.has(f))
+  const orderedContacts  = ALL_CONTACT_FIELDS .filter(f => contactFields.has(f))
+  const orderedCompanies = ALL_COMPANY_FIELDS .filter(f => companyFields.has(f))
+  const orderedDeals     = ALL_DEAL_FIELDS    .filter(f => dealFields.has(f))
 
-  // ── field_options ──
-  // Score-driven enum subsets. Returned override is consumed by FieldGrid.
-  // Order within each subset matches the registry superset, so dropdowns stay
-  // visually consistent across orgs.
+  // ── field_options ──────────────────────────────────────────────────────────
+  // Score-driven enum subsets consumed by FieldGrid + Haiku prompt.
+  // ALL values here must exist in entity-fields.ts registry superset for
+  // that field — the dev guard will warn if they drift.
 
-  // payment_status — driven by pricing_complexity
-  // Low: just paid/unpaid. High: full lifecycle including partial + overdue.
-  const paymentStatus =
+  // deals.payment_status — DB: none, invoiced, partial, paid, overdue
+  const paymentStatus: string[] =
     pricing_complexity <= 2 ? ['none', 'paid'] :
     pricing_complexity <= 4 ? ['none', 'invoiced', 'paid'] :
     pricing_complexity <= 6 ? ['none', 'invoiced', 'paid', 'overdue'] :
                               ['none', 'invoiced', 'partial', 'paid', 'overdue']
 
-  // priority — driven by data_maturity
-  // Low: simple high/medium/low. High: tiered P0-P3 system.
-  const priority =
+  // deals.priority — DB: low, medium, high, critical, p0, p1, p2, p3
+  const priority: string[] =
     data_maturity <= 2 ? ['high', 'low'] :
     data_maturity <= 4 ? ['low', 'medium', 'high'] :
     data_maturity <= 6 ? ['low', 'medium', 'high', 'critical'] :
                          ['p0', 'p1', 'p2', 'p3']
 
-  // deal_type — driven by buyer_complexity + relationship_driven
-  // Transactional / SMB orgs only do new business. Mature SaaS does full lifecycle.
-  const dealType =
+  // deals.deal_type — DB: new_business, expansion, renewal, upsell, cross_sell, win_back
+  const dealType: string[] =
     buyer_complexity <= 2 && relationship_driven <= 3 ? ['new_business'] :
     buyer_complexity <= 3 ? ['new_business', 'renewal'] :
     buyer_complexity <= 5 ? ['new_business', 'expansion', 'renewal', 'upsell'] :
                             ['new_business', 'expansion', 'renewal', 'upsell', 'cross_sell', 'win_back']
 
-  // seniority_level — driven by buyer_complexity
-  // Solo buyers: junior/senior. Committees: full enterprise ladder.
-  const seniorityLevel =
+  // contacts.seniority_level — DB: intern, junior, mid, senior, lead, exec, c_level
+  const seniorityLevel: string[] =
     buyer_complexity <= 2 ? ['junior', 'senior'] :
     buyer_complexity <= 4 ? ['junior', 'mid', 'senior', 'exec'] :
     buyer_complexity <= 6 ? ['junior', 'mid', 'senior', 'lead', 'exec', 'c_level'] :
                             ['intern', 'junior', 'mid', 'senior', 'lead', 'exec', 'c_level']
+
+  // contacts.lead_source — DB: referral, inbound, cold_outreach, event, linkedin, partner, website, other
+  // companies.lead_source — DB: referral, inbound, cold_outreach, event, partner, other
+  // deals.lead_source    — DB: referral, inbound, cold_outreach, event, partner, other
+  // Not narrowed by score — all orgs see the full allowed set. Could be
+  // score-driven in future (e.g. data_maturity drives granularity).
+  // No entry here = FieldGrid falls back to registry superset (correct behaviour).
 
   const field_options: FieldOptionOverrides = {
     contacts: {
@@ -218,9 +217,10 @@ export function inferFromScores(scores: OnboardingScores): InferredContext {
     },
     deals: {
       payment_status: paymentStatus,
-      priority:       priority,
+      priority,
       deal_type:      dealType,
     },
+    // companies: no narrowing currently — all fields use registry superset
   }
 
   return {
@@ -238,8 +238,8 @@ export function inferFromScores(scores: OnboardingScores): InferredContext {
 }
 
 // ─── Helper: merge inferred context into existing org context ─────────────────
-// Preserves fields the user may have manually overridden in settings
-// (analytics_layout, terminology, home_priority)
+// Preserves fields the user may have manually overridden
+// (analytics_layout, terminology, home_priority).
 
 export function mergeIntoOrgContext(
   existing: Record<string, any>,
@@ -257,8 +257,6 @@ export function mergeIntoOrgContext(
 }
 
 // ─── Helper: get visible fields for an entity with fallback ──────────────────
-// FIX: previously returned CORE_DEAL_FIELDS for every entity. Now uses
-// FALLBACK_FIELDS keyed by entity so contacts and companies fall back correctly.
 
 export function getVisibleFields(
   orgContext: Record<string, any>,
@@ -267,10 +265,7 @@ export function getVisibleFields(
   return orgContext?.visible_fields?.[entity] ?? FALLBACK_FIELDS[entity]
 }
 
-// ─── Helper: get field_options overrides for an entity ────────────────────
-// Returns the per-field option subsets for this org, or {} if none configured.
-// FieldGrid resolves each field's effective options by checking this map first
-// and falling back to the registry's superset.
+// ─── Helper: get field_options overrides for an entity ───────────────────────
 
 export function getFieldOptions(
   orgContext: Record<string, any>,
