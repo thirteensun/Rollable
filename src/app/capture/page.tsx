@@ -589,19 +589,7 @@ export default function CapturePage() {
       alert(err.message || 'Something went wrong. Please try again.')
     }
   }
-// ─────────────────────────────────────────────────────────────────────────────
-// Replacement for handleSheetSave in src/app/capture/page.tsx
-// ─────────────────────────────────────────────────────────────────────────────
-//
-// Fixes three bugs:
-//   1. Supabase errors were silently ignored (only `data` was destructured)
-//   2. No console logging meant nothing showed in DevTools when imports failed
-//   3. Missing org_id was treated as benign — now we surface it
-//
-// Drop this in to replace the existing handleSheetSave function.
-// ─────────────────────────────────────────────────────────────────────────────
-
-const handleSheetSave = async () => {
+  const handleSheetSave = async () => {
   if (!sheetResult) return
   setSheetSaving(true)
 
@@ -1053,94 +1041,99 @@ const handleSheetSave = async () => {
       {/* Sheet confirm */}
       {mode === 'sheet_confirm' && sheetResult && (
         <div style={{ padding: '0 24px', flex: 1, overflowY: 'auto' }} className="animate-slide-up no-scrollbar">
-          {/* Summary card */}
-          <div style={{ background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1D9E75' }} />
-              <span style={{ fontSize: '12px', fontWeight: 500, color: '#1D9E75' }}>AI processed</span>
+          {/* Single card containing all rows */}
+          <div style={{ background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', overflow: 'hidden', marginBottom: '16px' }}>
+
+            {/* Card header */}
+            <div style={{ padding: '12px 16px', borderBottom: '0.5px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#9b9890', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Review import</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '11px', color: '#9b9890' }}>{selectedContacts.length + selectedCompanies.length} of {sheetResult.contacts.length + sheetResult.companies.length} selected</span>
+                <button
+                  onClick={() => {
+                    const allSelected = selectedContacts.length === sheetResult.contacts.length && selectedCompanies.length === sheetResult.companies.length
+                    if (allSelected) { setSelectedContacts([]); setSelectedCompanies([]) }
+                    else { setSelectedContacts(sheetResult.contacts.map((_, i) => i)); setSelectedCompanies(sheetResult.companies.map((_, i) => i)) }
+                  }}
+                  style={{ background: 'none', border: 'none', fontSize: '11px', color: '#6b6960', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
+                >
+                  {selectedContacts.length === sheetResult.contacts.length && selectedCompanies.length === sheetResult.companies.length ? 'Deselect all' : 'Select all'}
+                </button>
+              </div>
             </div>
-            <p style={{ margin: 0, fontSize: '15px', color: '#1a1a18', lineHeight: 1.6 }}>{sheetResult.notes}</p>
-            {sheetResult.skipped > 0 && (
-              <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#9b9890' }}>{sheetResult.skipped} rows skipped (no name found)</p>
-            )}
+
+            {/* AI notes row */}
+            <div style={{ padding: '11px 16px', borderBottom: '0.5px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <div style={{ width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0, background: '#E1F5EE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0F6E56" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18', lineHeight: 1.4 }}>{sheetResult.notes}</p>
+                {sheetResult.skipped > 0 && (
+                  <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#9b9890' }}>{sheetResult.skipped} rows skipped — no name found</p>
+                )}
+              </div>
+            </div>
+
+            {/* Company rows */}
+            {sheetResult.companies.map((co, i) => {
+              const selected = selectedCompanies.includes(i)
+              return (
+                <button
+                  key={`co-${i}`}
+                  onClick={() => setSelectedCompanies(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 16px', borderBottom: '0.5px solid rgba(0,0,0,0.06)', background: 'transparent', border: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit', borderBottomStyle: 'solid', borderBottomWidth: '0.5px', borderBottomColor: 'rgba(0,0,0,0.06)' }}
+                >
+                  {/* Icon */}
+                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0, background: '#FCEBEB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#A32D2D" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                  </div>
+                  {/* Text */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{co.name}</p>
+                    {(co.industry || co.website || co.city) && (
+                      <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#9b9890', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {[co.industry, co.city, co.website].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                  {/* Checkbox */}
+                  <div style={{ width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, background: selected ? '#A32D2D' : 'transparent', border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
+                    {selected && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                </button>
+              )
+            })}
+
+            {/* Contact rows */}
+            {sheetResult.contacts.map((c, i) => {
+              const selected = selectedContacts.includes(i)
+              const isLast = i === sheetResult.contacts.length - 1
+              return (
+                <button
+                  key={`c-${i}`}
+                  onClick={() => setSelectedContacts(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 16px', background: 'transparent', border: 'none', borderBottom: isLast ? 'none' : '0.5px solid rgba(0,0,0,0.06)', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit' }}
+                >
+                  {/* Icon */}
+                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0, background: '#E6F1FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#185FA5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                  </div>
+                  {/* Text */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.full_name}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#9b9890', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {[c.role, c.company_name, c.email].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  {/* Checkbox */}
+                  <div style={{ width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, background: selected ? '#185FA5' : 'transparent', border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
+                    {selected && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                </button>
+              )
+            })}
           </div>
-
-          {/* Companies */}
-          {sheetResult.companies.length > 0 && (
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Companies ({selectedCompanies.length}/{sheetResult.companies.length})</p>
-                <button onClick={() => setSelectedCompanies(selectedCompanies.length === sheetResult.companies.length ? [] : sheetResult.companies.map((_, i) => i))}
-                  style={{ background: 'none', border: 'none', fontSize: '12px', color: '#6b6960', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
-                  {selectedCompanies.length === sheetResult.companies.length ? 'Deselect all' : 'Select all'}
-                </button>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {sheetResult.companies.map((co, i) => {
-                  const selected = selectedCompanies.includes(i)
-                  return (
-                    <button key={i} onClick={() => setSelectedCompanies(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])} style={{
-                      display: 'flex', alignItems: 'center', gap: '12px',
-                      background: selected ? pillColors.company.bg : '#f5f4f0',
-                      border: selected ? `1px solid ${pillColors.company.color}20` : '1px solid rgba(0,0,0,0.08)',
-                      borderRadius: '14px', padding: '11px 14px', cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 0.15s ease',
-                    }}>
-                      <div style={{ width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, background: selected ? pillColors.company.color : 'white', border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
-                        {selected && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: selected ? pillColors.company.color : '#6b6960', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{co.name}</p>
-                        {(co.industry || co.website) && (
-                          <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{[co.industry, co.website].filter(Boolean).join(' · ')}</p>
-                        )}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Contacts */}
-          {sheetResult.contacts.length > 0 && (
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <p style={{ margin: 0, fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Contacts ({selectedContacts.length}/{sheetResult.contacts.length})</p>
-                <button onClick={() => setSelectedContacts(selectedContacts.length === sheetResult.contacts.length ? [] : sheetResult.contacts.map((_, i) => i))}
-                  style={{ background: 'none', border: 'none', fontSize: '12px', color: '#6b6960', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
-                  {selectedContacts.length === sheetResult.contacts.length ? 'Deselect all' : 'Select all'}
-                </button>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {sheetResult.contacts.map((c, i) => {
-                  const selected = selectedContacts.includes(i)
-                  const initials = c.full_name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
-                  return (
-                    <button key={i} onClick={() => setSelectedContacts(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])} style={{
-                      display: 'flex', alignItems: 'center', gap: '12px',
-                      background: selected ? pillColors.contact.bg : '#f5f4f0',
-                      border: selected ? `1px solid ${pillColors.contact.color}20` : '1px solid rgba(0,0,0,0.08)',
-                      borderRadius: '14px', padding: '11px 14px', cursor: 'pointer', textAlign: 'left', width: '100%', transition: 'all 0.15s ease',
-                    }}>
-                      {/* Avatar */}
-                      <div style={{ width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0, background: selected ? pillColors.contact.color : 'rgba(0,0,0,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s ease' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 600, color: selected ? 'white' : '#6b6960' }}>{initials}</span>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: selected ? pillColors.contact.color : '#1a1a18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.full_name}</p>
-                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {[c.role, c.company_name, c.email].filter(Boolean).join(' · ')}
-                        </p>
-                      </div>
-                      <div style={{ width: '18px', height: '18px', borderRadius: '5px', flexShrink: 0, background: selected ? pillColors.contact.color : 'white', border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
-                        {selected && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
 
           <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
             <button onClick={() => { setMode('choose'); setSheetResult(null) }} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: '22px', padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>

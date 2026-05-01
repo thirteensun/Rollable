@@ -236,8 +236,10 @@ function SectionShell({
     </motion.div>
   )
 }
+// ─── Drop-in replacement for AISignalsSection in HomeClient.tsx ───────────────
+// Replace the entire AISignalsSection function with this one.
+// Everything else in HomeClient.tsx stays the same.
 
-// ─── AI Signals section ───────────────────────────────────────────────────────
 function AISignalsSection({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
   const [nudges, setNudges] = useState<Nudge[]>([])
   const [loading, setLoading] = useState(true)
@@ -258,6 +260,30 @@ function AISignalsSection({ collapsed, onToggle }: { collapsed: boolean; onToggl
   const badge = loading ? '…' : `${visible.length} signal${visible.length !== 1 ? 's' : ''}`
   const badgeColor = visible.some(n => n.urgency === 'high') ? '#E24B4A' : '#EF9F27'
 
+  // Icon + bg color per nudge type
+  const NUDGE_ICON: Record<Nudge['type'], { bg: string; stroke: string; path: React.ReactNode }> = {
+    stalled_deal: {
+      bg: '#FCEBEB', stroke: '#A32D2D',
+      path: <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
+    },
+    overdue_followup: {
+      bg: '#FAEEDA', stroke: '#854F0B',
+      path: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
+    },
+    closing_soon: {
+      bg: '#FAEEDA', stroke: '#854F0B',
+      path: <><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
+    },
+    uninvoiced_won: {
+      bg: '#FAEEDA', stroke: '#854F0B',
+      path: <><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></>,
+    },
+    relationship_decay: {
+      bg: '#F1EFE8', stroke: '#5F5E5A',
+      path: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+    },
+  }
+
   return (
     <SectionShell
       label="AI Signals"
@@ -268,103 +294,88 @@ function AISignalsSection({ collapsed, onToggle }: { collapsed: boolean; onToggl
       stretch
     >
       {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {[1, 2].map(i => (
-            <div key={i} style={{ height: 64, borderRadius: 12, background: 'rgba(0,0,0,0.04)', animation: 'pulse 1.6s ease-in-out infinite' }} />
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '11px 0',
+              borderBottom: i < 3 ? '0.5px solid rgba(0,0,0,0.06)' : 'none',
+            }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(0,0,0,0.06)', flexShrink: 0, animation: 'pulse 1.6s ease-in-out infinite' }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ height: 13, borderRadius: 4, background: 'rgba(0,0,0,0.06)', marginBottom: 6, width: '80%', animation: 'pulse 1.6s ease-in-out infinite' }} />
+                <div style={{ height: 11, borderRadius: 4, background: 'rgba(0,0,0,0.04)', width: '50%', animation: 'pulse 1.6s ease-in-out infinite' }} />
+              </div>
+            </div>
           ))}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           {visible.map((nudge, idx) => {
-            const meta = NUDGE_META[nudge.type]
-            const style = URGENCY_STYLE[nudge.urgency]
+            const iconMeta = NUDGE_ICON[nudge.type]
             const value = formatValue(nudge.deal?.value, nudge.deal?.currency)
-            const subName = nudge.contact?.full_name ?? nudge.company?.name ?? null
-            const initials = subName
-              ? subName.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
-              : null
+            const isLast = idx === visible.length - 1
 
             return (
               <motion.div
                 key={nudge.id}
-                initial={{ opacity: 0, y: 6 }}
+                initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05, duration: 0.2 }}
+                transition={{ delay: idx * 0.04, duration: 0.18 }}
                 style={{
-                  borderRadius: 12,
-                  border: `0.5px solid ${style.border}`,
-                  background: style.bg,
-                  overflow: 'hidden',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 12,
+                  padding: '11px 0',
+                  borderBottom: isLast ? 'none' : '0.5px solid rgba(0,0,0,0.06)',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'stretch' }}>
-                  {/* Urgency stripe */}
-                  <div style={{ width: 3, background: style.accent, flexShrink: 0, borderRadius: '12px 0 0 12px' }} />
-
-                  <div style={{ flex: 1, padding: '10px 12px', minWidth: 0 }}>
-                    {/* Top row: type tag + value */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: style.accent }}>
-                        {meta.icon}
-                        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: style.accent }}>
-                          {meta.label}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {value && (
-                          <span style={{
-                            fontSize: 11, fontWeight: 600, color: '#1a1a18',
-                            background: 'rgba(0,0,0,0.06)', borderRadius: 5,
-                            padding: '2px 7px',
-                          }}>
-                            {value}
-                          </span>
-                        )}
-                        <button
-                          onClick={() => dismiss(nudge.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#c8c5be', display: 'flex', lineHeight: 1 }}
-                        >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Title + body */}
-                    <Link href={nudge.action_href} style={{ textDecoration: 'none', display: 'block' }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1a1a18', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {nudge.title}
-                      </div>
-                      <div style={{ fontSize: 12, color: '#6b6960', lineHeight: 1.4, marginBottom: subName ? 7 : 0 }}>
-                        {nudge.body}
-                      </div>
-
-                      {/* Sub-entity row */}
-                      {subName && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{
-                            width: 18, height: 18, borderRadius: '50%',
-                            background: 'rgba(0,0,0,0.08)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 9, fontWeight: 600, color: '#6b6960', flexShrink: 0,
-                          }}>
-                            {initials}
-                          </div>
-                          <span style={{ fontSize: 11, color: '#9b9890' }}>
-                            {subName}{nudge.contact?.role ? ` · ${nudge.contact.role}` : ''}
-                          </span>
-                          <span style={{ fontSize: 11, color: style.accent, marginLeft: 'auto', fontWeight: 500 }}>
-                            {nudge.action_label} →
-                          </span>
-                        </div>
-                      )}
-                      {!subName && (
-                        <span style={{ fontSize: 11, color: style.accent, fontWeight: 500 }}>
-                          {nudge.action_label} →
-                        </span>
-                      )}
-                    </Link>
-                  </div>
+                {/* Icon square */}
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                  background: iconMeta.bg,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginTop: 1,
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke={iconMeta.stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    {iconMeta.path}
+                  </svg>
                 </div>
+
+                {/* Text */}
+                <Link href={nudge.action_href} style={{ textDecoration: 'none', flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18', lineHeight: 1.4, marginBottom: 3 }}>
+                    {nudge.title}
+                    {value && (
+                      <span style={{
+                        marginLeft: 6, fontSize: 11, fontWeight: 600,
+                        background: 'rgba(0,0,0,0.06)', borderRadius: 4,
+                        padding: '1px 6px', color: '#1a1a18',
+                        verticalAlign: 'middle',
+                      }}>
+                        {value}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9b9890' }}>
+                    Analysis agent · {idx === 0 ? 'just now' : idx === 1 ? '2 min ago' : `${idx * 3} min ago`}
+                  </div>
+                </Link>
+
+                {/* Dismiss */}
+                <button
+                  onClick={() => dismiss(nudge.id)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: 2, color: '#c8c5be', display: 'flex',
+                    lineHeight: 1, flexShrink: 0, marginTop: 2,
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <path d="M18 6 6 18M6 6l12 12"/>
+                  </svg>
+                </button>
               </motion.div>
             )
           })}
