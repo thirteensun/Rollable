@@ -9,6 +9,8 @@ interface BreadcrumbSegment {
   href?: string
 }
 
+
+
 interface AppHeaderProps {
   /** Optional override — if not provided, breadcrumbs are inferred from pathname */
   breadcrumbs?: BreadcrumbSegment[]
