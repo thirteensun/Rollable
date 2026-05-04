@@ -56,9 +56,30 @@ export default function AdminClient({ orgs, waitlist, cap }: Props) {
   const [waitlistItems, setWaitlistItems] = useState(waitlist)
   const [capEnabled, setCapEnabled] = useState(cap.enabled)
   const [capLimit, setCapLimit] = useState(String(cap.limit))
+  const [orgPlans, setOrgPlans] = useState<Record<string, string>>(() =>
+    Object.fromEntries(orgs.map(o => {
+      const sub = Array.isArray(o.subscriptions) ? o.subscriptions[0] : o.subscriptions
+      return [o.id, (sub as any)?.plan ?? 'free']
+    }))
+  )
+  const [savingPlan, setSavingPlan] = useState<string | null>(null)
   const [approving, setApproving] = useState<string | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsSaved, setSettingsSaved] = useState(false)
+
+  const handlePlanChange = async (orgId: string, newPlan: string) => {
+    setOrgPlans(prev => ({ ...prev, [orgId]: newPlan }))
+    setSavingPlan(orgId)
+    try {
+      await fetch(`/api/admin/org/${orgId}/plan`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: newPlan }),
+      })
+    } finally {
+      setSavingPlan(null)
+    }
+  }
 
   const handleApprove = async (id: string) => {
     setApproving(id)
@@ -162,9 +183,9 @@ export default function AdminClient({ orgs, waitlist, cap }: Props) {
             {orgs.map(org => {
               const adminMember = org.organisation_members?.find(m => m.role === 'admin' && m.status === 'active')
               const owner = adminMember?.users?.[0] ?? null
-              const sub = Array.isArray(org.subscriptions) ? org.subscriptions[0] : org.subscriptions
-              const plan = (sub as any)?.plan ?? 'free'
+              const plan = orgPlans[org.id] ?? 'free'
               const memberCount = org.organisation_members?.filter(m => m.status === 'active').length ?? 1
+              const isSaving = savingPlan === org.id
 
               return (
                 <div key={org.id} style={{
@@ -187,13 +208,27 @@ export default function AdminClient({ orgs, waitlist, cap }: Props) {
                     </p>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-                    <span style={{
-                      fontSize: '11px', fontWeight: 500, padding: '3px 8px',
-                      borderRadius: '6px', background: '#f5f4f0',
-                      color: planColor[plan] ?? '#9b9890', textTransform: 'capitalize',
-                    }}>
-                      {plan}
-                    </span>
+                    <div style={{ position: 'relative' }}>
+                      <select
+                        value={plan}
+                        onChange={e => handlePlanChange(org.id, e.target.value)}
+                        disabled={isSaving}
+                        style={{
+                          fontSize: '11px', fontWeight: 500, padding: '3px 20px 3px 8px',
+                          borderRadius: '6px', background: '#f5f4f0', border: 'none',
+                          color: planColor[plan] ?? '#9b9890', cursor: 'pointer',
+                          appearance: 'none', fontFamily: 'inherit',
+                          opacity: isSaving ? 0.5 : 1,
+                        }}
+                      >
+                        <option value="free">free</option>
+                        <option value="pro">pro</option>
+                        <option value="business">business</option>
+                      </select>
+                      <svg style={{ position: 'absolute', right: '5px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width="8" height="8" viewBox="0 0 10 10" fill="none">
+                        <path d="M2 3.5l3 3 3-3" stroke={planColor[plan] ?? '#9b9890'} strokeWidth="1.3" strokeLinecap="round" />
+                      </svg>
+                    </div>
                     <span style={{ fontSize: '12px', color: '#c8c5be' }}>
                       {memberCount} {memberCount === 1 ? 'member' : 'members'}
                     </span>
