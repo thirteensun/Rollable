@@ -34,7 +34,7 @@ export default async function AdminPage() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const [{ data: orgs }, { data: members }, { data: userProfiles }, { data: waitlist }, { data: settings }, { data: usageRaw }] = await Promise.all([
+  const [{ data: orgs }, { data: members }, { data: userProfiles }, { data: waitlist }, { data: settings }, { data: usageRaw }, { data: announcements }] = await Promise.all([
     admin
       .from('organisations')
       .select('id, name, created_at, subscriptions(plan, seats)')
@@ -63,6 +63,11 @@ export default async function AdminPage() {
       .select('org_id, route, model, input_tokens, output_tokens, created_at')
       .order('created_at', { ascending: false })
       .limit(5000),
+
+    admin
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false }),
   ])
 
   // Merge members + user profiles into orgs
@@ -90,6 +95,7 @@ export default async function AdminPage() {
       waitlist={waitlist ?? []}
       cap={cap}
       usage={usageRaw ?? []}
+      announcements={announcements ?? []}
     />
   )
 }
