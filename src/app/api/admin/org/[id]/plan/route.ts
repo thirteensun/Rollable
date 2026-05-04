@@ -36,10 +36,13 @@ export async function PATCH(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { plan } = await req.json()
+  const { plan, seats: seatsOverride } = await req.json()
   if (!VALID_PLANS.includes(plan)) {
     return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
   }
+  const seats = (seatsOverride && Number.isInteger(seatsOverride) && seatsOverride > 0)
+    ? seatsOverride
+    : SEATS[plan]
 
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,7 +52,7 @@ export async function PATCH(
   const { error } = await admin
     .from('subscriptions')
     .upsert(
-      { org_id: params.id, plan, seats: SEATS[plan], status: 'active' },
+      { org_id: params.id, plan, seats, status: 'active' },
       { onConflict: 'org_id' }
     )
 
