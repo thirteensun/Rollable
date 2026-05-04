@@ -95,6 +95,12 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
       return [o.id, (sub as any)?.plan ?? 'free']
     }))
   )
+  const [orgSeats, setOrgSeats] = useState<Record<string, string>>(() =>
+    Object.fromEntries(orgs.map(o => {
+      const sub = Array.isArray(o.subscriptions) ? o.subscriptions[0] : o.subscriptions
+      return [o.id, String((sub as any)?.seats ?? 1)]
+    }))
+  )
   const [savingPlan, setSavingPlan] = useState<string | null>(null)
   const [approving, setApproving] = useState<string | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
@@ -114,7 +120,23 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
       await fetch(`/api/admin/org/${orgId}/plan`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: newPlan }),
+        body: JSON.stringify({ plan: newPlan, seats: Number(orgSeats[orgId]) || 1 }),
+      })
+    } finally {
+      setSavingPlan(null)
+    }
+  }
+
+  const handleSeatsChange = async (orgId: string, newSeats: string) => {
+    setOrgSeats(prev => ({ ...prev, [orgId]: newSeats }))
+    const n = Number(newSeats)
+    if (!n || n < 1) return
+    setSavingPlan(orgId)
+    try {
+      await fetch(`/api/admin/org/${orgId}/plan`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: orgPlans[orgId], seats: n }),
       })
     } finally {
       setSavingPlan(null)
@@ -269,6 +291,24 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
                         <path d="M2 3.5l3 3 3-3" stroke={planColor[plan] ?? '#9b9890'} strokeWidth="1.3" strokeLinecap="round" />
                       </svg>
                     </div>
+                    <input
+                      type="number"
+                      min={1}
+                      value={orgSeats[org.id] ?? '1'}
+                      onChange={e => setOrgSeats(prev => ({ ...prev, [org.id]: e.target.value }))}
+                      onBlur={e => handleSeatsChange(org.id, e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleSeatsChange(org.id, orgSeats[org.id]) }}
+                      disabled={isSaving}
+                      title="Seats"
+                      style={{
+                        width: '44px', fontSize: '11px', fontWeight: 500,
+                        padding: '3px 6px', borderRadius: '6px',
+                        background: '#f5f4f0', border: 'none',
+                        color: '#6b6960', fontFamily: 'inherit',
+                        opacity: isSaving ? 0.5 : 1, textAlign: 'center',
+                      }}
+                    />
+                    <span style={{ fontSize: '11px', color: '#c8c5be', marginLeft: -6 }}>seats</span>
                     <span style={{ fontSize: '12px', color: '#c8c5be' }}>
                       {memberCount} {memberCount === 1 ? 'member' : 'members'}
                     </span>

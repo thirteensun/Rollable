@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 
 const PRO_FEATURES = [
@@ -51,6 +52,8 @@ const PRO_FEATURES = [
 ]
 
 export default function UpgradePage() {
+  const [seats, setSeats] = useState(5)
+
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', paddingTop: 16 }}>
 
@@ -119,6 +122,46 @@ export default function UpgradePage() {
         ))}
       </motion.div>
 
+      {/* Seat picker */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.22, delay: 0.08 }}
+        style={{
+          background: 'white', border: '0.5px solid rgba(0,0,0,0.07)',
+          borderRadius: 16, padding: '16px 18px', marginBottom: 16,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        }}
+      >
+        <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>
+          How many seats do you need?
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={() => setSeats(s => Math.max(1, s - 1))}
+            style={{
+              width: 32, height: 32, borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.1)',
+              background: 'transparent', fontSize: 18, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1a1a18',
+            }}
+          >−</button>
+          <span style={{ fontSize: 22, fontWeight: 600, color: '#1a1a18', minWidth: 32, textAlign: 'center' }}>
+            {seats}
+          </span>
+          <button
+            onClick={() => setSeats(s => s + 1)}
+            style={{
+              width: 32, height: 32, borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.1)',
+              background: 'transparent', fontSize: 18, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1a1a18',
+            }}
+          >+</button>
+          <span style={{ fontSize: 13, color: '#9b9890' }}>
+            {seats === 1 ? '1 person' : `${seats} people`}
+          </span>
+        </div>
+      </motion.div>
+
       {/* CTA */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -126,7 +169,7 @@ export default function UpgradePage() {
         transition={{ duration: 0.22, delay: 0.1 }}
       >
         <a
-          href="mailto:hello@rollable.app?subject=Upgrade to Pro"
+          href={`mailto:hello@rollable.app?subject=Upgrade to Pro — ${seats} seat${seats !== 1 ? 's' : ''}&body=Hi, I'd like to upgrade to Pro with ${seats} seat${seats !== 1 ? 's' : ''}.`}
           style={{
             display: 'block', width: '100%', boxSizing: 'border-box',
             padding: '13px 20px', borderRadius: 12, textAlign: 'center',
@@ -135,7 +178,7 @@ export default function UpgradePage() {
             marginBottom: 10,
           }}
         >
-          Contact us to upgrade
+          Contact us — {seats} seat{seats !== 1 ? 's' : ''}
         </a>
 
         <Link href="/" style={{
