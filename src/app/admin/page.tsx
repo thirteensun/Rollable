@@ -34,7 +34,7 @@ export default async function AdminPage() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const [{ data: orgs }, { data: waitlist }, { data: settings }] = await Promise.all([
+  const [{ data: orgs }, { data: waitlist }, { data: settings }, { data: usageRaw }] = await Promise.all([
     admin
       .from('organisations')
       .select(`
@@ -53,6 +53,12 @@ export default async function AdminPage() {
     admin
       .from('app_settings')
       .select('key, value'),
+
+    admin
+      .from('token_usage')
+      .select('org_id, route, model, input_tokens, output_tokens, created_at')
+      .order('created_at', { ascending: false })
+      .limit(5000),
   ])
 
   const capSetting = (settings ?? []).find((s: any) => s.key === 'registration_cap')
@@ -66,6 +72,7 @@ export default async function AdminPage() {
       orgs={orgs ?? []}
       waitlist={waitlist ?? []}
       cap={cap}
+      usage={usageRaw ?? []}
     />
   )
 }

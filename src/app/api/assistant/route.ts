@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
+import { logUsage } from '@/lib/log-usage'
 import { getOrgContext, formatOrgContextForPrompt } from '@/lib/org-context'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -368,6 +369,8 @@ After using a tool, summarise what you did in 1-2 sentences.`
     })
 
     const assistantMessages: Anthropic.MessageParam[] = []
+    let inputTokens = response.usage.input_tokens
+    let outputTokens = response.usage.output_tokens
 
     while (response.stop_reason === 'tool_use') {
       const toolUseBlocks = response.content.filter(b => b.type === 'tool_use') as Anthropic.ToolUseBlock[]
@@ -388,10 +391,13 @@ After using a tool, summarise what you did in 1-2 sentences.`
         tools,
         messages: [...messages, ...assistantMessages],
       })
+      inputTokens += response.usage.input_tokens
+      outputTokens += response.usage.output_tokens
     }
 
     const textBlock = response.content.find(b => b.type === 'text') as Anthropic.TextBlock | undefined
     const reply = textBlock?.text || 'Done.'
+    logUsage({ orgId: org_id, userId: user.id, route: 'assistant', model, inputTokens, outputTokens })
 
     // Log event if any write tools were used
     const writeTools = ['add_contact', 'add_deal', 'add_task', 'add_company', 'update_deal_stage', 'update_deal_financials']
