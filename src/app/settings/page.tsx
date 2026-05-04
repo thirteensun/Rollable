@@ -34,18 +34,28 @@ export default async function SettingsPage() {
     ? await admin.from('organisations').select('id, name, slug, context').eq('id', orgId).single()
     : { data: null }
 
+  // Fetch members and user profiles separately to avoid the auth.users FK issue
   const { data: membersRaw } = orgId
     ? await admin
         .from('organisation_members')
-        .select('role, status, invited_email, user_id, users(full_name, email)')
+        .select('role, status, invited_email, user_id')
         .eq('org_id', orgId)
-        .eq('status', 'active')
         .order('created_at', { ascending: true })
     : { data: [] }
 
-  const members = (membersRaw || []).map((m: any) => ({
+  const activeUserIds = (membersRaw ?? [])
+    .filter((m: any) => m.user_id)
+    .map((m: any) => m.user_id)
+
+  const { data: userProfiles } = activeUserIds.length > 0
+    ? await admin.from('users').select('id, email, full_name').in('id', activeUserIds)
+    : { data: [] }
+
+  const userMap = Object.fromEntries((userProfiles ?? []).map((u: any) => [u.id, u]))
+
+  const members = (membersRaw ?? []).map((m: any) => ({
     ...m,
-    users: Array.isArray(m.users) ? m.users[0] || null : m.users,
+    users: userMap[m.user_id] ?? null,
   }))
 
   const { data: subscription } = orgId

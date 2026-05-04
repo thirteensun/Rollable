@@ -59,6 +59,23 @@ export default function SettingsClient({
   const [inviteError, setInviteError]       = useState('')
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
 
+  const [editingOrgName, setEditingOrgName] = useState(false)
+  const [orgNameValue, setOrgNameValue]     = useState(orgName)
+  const [savingOrgName, setSavingOrgName]   = useState(false)
+
+  const handleOrgNameSave = async () => {
+    if (!orgNameValue.trim() || orgNameValue.trim() === orgName) { setEditingOrgName(false); return }
+    setSavingOrgName(true)
+    await fetch('/api/org/name', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ org_id: orgId, name: orgNameValue.trim() }),
+    })
+    setSavingOrgName(false)
+    setEditingOrgName(false)
+    router.refresh()
+  }
+
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -155,7 +172,30 @@ export default function SettingsClient({
             Workspace
           </p>
           <div style={{ background: 'white', borderRadius: 18, border: '0.5px solid rgba(0,0,0,0.07)', overflow: 'hidden' }}>
-            <Row label="Name" value={orgName} />
+            <Row label="Name" value={
+              isAdmin ? (
+                editingOrgName ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      autoFocus
+                      value={orgNameValue}
+                      onChange={e => setOrgNameValue(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleOrgNameSave(); if (e.key === 'Escape') setEditingOrgName(false) }}
+                      style={{ fontSize: 13, color: '#1a1a18', border: '0.5px solid rgba(0,0,0,0.15)', borderRadius: 8, padding: '4px 8px', outline: 'none', fontFamily: 'inherit', width: 160 }}
+                    />
+                    <button onClick={handleOrgNameSave} disabled={savingOrgName} style={{ fontSize: 12, color: 'white', background: '#1a1a18', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {savingOrgName ? '…' : 'Save'}
+                    </button>
+                    <button onClick={() => setEditingOrgName(false)} style={{ fontSize: 12, color: '#9b9890', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setEditingOrgName(true)} style={{ fontSize: 13, color: '#1a1a18', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {orgNameValue}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="#c8c5be" strokeWidth="1.5" strokeLinecap="round"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#c8c5be" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                  </button>
+                )
+              ) : orgNameValue
+            } />
             <Row label="Plan" value={
               <span style={{ fontSize: 13, fontWeight: 500, color: planColor[plan] || '#9b9890', textTransform: 'capitalize' }}>
                 {plan}
