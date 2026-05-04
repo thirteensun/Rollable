@@ -9,7 +9,7 @@ export async function GET() {
 
   const { data, error } = await admin
     .from('announcements')
-    .select('id, title, body, image_url, published_at')
+    .select('id, title, body, image_url, link_url, published_at')
     .eq('published', true)
     .order('published_at', { ascending: false })
     .limit(20)

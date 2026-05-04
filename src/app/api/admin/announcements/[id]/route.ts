@@ -30,6 +30,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if ('title' in body) updates.title = body.title
   if ('body' in body) updates.body = body.body
   if ('image_url' in body) updates.image_url = body.image_url || null
+  if ('link_url' in body) updates.link_url = body.link_url || null
   if ('published' in body) {
     updates.published = body.published
     if (body.published) updates.published_at = new Date().toISOString()
