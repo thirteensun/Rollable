@@ -38,7 +38,7 @@ export default async function SettingsPage() {
   const { data: membersRaw } = orgId
     ? await admin
         .from('organisation_members')
-        .select('role, status, invited_email, user_id')
+        .select('id, role, status, invited_email, user_id')
         .eq('org_id', orgId)
         .order('created_at', { ascending: true })
     : { data: [] }
