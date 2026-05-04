@@ -46,6 +46,13 @@ interface Deal {
   last_activity_at?: string
 }
 
+interface QuickStartDone {
+  captured: boolean
+  contacted: boolean
+  deal: boolean
+  task: boolean
+}
+
 interface Props {
   name: string
   initials: string
@@ -57,6 +64,7 @@ interface Props {
   orgName: string | null
   userRole: string
   homePriority: HomePriority
+  quickStartDone: QuickStartDone
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -609,9 +617,10 @@ const SHORTCUTS = [
 ]
 
 // ─── Quick start card ─────────────────────────────────────────────────────────
-const QUICK_START_STEPS = [
+const QUICK_START_STEPS: { href: string; title: string; desc: string; color: string; doneKey: keyof QuickStartDone; icon: React.ReactNode }[] = [
   {
     href: '/capture',
+    doneKey: 'captured',
     title: 'Log your first interaction',
     desc: 'Snap a card, record a voice memo, or type a quick note',
     color: '#4a7a8a',
@@ -624,6 +633,7 @@ const QUICK_START_STEPS = [
   },
   {
     href: '/contacts',
+    doneKey: 'contacted',
     title: 'Add a contact',
     desc: 'Build your network — people you meet, prospects, clients',
     color: '#6a5aaa',
@@ -636,6 +646,7 @@ const QUICK_START_STEPS = [
   },
   {
     href: '/deals',
+    doneKey: 'deal',
     title: 'Create a deal',
     desc: 'Track opportunities from first conversation to close',
     color: '#7a5a8a',
@@ -648,6 +659,7 @@ const QUICK_START_STEPS = [
   },
   {
     href: '/tasks',
+    doneKey: 'task',
     title: 'Set a follow-up',
     desc: 'Never let a lead go cold — add a task with a due date',
     color: '#4a8a6a',
@@ -660,16 +672,15 @@ const QUICK_START_STEPS = [
   },
 ]
 
-function QuickStartCard() {
-  const [dismissed, setDismissed] = useState(false)
-  const [mounted, setMounted] = useState(false)
+function QuickStartCard({ done }: { done: QuickStartDone }) {
+  const allDone = Object.values(done).every(Boolean)
+  const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
-    setDismissed(localStorage.getItem('qs_dismissed') === '1')
-  }, [])
+    setVisible(!allDone && localStorage.getItem('qs_dismissed') !== '1')
+  }, [allDone])
 
-  if (!mounted || dismissed) return null
+  if (!visible) return null
 
   return (
     <AnimatePresence>
@@ -697,7 +708,7 @@ function QuickStartCard() {
             Get started
           </span>
           <button
-            onClick={() => { localStorage.setItem('qs_dismissed', '1'); setDismissed(true) }}
+            onClick={() => { localStorage.setItem('qs_dismissed', '1'); setVisible(false) }}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               padding: 2, color: '#c8c5be', display: 'flex', lineHeight: 1,
@@ -712,7 +723,9 @@ function QuickStartCard() {
 
         {/* Steps */}
         <div style={{ padding: '4px 0 8px' }}>
-          {QUICK_START_STEPS.map((step, idx) => (
+          {QUICK_START_STEPS.map((step, idx) => {
+            const isDone = done[step.doneKey]
+            return (
             <Link key={step.href} href={step.href} style={{ textDecoration: 'none' }}>
               <motion.div
                 whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
@@ -720,40 +733,35 @@ function QuickStartCard() {
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '10px 16px',
                   borderBottom: idx < QUICK_START_STEPS.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none',
+                  opacity: isDone ? 0.45 : 1,
                 }}
               >
-                {/* Step number + icon */}
+                {/* Icon / tick */}
                 <div style={{
                   width: 34, height: 34, borderRadius: 10, flexShrink: 0,
-                  background: `${step.color}14`,
+                  background: isDone ? 'rgba(29,158,117,0.1)' : `${step.color}14`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: step.color,
-                  position: 'relative',
+                  color: isDone ? '#1D9E75' : step.color,
                 }}>
-                  {step.icon}
-                  <span style={{
-                    position: 'absolute', bottom: -4, right: -4,
-                    width: 15, height: 15, borderRadius: '50%',
-                    background: 'rgba(0,0,0,0.07)',
-                    fontSize: 8, fontWeight: 700, color: '#6b6960',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '1.5px solid white',
-                  }}>
-                    {idx + 1}
-                  </span>
+                  {isDone
+                    ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    : step.icon
+                  }
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>{step.title}</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: isDone ? '#9b9890' : '#1a1a18', textDecoration: isDone ? 'line-through' : 'none' }}>{step.title}</p>
                   <p style={{ margin: '1px 0 0', fontSize: 11, color: '#9b9890', lineHeight: 1.4 }}>{step.desc}</p>
                 </div>
 
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                  <path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.4" strokeLinecap="round"/>
-                </svg>
+                {!isDone && (
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.4" strokeLinecap="round"/>
+                  </svg>
+                )}
               </motion.div>
             </Link>
-          ))}
+          )})}
         </div>
       </motion.div>
     </AnimatePresence>
@@ -761,7 +769,7 @@ function QuickStartCard() {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function HomeClient({ name, initials, avatar, tasks, events, deals, atRiskDeals, orgName, userRole, homePriority }: Props) {
+export default function HomeClient({ name, initials, avatar, tasks, events, deals, atRiskDeals, orgName, userRole, homePriority, quickStartDone }: Props) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     signals: false, tasks: false, activity: false,
   })
@@ -815,7 +823,7 @@ export default function HomeClient({ name, initials, avatar, tasks, events, deal
       </div>
 
       {/* ── Quick start ── */}
-      <QuickStartCard />
+      <QuickStartCard done={quickStartDone} />
 
       {/* ── Shortcuts ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }} className="md:grid-cols-6">
