@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
 import { getOrgContext, formatOrgContextForPrompt } from '@/lib/org-context'
+import { logUsage } from '@/lib/log-usage'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -467,6 +468,8 @@ How to respond:
     })
 
     const assistantMessages: Anthropic.MessageParam[] = []
+    let inputTokens = response.usage.input_tokens
+    let outputTokens = response.usage.output_tokens
 
     while (response.stop_reason === 'tool_use') {
       const toolUseBlocks = response.content.filter(b => b.type === 'tool_use') as Anthropic.ToolUseBlock[]
@@ -487,10 +490,13 @@ How to respond:
         tools,
         messages: [...messages, ...assistantMessages],
       })
+      inputTokens += response.usage.input_tokens
+      outputTokens += response.usage.output_tokens
     }
 
     const textBlock = response.content.find(b => b.type === 'text') as Anthropic.TextBlock | undefined
     const reply = textBlock?.text || 'Done.'
+    logUsage({ orgId: org_id, userId: user.id, route: 'analytics_agent', model, inputTokens, outputTokens })
 
     return NextResponse.json({
       reply,

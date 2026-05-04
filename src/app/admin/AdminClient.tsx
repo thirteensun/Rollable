@@ -31,13 +31,23 @@ interface Cap {
   limit: number
 }
 
+interface UsageRow {
+  org_id: string
+  route: string
+  model: string
+  input_tokens: number
+  output_tokens: number
+  created_at: string
+}
+
 interface Props {
   orgs: Org[]
   waitlist: WaitlistEntry[]
   cap: Cap
+  usage: UsageRow[]
 }
 
-type Tab = 'registrations' | 'waitlist' | 'settings'
+type Tab = 'registrations' | 'waitlist' | 'usage' | 'settings'
 
 const planColor: Record<string, string> = {
   free: '#9b9890',
@@ -51,7 +61,18 @@ function formatDate(iso: string) {
   })
 }
 
-export default function AdminClient({ orgs, waitlist, cap }: Props) {
+// Cost per million tokens
+const PRICING: Record<string, { input: number; output: number }> = {
+  'claude-sonnet-4-6':         { input: 3.00,  output: 15.00 },
+  'claude-haiku-4-5-20251001': { input: 0.80,  output: 4.00  },
+  'claude-opus-4-7':           { input: 15.00, output: 75.00 },
+}
+function calcCost(model: string, input: number, output: number) {
+  const p = PRICING[model] ?? { input: 3.00, output: 15.00 }
+  return (input / 1_000_000) * p.input + (output / 1_000_000) * p.output
+}
+
+export default function AdminClient({ orgs, waitlist, cap, usage }: Props) {
   const [tab, setTab] = useState<Tab>('registrations')
   const [waitlistItems, setWaitlistItems] = useState(waitlist)
   const [capEnabled, setCapEnabled] = useState(cap.enabled)
@@ -154,7 +175,7 @@ export default function AdminClient({ orgs, waitlist, cap }: Props) {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: 'white', borderRadius: '12px', padding: '4px', border: '0.5px solid rgba(0,0,0,0.07)', width: 'fit-content' }}>
-          {(['registrations', 'waitlist', 'settings'] as Tab[]).map(t => (
+          {(['registrations', 'waitlist', 'usage', 'settings'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)} style={{
               padding: '8px 16px', borderRadius: '9px', border: 'none',
               background: tab === t ? '#1a1a18' : 'transparent',
@@ -300,6 +321,77 @@ export default function AdminClient({ orgs, waitlist, cap }: Props) {
             ))}
           </div>
         )}
+
+        {/* Usage */}
+        {tab === 'usage' && (() => {
+          // Aggregate by org
+          const byOrg: Record<string, { input: number; output: number; calls: number; cost: number }> = {}
+          for (const row of usage) {
+            const key = row.org_id ?? 'unknown'
+            if (!byOrg[key]) byOrg[key] = { input: 0, output: 0, calls: 0, cost: 0 }
+            byOrg[key].input += row.input_tokens
+            byOrg[key].output += row.output_tokens
+            byOrg[key].calls += 1
+            byOrg[key].cost += calcCost(row.model, row.input_tokens, row.output_tokens)
+          }
+          const orgMap = Object.fromEntries(orgs.map(o => [o.id, o.name]))
+          const rows = Object.entries(byOrg).sort((a, b) => b[1].cost - a[1].cost)
+          const totalCost = rows.reduce((s, [, v]) => s + v.cost, 0)
+          const totalCalls = rows.reduce((s, [, v]) => s + v.calls, 0)
+
+          return (
+            <div>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                {[
+                  { label: 'Total API calls', value: totalCalls },
+                  { label: 'Est. total cost', value: `$${totalCost.toFixed(4)}` },
+                ].map(s => (
+                  <div key={s.label} style={{ background: 'white', borderRadius: '14px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 20px' }}>
+                    <p style={{ margin: '0 0 4px', fontSize: '22px', fontWeight: 600, color: '#1a1a18' }}>{s.value}</p>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#9b9890' }}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {rows.length === 0 && (
+                <p style={{ color: '#9b9890', fontSize: '14px' }}>No usage recorded yet. Use the AI assistant or sandbox to generate data.</p>
+              )}
+
+              <div style={{ background: 'white', borderRadius: '14px', border: '0.5px solid rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+                {rows.map(([orgId, stats], i) => (
+                  <div key={orgId} style={{
+                    padding: '14px 18px', display: 'flex', alignItems: 'center', gap: '14px',
+                    borderTop: i === 0 ? 'none' : '0.5px solid rgba(0,0,0,0.06)',
+                  }}>
+                    <div style={{
+                      width: '32px', height: '32px', borderRadius: '9px', background: '#1a1a18',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '12px', fontWeight: 600, color: 'white', flexShrink: 0,
+                    }}>
+                      {(orgMap[orgId] ?? '?')[0]?.toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>
+                        {orgMap[orgId] ?? orgId}
+                      </p>
+                      <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#9b9890' }}>
+                        {stats.calls} {stats.calls === 1 ? 'call' : 'calls'} · {(stats.input + stats.output).toLocaleString()} tokens
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 500, color: '#1a1a18' }}>
+                        ${stats.cost.toFixed(4)}
+                      </p>
+                      <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#c8c5be' }}>
+                        {stats.input.toLocaleString()} in · {stats.output.toLocaleString()} out
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Settings */}
         {tab === 'settings' && (

@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
+import { logUsage } from '@/lib/log-usage'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -352,9 +353,11 @@ async function runAgentLoop(
   orgId: string | null,
   role: string,
   admin: any
-): Promise<{ reply: string; updatedMessages: Anthropic.MessageParam[] }> {
+): Promise<{ reply: string; updatedMessages: Anthropic.MessageParam[]; inputTokens: number; outputTokens: number }> {
   let response = await anthropic.messages.create({ model, max_tokens: 1024, system, tools, messages })
   const extra: Anthropic.MessageParam[] = []
+  let inputTokens = response.usage.input_tokens
+  let outputTokens = response.usage.output_tokens
 
   while (response.stop_reason === 'tool_use') {
     const toolUseBlocks = response.content.filter(b => b.type === 'tool_use') as Anthropic.ToolUseBlock[]
@@ -369,10 +372,12 @@ async function runAgentLoop(
     extra.push({ role: 'user', content: toolResults })
 
     response = await anthropic.messages.create({ model, max_tokens: 1024, system, tools, messages: [...messages, ...extra] })
+    inputTokens += response.usage.input_tokens
+    outputTokens += response.usage.output_tokens
   }
 
   const textBlock = response.content.find(b => b.type === 'text') as Anthropic.TextBlock | undefined
-  return { reply: textBlock?.text || 'Done.', updatedMessages: extra }
+  return { reply: textBlock?.text || 'Done.', updatedMessages: extra, inputTokens, outputTokens }
 }
 
 // ─── Rolling window — only last 6 messages sent to agent ─────────────────────
@@ -442,6 +447,7 @@ Today's date: ${today}`
 
       const result = await runAgentLoop(model, system, actionTools, agentMessages, user.id, org_id, role, admin)
       reply = result.reply
+      logUsage({ orgId: org_id, userId: user.id, route: 'sandbox', model, inputTokens: result.inputTokens, outputTokens: result.outputTokens })
 
       // Log write events
       const writeTools = ['add_contact', 'add_deal', 'add_task', 'add_company', 'update_deal_stage', 'update_deal_financials']
@@ -474,7 +480,7 @@ CHARTS: When your answer is inherently visual (pipeline breakdown, revenue over 
 
 Chart types available:
 - funnel: data=[{label,count,value}] — for pipeline stage breakdown
-- bar: data=[{label,value,color?}] — for monthly revenue or comparisons  
+- bar: data=[{label,value,color?}] — for monthly revenue or comparisons
 - donut: segments=[{label,value,color}] — for win/loss ratio or proportions
 - stages: data=[{label,value,count,color?}] — for horizontal stage value bars
 
@@ -483,6 +489,7 @@ Proactively suggest a chart when the user asks about pipeline, revenue, or perfo
 
       const result = await runAgentLoop(model, system, analyticsTools, agentMessages, user.id, org_id, role, admin)
       reply = result.reply
+      logUsage({ orgId: org_id, userId: user.id, route: 'sandbox_analytics', model, inputTokens: result.inputTokens, outputTokens: result.outputTokens })
     }
 
     // Parse chart JSON from reply if present
