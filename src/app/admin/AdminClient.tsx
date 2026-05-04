@@ -6,7 +6,7 @@ interface OrgMember {
   role: string
   status: string
   user_id: string
-  users: { email: string; full_name: string }[] | null
+  user: { id: string; email: string; full_name: string | null } | null
 }
 
 interface Org {
@@ -203,7 +203,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage }: Props) {
             )}
             {orgs.map(org => {
               const adminMember = org.organisation_members?.find(m => m.role === 'admin' && m.status === 'active')
-              const owner = adminMember?.users?.[0] ?? null
+              const owner = adminMember?.user ?? null
               const plan = orgPlans[org.id] ?? 'free'
               const memberCount = org.organisation_members?.filter(m => m.status === 'active').length ?? 1
               const isSaving = savingPlan === org.id
