@@ -28,6 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   let userInitials = ''
   let userRole = ''
   let userAvatar = ''
+  let userPlan = 'free'
   let nudgeCount = 0
 
   try {
@@ -42,7 +43,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
       const [{ data: profile }, { data: membership }] = await Promise.all([
         admin.from('users').select('full_name').eq('id', user.id).single(),
-        admin.from('organisation_members').select('role').eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle(),
+        admin.from('organisation_members').select('role, org_id').eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle(),
       ])
 
       const name = profile?.full_name || user.email?.split('@')[0] || ''
@@ -50,6 +51,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       userInitials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
       userRole = membership?.role || 'rep'
       userAvatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? ''
+
+      if (membership?.org_id) {
+        const { data: sub } = await admin
+          .from('subscriptions')
+          .select('plan')
+          .eq('org_id', membership.org_id)
+          .maybeSingle()
+        userPlan = sub?.plan || 'free'
+      }
     }
   } catch {}
 
@@ -101,6 +111,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           userInitials={userInitials}
           userRole={userRole}
           userAvatar={userAvatar}
+          userPlan={userPlan}
           notificationCount={nudgeCount}
         >
           {children}

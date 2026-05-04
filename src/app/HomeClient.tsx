@@ -606,6 +606,132 @@ function ActivitySection({ events, collapsed, onToggle }: { events: Event[]; col
   )
 }
 
+// ─── Tips card ────────────────────────────────────────────────────────────────
+const TIPS = [
+  {
+    color: '#4a7a8a',
+    href: '/capture',
+    label: 'Capture',
+    tip: 'Log meetings, scan cards, record voice memos, or paste screenshots — AI extracts the details.',
+  },
+  {
+    color: '#8a5040',
+    href: '/analytics',
+    label: 'Analytics',
+    tip: 'In-depth pipeline stats, activity trends, and deal velocity — everything in one view.',
+  },
+  {
+    color: '#185FA5',
+    href: '/ai-sandbox',
+    label: 'AI Sandbox',
+    tip: 'Ask anything about your deals, contacts, or pipeline. Requires a Pro plan.',
+    pro: true,
+  },
+]
+
+function TipsCard() {
+  const [visible, setVisible] = useState(false)
+  const [open, setOpen] = useState(true)
+
+  useEffect(() => {
+    setVisible(localStorage.getItem('tips_dismissed') !== '1')
+  }, [])
+
+  if (!visible) return null
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, delay: 0.06 }}
+      style={{
+        background: 'white',
+        border: '0.5px solid rgba(0,0,0,0.07)',
+        borderRadius: 16,
+        marginBottom: 16,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{
+        padding: '13px 16px',
+        borderBottom: open ? '0.5px solid rgba(0,0,0,0.06)' : 'none',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: '#9b9890', letterSpacing: '0.06em', textTransform: 'uppercase', flex: 1 }}>
+          Quick tips
+        </span>
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#c8c5be', display: 'flex' }}
+        >
+          <motion.svg width="10" height="10" viewBox="0 0 10 10"
+            animate={{ rotate: open ? 0 : 180 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+          >
+            <path d="M2 3.5L5 6.5L8 3.5" stroke="#9b9890" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+          </motion.svg>
+        </button>
+        <button
+          onClick={() => { localStorage.setItem('tips_dismissed', '1'); setVisible(false) }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: '#c8c5be', display: 'flex' }}
+          title="Dismiss"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="tips-body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ height: { duration: 0.22 }, opacity: { duration: 0.15 } }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div style={{ padding: '4px 0 8px' }}>
+              {TIPS.map((tip, idx) => (
+                <Link key={tip.href} href={tip.href} style={{ textDecoration: 'none' }}>
+                  <motion.div
+                    whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 12,
+                      padding: '10px 16px',
+                      borderBottom: idx < TIPS.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none',
+                    }}
+                  >
+                    <div style={{
+                      width: 7, height: 7, borderRadius: '50%',
+                      background: tip.color, flexShrink: 0, marginTop: 5,
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>{tip.label}</span>
+                        {tip.pro && (
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
+                            color: '#185FA5', background: 'rgba(24,95,165,0.1)',
+                            borderRadius: 4, padding: '1px 5px', textTransform: 'uppercase',
+                          }}>Pro</span>
+                        )}
+                      </div>
+                      <p style={{ margin: 0, fontSize: 11, color: '#9b9890', lineHeight: 1.5 }}>{tip.tip}</p>
+                    </div>
+                  </motion.div>
+                </Link>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  )
+}
+
 // ─── Shortcuts ────────────────────────────────────────────────────────────────
 const SHORTCUTS = [
   { href: '/capture',    label: 'Capture',    color: '#4a7a8a', icon: <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="9" stroke="currentColor" strokeWidth="1.5"/><path d="M11 6v10M6 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg> },
@@ -824,6 +950,9 @@ export default function HomeClient({ name, initials, avatar, tasks, events, deal
 
       {/* ── Quick start ── */}
       <QuickStartCard done={quickStartDone} />
+
+      {/* ── Tips ── */}
+      <TipsCard />
 
       {/* ── Shortcuts ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }} className="md:grid-cols-6">
