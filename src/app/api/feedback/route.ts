@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { createAdminSupabaseClient } from '@/lib/org-scope'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: Request) {
   try {
@@ -31,13 +32,13 @@ export async function POST(req: Request) {
     })
 
     if (error) {
-      console.error('Feedback insert:', error.message, error)
+      logger.error('feedback', 'Insert failed', { message: error.message, error })
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('Feedback error:', err)
+    logger.error('feedback', 'Request failed', err)
     return NextResponse.json({ error: 'Failed' }, { status: 500 })
   }
 }

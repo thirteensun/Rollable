@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
+import { logger } from '@/lib/logger'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -61,7 +62,7 @@ Rules:
     return NextResponse.json(parsed)
 
   } catch (error: any) {
-    console.error('Preview error:', error)
+    logger.error('assistant/preview', 'Request failed', error)
     return NextResponse.json({ needs_confirmation: false, creates: [] })
   }
 }

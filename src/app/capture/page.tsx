@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { logger } from '@/lib/logger'
 import { FIELD_REGISTRY, type EntityKey, type FieldOptions } from '@/lib/entity-fields'
 import ExtractedFieldList from './ExtractedFieldList'
 
@@ -606,7 +607,7 @@ export default function CapturePage() {
     .eq('user_id', user.id).eq('status', 'active').limit(1).maybeSingle()
 
   if (memErr) {
-    console.error('[sheet save] membership lookup failed:', memErr)
+    logger.error('capture/sheet-save', 'Membership lookup failed', memErr)
     alert(`Could not load your workspace: ${memErr.message}`)
     setSheetSaving(false)
     return
@@ -614,7 +615,7 @@ export default function CapturePage() {
 
   const org_id = membership?.org_id ?? null
   if (!org_id) {
-    console.error('[sheet save] no active org_id for user', user.id)
+    logger.error('capture/sheet-save', 'No active org_id for user', { userId: user.id })
     alert('No active workspace found. Please re-onboard.')
     setSheetSaving(false)
     return
@@ -639,7 +640,7 @@ export default function CapturePage() {
         .eq('user_id', user.id).ilike('name', co.name).maybeSingle()
 
       if (lookupErr) {
-        console.error('[sheet save] company lookup failed:', co.name, lookupErr)
+        logger.error('capture/sheet-save', 'Company lookup failed', { name: co.name, error: lookupErr })
         failures.push(`Company lookup ${co.name}: ${lookupErr.message}`)
         continue
       }
@@ -650,7 +651,7 @@ export default function CapturePage() {
           const { error: updErr } = await supabase
             .from('companies').update(enrich).eq('id', existing.id)
           if (updErr) {
-            console.error('[sheet save] company update failed:', co.name, enrich, updErr)
+            logger.error('capture/sheet-save', 'Company update failed', { name: co.name, error: updErr })
             failures.push(`Update ${co.name}: ${updErr.message}`)
           } else {
             companiesUpdated++
@@ -661,7 +662,7 @@ export default function CapturePage() {
         const { data: newCo, error: insErr } = await supabase
           .from('companies').insert(insert).select('id').maybeSingle()
         if (insErr) {
-          console.error('[sheet save] company insert failed:', insert, insErr)
+          logger.error('capture/sheet-save', 'Company insert failed', { name: co.name, error: insErr })
           failures.push(`Insert ${co.name}: ${insErr.message}`)
           continue
         }
@@ -685,7 +686,7 @@ export default function CapturePage() {
         .eq('user_id', user.id).ilike('full_name', c.full_name).maybeSingle()
 
       if (lookupErr) {
-        console.error('[sheet save] contact lookup failed:', c.full_name, lookupErr)
+        logger.error('capture/sheet-save', 'Contact lookup failed', { name: c.full_name, error: lookupErr })
         failures.push(`Contact lookup ${c.full_name}: ${lookupErr.message}`)
         continue
       }
@@ -696,7 +697,7 @@ export default function CapturePage() {
           ...enrich,
         }).eq('id', existing.id)
         if (updErr) {
-          console.error('[sheet save] contact update failed:', c.full_name, enrich, updErr)
+          logger.error('capture/sheet-save', 'Contact update failed', { name: c.full_name, error: updErr })
           failures.push(`Update ${c.full_name}: ${updErr.message}`)
         } else {
           contactsUpdated++
@@ -710,7 +711,7 @@ export default function CapturePage() {
         }
         const { error: insErr } = await supabase.from('contacts').insert(insert)
         if (insErr) {
-          console.error('[sheet save] contact insert failed:', insert, insErr)
+          logger.error('capture/sheet-save', 'Contact insert failed', { name: c.full_name, error: insErr })
           failures.push(`Insert ${c.full_name}: ${insErr.message}`)
         } else {
           contactsCreated++
@@ -746,7 +747,7 @@ export default function CapturePage() {
       },
     })
     if (evErr) {
-      console.warn('[sheet save] event log failed:', evErr)
+      logger.warn('capture/sheet-save', 'Event log failed', evErr)
       // Non-fatal — don't block the redirect
     }
 
@@ -760,7 +761,7 @@ export default function CapturePage() {
     router.push('/')
     router.refresh()
   } catch (err: any) {
-    console.error('[sheet save] unexpected error:', err)
+    logger.error('capture/sheet-save', 'Unexpected error', err)
     alert(err.message || 'Failed to save.')
     setSheetSaving(false)
   }

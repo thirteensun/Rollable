@@ -6,6 +6,7 @@ import { getOrgContext } from '@/lib/org-context'
 import { getVisibleFields, getFieldOptions } from '@/lib/onboarding-inference'
 import { buildCaptureSchema } from '@/lib/capture-schema'
 import { coerceRecordToNarrowedSet, type FieldOptions } from '@/lib/entity-fields'
+import { logger } from '@/lib/logger'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -138,7 +139,7 @@ async function processBatch(
   try {
     parsed = JSON.parse(cleaned)
   } catch {
-    console.error(`[capture/spreadsheet] Batch ${batchIx + 1} parse failed. Truncated=${truncated}. Raw:`, rawText.slice(0, 500))
+    logger.error('capture/spreadsheet', `Batch ${batchIx + 1} parse failed`, { truncated, raw: rawText.slice(0, 500) })
     throw new Error(
       truncated
         ? `Batch ${batchIx + 1} too large — Haiku ran out of tokens. Try a smaller file.`
@@ -275,7 +276,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(out)
 
   } catch (error: any) {
-    console.error('[capture/spreadsheet]', error)
+    logger.error('capture/spreadsheet', 'Request failed', error)
     return NextResponse.json(
       { error: error.message || 'Spreadsheet capture failed' },
       { status: 500 }

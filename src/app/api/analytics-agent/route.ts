@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
 import { getOrgContext, formatOrgContextForPrompt } from '@/lib/org-context'
 import { logUsage } from '@/lib/log-usage'
+import { logger } from '@/lib/logger'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -504,7 +505,7 @@ How to respond:
     })
 
   } catch (error: any) {
-    console.error('Analytics agent error:', error)
+    logger.error('analytics-agent', 'Request failed', error)
     return NextResponse.json({ error: error.message || 'Analytics agent failed' }, { status: 500 })
   }
 }
