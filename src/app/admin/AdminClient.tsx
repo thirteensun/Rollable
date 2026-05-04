@@ -180,7 +180,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
 
   return (
     <main style={{ minHeight: '100dvh', background: '#f5f4f0', padding: '32px 24px' }}>
-      <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
