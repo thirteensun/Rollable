@@ -301,7 +301,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
                       disabled={isSaving}
                       title="Seats"
                       style={{
-                        width: '44px', fontSize: '11px', fontWeight: 500,
+                        width: '64px', fontSize: '11px', fontWeight: 500,
                         padding: '3px 6px', borderRadius: '6px',
                         background: '#f5f4f0', border: 'none',
                         color: '#6b6960', fontFamily: 'inherit',
