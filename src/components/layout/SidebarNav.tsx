@@ -53,7 +53,7 @@ export default function SidebarNav({ userName, userInitials, userRole, userAvata
 
         <NavItem href="/analytics" active={isActive('/analytics')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M1.5 12L5 7.5l3 2.5 3-5 2.5 3" strokeLinecap="round" strokeLinejoin="round" /></svg>}>Analytics</NavItem>
 
-        <NavItem href="/ai-sandbox" active={isActive('/ai-sandbox')} pro isPro={userPlan === 'pro'} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M7.5 1.5a6 6 0 100 12 6 6 0 000-12z" /><path d="M7.5 5v3.5l2 2" strokeLinecap="round" strokeLinejoin="round" /></svg>}>AI Sandbox</NavItem>
+        <NavItem href="/ai-sandbox" active={isActive('/ai-sandbox')} pro isPro={['pro', 'business'].includes(userPlan)} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M7.5 1.5a6 6 0 100 12 6 6 0 000-12z" /><path d="M7.5 5v3.5l2 2" strokeLinecap="round" strokeLinejoin="round" /></svg>}>AI Sandbox</NavItem>
 
         {/* Records group */}
         <div style={{ fontSize: 12, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 8px', margin: '16px 0 4px' }}>Records</div>
