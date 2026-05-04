@@ -14,6 +14,7 @@ interface Announcement {
   title: string
   body: string
   image_url: string | null
+  link_url: string | null
   published_at: string
 }
 
@@ -205,25 +206,38 @@ export default function AppHeader({ breadcrumbs, notificationCount = 0, onFeedba
                     No announcements yet
                   </div>
                 ) : (
-                  announcements.map((a, idx) => (
-                    <div key={a.id} style={{
+                  announcements.map((a, idx) => {
+                    const inner = (
+                      <>
+                        <div style={{ marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a18', lineHeight: 1.4 }}>{a.title}</span>
+                        </div>
+                        <p style={{ margin: '0 0 8px', fontSize: 12, color: '#6b6960', lineHeight: 1.5 }}>{a.body}</p>
+                        {a.image_url && (
+                          <img src={a.image_url} alt="" style={{ width: '100%', borderRadius: 10, marginBottom: 8, display: 'block', objectFit: 'cover', maxHeight: 160 }} />
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 11, color: '#c8c5be' }}>{relativeTime(a.published_at)}</span>
+                          {a.link_url && <span style={{ fontSize: 11, color: '#185FA5' }}>Learn more →</span>}
+                        </div>
+                      </>
+                    )
+                    const wrapperStyle: React.CSSProperties = {
                       padding: '14px 16px',
                       borderBottom: idx < announcements.length - 1 ? '0.5px solid rgba(0,0,0,0.05)' : 'none',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a18', lineHeight: 1.4 }}>{a.title}</span>
+                      display: 'block', textDecoration: 'none',
+                      transition: 'background 0.15s',
+                    }
+                    return a.link_url ? (
+                      <Link key={a.id} href={a.link_url} onClick={() => setPanelOpen(false)} style={{ ...wrapperStyle, color: 'inherit' }} className="announcement-item">
+                        {inner}
+                      </Link>
+                    ) : (
+                      <div key={a.id} style={wrapperStyle}>
+                        {inner}
                       </div>
-                      <p style={{ margin: '0 0 8px', fontSize: 12, color: '#6b6960', lineHeight: 1.5 }}>{a.body}</p>
-                      {a.image_url && (
-                        <img
-                          src={a.image_url}
-                          alt=""
-                          style={{ width: '100%', borderRadius: 10, marginBottom: 8, display: 'block', objectFit: 'cover', maxHeight: 160 }}
-                        />
-                      )}
-                      <span style={{ fontSize: 11, color: '#c8c5be' }}>{relativeTime(a.published_at)}</span>
-                    </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
             </div>
@@ -235,6 +249,7 @@ export default function AppHeader({ breadcrumbs, notificationCount = 0, onFeedba
         .app-header-pill:hover { background: #f5f4f0 !important; color: #1a1a18 !important; }
         .app-header-icon:hover { background: #f5f4f0 !important; }
         .app-header-crumb:hover { color: #1a1a18 !important; }
+        .announcement-item:hover { background: #f9f8f6 !important; }
       `}</style>
     </header>
   )
