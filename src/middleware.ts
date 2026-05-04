@@ -32,15 +32,20 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
   const isAuthRoute = path.startsWith('/login') || path.startsWith('/auth')
   const isOnboarding = path.startsWith('/onboarding')
+  const isWaitlist = path.startsWith('/waitlist')
+  const isAdmin = path.startsWith('/admin')
 
   if (!user) {
-    if (isAuthRoute || isOnboarding) return response
+    if (isAuthRoute || isOnboarding || isWaitlist) return response
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
   if (isAuthRoute) {
     return NextResponse.redirect(new URL('/', request.url))
   }
+
+  // Admin page: let through — page.tsx handles its own auth check
+  if (isAdmin) return response
 
   const adminSupabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,11 +62,11 @@ export async function middleware(request: NextRequest) {
 
   const hasOrg = !!membership
 
-  if (hasOrg && isOnboarding) {
+  if (hasOrg && (isOnboarding || isWaitlist)) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
-  if (!hasOrg && !isOnboarding) {
+  if (!hasOrg && !isOnboarding && !isWaitlist) {
     return NextResponse.redirect(new URL('/onboarding', request.url))
   }
 

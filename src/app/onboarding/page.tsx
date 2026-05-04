@@ -47,12 +47,20 @@ export default function OnboardingPage() {
 
     try {
       const slug = slugify(orgName) + '-' + Math.random().toString(36).slice(2, 6)
-      const { error: fnError } = await supabase.rpc('create_organisation', {
-        org_name: orgName.trim(),
-        org_slug: slug,
+      const res = await fetch('/api/org/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ org_name: orgName.trim(), org_slug: slug }),
       })
 
-      if (fnError) throw fnError
+      if (!res.ok) {
+        const data = await res.json()
+        if (data.error === 'registration_limit_reached') {
+          window.location.href = '/waitlist'
+          return
+        }
+        throw new Error(data.error || 'Something went wrong. Please try again.')
+      }
 
       await supabase.auth.refreshSession()
       await new Promise(r => setTimeout(r, 500))
