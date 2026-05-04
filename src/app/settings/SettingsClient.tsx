@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import SettingsSliders from './SettingsSliders'
 
 interface Member {
+  id: string
   role: string
   status: string
   invited_email: string | null
@@ -59,6 +60,39 @@ export default function SettingsClient({
   const [inviteError, setInviteError]       = useState('')
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false)
 
+  const [memberList, setMemberList] = useState<Member[]>(members)
+  const [togglingRole, setTogglingRole]     = useState<string | null>(null)
+  const [removing, setRemoving]             = useState<string | null>(null)
+
+  const handleRoleToggle = async (member: Member) => {
+    const newRole = member.role === 'manager' ? 'member' : 'manager'
+    setTogglingRole(member.id)
+    try {
+      const res = await fetch(`/api/org/member/${member.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+      })
+      if (res.ok) {
+        setMemberList(prev => prev.map(m => m.id === member.id ? { ...m, role: newRole } : m))
+      }
+    } finally {
+      setTogglingRole(null)
+    }
+  }
+
+  const handleRemove = async (member: Member) => {
+    setRemoving(member.id)
+    try {
+      const res = await fetch(`/api/org/member/${member.id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setMemberList(prev => prev.filter(m => m.id !== member.id))
+      }
+    } finally {
+      setRemoving(null)
+    }
+  }
+
   const [editingOrgName, setEditingOrgName] = useState(false)
   const [orgNameValue, setOrgNameValue]     = useState(orgName)
   const [savingOrgName, setSavingOrgName]   = useState(false)
@@ -86,7 +120,7 @@ export default function SettingsClient({
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!inviteEmail.trim()) return
-    const activeMembers = members.filter(m => m.status === 'active').length
+    const activeMembers = memberList.filter(m => m.status === 'active').length
     if (activeMembers >= seats) {
       setInviteError(`Seat limit reached (${seats} seats on ${plan} plan). Upgrade to invite more.`)
       return
@@ -95,7 +129,7 @@ export default function SettingsClient({
     setInviteError('')
     const supabase = createClient()
     try {
-      const existing = members.find(
+      const existing = memberList.find(
         m => m.invited_email === inviteEmail.trim() || m.users?.email === inviteEmail.trim()
       )
       if (existing) { setInviteError('This person is already in your workspace.'); return }
@@ -203,7 +237,7 @@ export default function SettingsClient({
             } />
             <Row
               label="Members"
-              value={`${members.filter(m => m.status === 'active').length} / ${seats} seat${seats !== 1 ? 's' : ''}`}
+              value={`${memberList.filter(m => m.status === 'active').length} / ${seats} seat${seats !== 1 ? 's' : ''}`}
               last
             />
           </div>
@@ -244,17 +278,22 @@ export default function SettingsClient({
             Team
           </p>
           <div style={{ background: 'white', borderRadius: 18, border: '0.5px solid rgba(0,0,0,0.07)', overflow: 'hidden' }}>
-            {members.map((member, i) => {
+            {memberList.map((member, i) => {
               const memberName     = member.users?.full_name || member.users?.email || member.invited_email || 'Unknown'
               const memberEmail    = member.users?.email || member.invited_email || ''
               const memberInitials = memberName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
               const isPending      = member.status === 'invited'
+              const isOrgAdmin     = member.role === 'admin'
+              const canEdit        = isAdmin && !isOrgAdmin
+              const isToggling     = togglingRole === member.id
+              const isRemoving     = removing === member.id
               return (
                 <div
-                  key={i}
+                  key={member.id}
                   style={{
                     padding: '13px 18px', display: 'flex', alignItems: 'center', gap: 12,
-                    borderBottom: i < members.length - 1 ? '0.5px solid rgba(0,0,0,0.05)' : 'none',
+                    borderBottom: i < memberList.length - 1 ? '0.5px solid rgba(0,0,0,0.05)' : 'none',
+                    opacity: isRemoving ? 0.4 : 1, transition: 'opacity 0.2s',
                   }}
                 >
                   <div style={{
@@ -274,15 +313,51 @@ export default function SettingsClient({
                       {isPending ? 'Invite pending' : memberEmail}
                     </p>
                   </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 500,
-                    background: roleBg[member.role] || '#f5f4f0',
-                    color: roleColor[member.role] || '#6b6960',
-                    borderRadius: 6, padding: '2px 8px',
-                    textTransform: 'capitalize', flexShrink: 0,
-                  }}>
-                    {member.role}
-                  </span>
+                  {canEdit ? (
+                    <button
+                      onClick={() => handleRoleToggle(member)}
+                      disabled={isToggling}
+                      title={`Switch to ${member.role === 'manager' ? 'member' : 'manager'}`}
+                      style={{
+                        fontSize: 11, fontWeight: 500,
+                        background: roleBg[member.role] || '#f5f4f0',
+                        color: roleColor[member.role] || '#6b6960',
+                        borderRadius: 6, padding: '2px 8px',
+                        textTransform: 'capitalize', flexShrink: 0,
+                        border: 'none', cursor: isToggling ? 'not-allowed' : 'pointer',
+                        fontFamily: 'inherit', opacity: isToggling ? 0.5 : 1,
+                      }}
+                    >
+                      {isToggling ? '…' : member.role}
+                    </button>
+                  ) : (
+                    <span style={{
+                      fontSize: 11, fontWeight: 500,
+                      background: roleBg[member.role] || '#f5f4f0',
+                      color: roleColor[member.role] || '#6b6960',
+                      borderRadius: 6, padding: '2px 8px',
+                      textTransform: 'capitalize', flexShrink: 0,
+                    }}>
+                      {member.role}
+                    </span>
+                  )}
+                  {canEdit && (
+                    <button
+                      onClick={() => handleRemove(member)}
+                      disabled={isRemoving}
+                      title="Remove from workspace"
+                      style={{
+                        width: 26, height: 26, borderRadius: 6, border: 'none',
+                        background: 'transparent', cursor: isRemoving ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: '#c8c5be', flexShrink: 0, padding: 0,
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+                  )}
                 </div>
               )
             })}
