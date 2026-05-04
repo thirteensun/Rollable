@@ -608,19 +608,160 @@ const SHORTCUTS = [
   { href: '/deals',      label: 'Deals',      color: '#7a5a8a', icon: <svg width="20" height="20" viewBox="0 0 22 22" fill="none"><path d="M11 2L2 6.5l9 4.5 9-4.5L11 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/><path d="M2 15.5l9 4.5 9-4.5M2 11l9 4.5 9-4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg> },
 ]
 
-// ─── Greetings ────────────────────────────────────────────────────────────────
-const GREETINGS = [
-  'Tap Capture and sell with total freedom.',
-  'Your AI is ready. Go close something.',
-  'Snap, speak, screenshot — AI handles the rest.',
-  'No forms. No friction. Just results.',
-  'Liberate your sales day.',
+// ─── Quick start card ─────────────────────────────────────────────────────────
+const QUICK_START_STEPS = [
+  {
+    href: '/capture',
+    title: 'Log your first interaction',
+    desc: 'Snap a card, record a voice memo, or type a quick note',
+    color: '#4a7a8a',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+        <circle cx="11" cy="11" r="9" stroke="currentColor" strokeWidth="1.6"/>
+        <path d="M11 6v10M6 11h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/contacts',
+    title: 'Add a contact',
+    desc: 'Build your network — people you meet, prospects, clients',
+    color: '#6a5aaa',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+        <circle cx="11" cy="8" r="4" stroke="currentColor" strokeWidth="1.6"/>
+        <path d="M3 20c0-4.4 3.6-7 8-7s8 2.6 8 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/deals',
+    title: 'Create a deal',
+    desc: 'Track opportunities from first conversation to close',
+    color: '#7a5a8a',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+        <path d="M11 2L2 6.5l9 4.5 9-4.5L11 2z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+        <path d="M2 15.5l9 4.5 9-4.5M2 11l9 4.5 9-4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
+  {
+    href: '/tasks',
+    title: 'Set a follow-up',
+    desc: 'Never let a lead go cold — add a task with a due date',
+    color: '#4a8a6a',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
+        <rect x="2" y="2" width="18" height="18" rx="4" stroke="currentColor" strokeWidth="1.6"/>
+        <path d="M7 11l3 3 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    ),
+  },
 ]
+
+function QuickStartCard() {
+  const [dismissed, setDismissed] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    setDismissed(localStorage.getItem('qs_dismissed') === '1')
+  }, [])
+
+  if (!mounted || dismissed) return null
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -6, height: 0, marginBottom: 0 }}
+        transition={{ duration: 0.22 }}
+        style={{
+          background: 'white',
+          border: '0.5px solid rgba(0,0,0,0.07)',
+          borderRadius: 16,
+          marginBottom: 16,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Card header */}
+        <div style={{
+          padding: '13px 16px',
+          borderBottom: '0.5px solid rgba(0,0,0,0.06)',
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#9b9890', letterSpacing: '0.06em', textTransform: 'uppercase', flex: 1 }}>
+            Get started
+          </span>
+          <button
+            onClick={() => { localStorage.setItem('qs_dismissed', '1'); setDismissed(true) }}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              padding: 2, color: '#c8c5be', display: 'flex', lineHeight: 1,
+            }}
+            title="Dismiss"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Steps */}
+        <div style={{ padding: '4px 0 8px' }}>
+          {QUICK_START_STEPS.map((step, idx) => (
+            <Link key={step.href} href={step.href} style={{ textDecoration: 'none' }}>
+              <motion.div
+                whileHover={{ backgroundColor: 'rgba(0,0,0,0.02)' }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '10px 16px',
+                  borderBottom: idx < QUICK_START_STEPS.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none',
+                }}
+              >
+                {/* Step number + icon */}
+                <div style={{
+                  width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                  background: `${step.color}14`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: step.color,
+                  position: 'relative',
+                }}>
+                  {step.icon}
+                  <span style={{
+                    position: 'absolute', bottom: -4, right: -4,
+                    width: 15, height: 15, borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.07)',
+                    fontSize: 8, fontWeight: 700, color: '#6b6960',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '1.5px solid white',
+                  }}>
+                    {idx + 1}
+                  </span>
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>{step.title}</p>
+                  <p style={{ margin: '1px 0 0', fontSize: 11, color: '#9b9890', lineHeight: 1.4 }}>{step.desc}</p>
+                </div>
+
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                  <path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+              </motion.div>
+            </Link>
+          ))}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function HomeClient({ name, initials, avatar, tasks, events, deals, atRiskDeals, orgName, userRole, homePriority }: Props) {
-  const greeting = GREETINGS[new Date().getDay() % GREETINGS.length]
-
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({
     signals: false, tasks: false, activity: false,
   })
@@ -631,16 +772,16 @@ export default function HomeClient({ name, initials, avatar, tasks, events, deal
   return (
     <div>
       {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <div>
           <p style={{ margin: 0, fontSize: 12, color: '#9b9890', letterSpacing: '0.02em' }} suppressHydrationWarning>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
           </p>
-          <p style={{ margin: '5px 0 0', fontSize: 21, fontWeight: 500, color: '#1a1a18', lineHeight: 1.25 }} suppressHydrationWarning>
-            {greeting}
+          <p style={{ margin: '3px 0 0', fontSize: 17, fontWeight: 500, color: '#1a1a18', lineHeight: 1.25 }}>
+            Welcome{name ? `, ${name.split(' ')[0]}` : ''}
           </p>
           {orgName && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5 }}>
               <span style={{ fontSize: 12, color: '#9b9890' }}>{orgName}</span>
               <span style={{
                 fontSize: 9, fontWeight: 600, color: '#9b9890',
@@ -672,6 +813,9 @@ export default function HomeClient({ name, initials, avatar, tasks, events, deal
           </motion.div>
         </Link>
       </div>
+
+      {/* ── Quick start ── */}
+      <QuickStartCard />
 
       {/* ── Shortcuts ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }} className="md:grid-cols-6">
