@@ -27,7 +27,7 @@ export default async function AISandboxPage() {
         .eq('org_id', membership.org_id)
         .maybeSingle()
 
-      if (!sub || sub.plan !== 'pro') redirect('/upgrade')
+      if (!sub || !['pro', 'business'].includes(sub.plan)) redirect('/upgrade')
     }
   }
 
