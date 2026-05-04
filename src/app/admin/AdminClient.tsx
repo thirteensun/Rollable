@@ -40,14 +40,25 @@ interface UsageRow {
   created_at: string
 }
 
+interface Announcement {
+  id: string
+  title: string
+  body: string
+  image_url: string | null
+  published: boolean
+  published_at: string | null
+  created_at: string
+}
+
 interface Props {
   orgs: Org[]
   waitlist: WaitlistEntry[]
   cap: Cap
   usage: UsageRow[]
+  announcements: Announcement[]
 }
 
-type Tab = 'registrations' | 'waitlist' | 'usage' | 'settings'
+type Tab = 'registrations' | 'waitlist' | 'usage' | 'settings' | 'announcements'
 
 const planColor: Record<string, string> = {
   free: '#9b9890',
@@ -72,7 +83,7 @@ function calcCost(model: string, input: number, output: number) {
   return (input / 1_000_000) * p.input + (output / 1_000_000) * p.output
 }
 
-export default function AdminClient({ orgs, waitlist, cap, usage }: Props) {
+export default function AdminClient({ orgs, waitlist, cap, usage, announcements: initialAnnouncements }: Props) {
   const [tab, setTab] = useState<Tab>('registrations')
   const [waitlistItems, setWaitlistItems] = useState(waitlist)
   const [capEnabled, setCapEnabled] = useState(cap.enabled)
@@ -87,6 +98,12 @@ export default function AdminClient({ orgs, waitlist, cap, usage }: Props) {
   const [approving, setApproving] = useState<string | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
   const [settingsSaved, setSettingsSaved] = useState(false)
+
+  // Announcements state
+  const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements)
+  const [editingId, setEditingId] = useState<string | 'new' | null>(null)
+  const [aForm, setAForm] = useState({ title: '', body: '', image_url: '', published: false })
+  const [savingA, setSavingA] = useState(false)
 
   const handlePlanChange = async (orgId: string, newPlan: string) => {
     setOrgPlans(prev => ({ ...prev, [orgId]: newPlan }))
@@ -175,7 +192,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage }: Props) {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: 'white', borderRadius: '12px', padding: '4px', border: '0.5px solid rgba(0,0,0,0.07)', width: 'fit-content' }}>
-          {(['registrations', 'waitlist', 'usage', 'settings'] as Tab[]).map(t => (
+          {(['registrations', 'waitlist', 'usage', 'settings', 'announcements'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)} style={{
               padding: '8px 16px', borderRadius: '9px', border: 'none',
               background: tab === t ? '#1a1a18' : 'transparent',
@@ -462,6 +479,185 @@ export default function AdminClient({ orgs, waitlist, cap, usage }: Props) {
             </button>
           </div>
         )}
+        {/* Announcements */}
+        {tab === 'announcements' && (
+          <div>
+            {/* New button */}
+            {editingId === null && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+                <button
+                  onClick={() => { setAForm({ title: '', body: '', image_url: '', published: false }); setEditingId('new') }}
+                  style={{ padding: '10px 20px', borderRadius: 12, border: 'none', background: '#1a1a18', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  + New announcement
+                </button>
+              </div>
+            )}
+
+            {/* Form */}
+            {editingId !== null && (
+              <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 24, marginBottom: 16 }}>
+                <h3 style={{ margin: '0 0 20px', fontSize: 15, fontWeight: 500, color: '#1a1a18' }}>
+                  {editingId === 'new' ? 'New announcement' : 'Edit announcement'}
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: '#6b6960', display: 'block', marginBottom: 6 }}>Title</label>
+                    <input
+                      value={aForm.title}
+                      onChange={e => setAForm(f => ({ ...f, title: e.target.value }))}
+                      placeholder="Introducing..."
+                      style={{ width: '100%', padding: '10px 14px', fontSize: 14, border: '0.5px solid rgba(0,0,0,0.12)', borderRadius: 10, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: '#6b6960', display: 'block', marginBottom: 6 }}>Body</label>
+                    <textarea
+                      value={aForm.body}
+                      onChange={e => setAForm(f => ({ ...f, body: e.target.value }))}
+                      placeholder="Describe the new feature..."
+                      rows={4}
+                      style={{ width: '100%', padding: '10px 14px', fontSize: 14, border: '0.5px solid rgba(0,0,0,0.12)', borderRadius: 10, outline: 'none', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: '#6b6960', display: 'block', marginBottom: 6 }}>Image URL <span style={{ color: '#c8c5be' }}>(optional)</span></label>
+                    <input
+                      value={aForm.image_url}
+                      onChange={e => setAForm(f => ({ ...f, image_url: e.target.value }))}
+                      placeholder="https://..."
+                      style={{ width: '100%', padding: '10px 14px', fontSize: 14, border: '0.5px solid rgba(0,0,0,0.12)', borderRadius: 10, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button
+                      onClick={() => setAForm(f => ({ ...f, published: !f.published }))}
+                      style={{
+                        width: 40, height: 24, borderRadius: 12, border: 'none',
+                        background: aForm.published ? '#1a1a18' : '#d4d2cc',
+                        cursor: 'pointer', position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+                      }}
+                    >
+                      <span style={{ position: 'absolute', top: 2, left: aForm.published ? 18 : 2, width: 20, height: 20, borderRadius: '50%', background: 'white', transition: 'left 0.2s' }} />
+                    </button>
+                    <span style={{ fontSize: 13, color: '#6b6960' }}>Publish immediately</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                  <button
+                    disabled={savingA || !aForm.title.trim() || !aForm.body.trim()}
+                    onClick={async () => {
+                      setSavingA(true)
+                      try {
+                        if (editingId === 'new') {
+                          const res = await fetch('/api/admin/announcements', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(aForm),
+                          })
+                          const created = await res.json()
+                          setAnnouncements(prev => [created, ...prev])
+                        } else {
+                          const res = await fetch(`/api/admin/announcements/${editingId}`, {
+                            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(aForm),
+                          })
+                          const updated = await res.json()
+                          setAnnouncements(prev => prev.map(a => a.id === editingId ? updated : a))
+                        }
+                        setEditingId(null)
+                      } finally {
+                        setSavingA(false)
+                      }
+                    }}
+                    style={{
+                      padding: '10px 20px', borderRadius: 10, border: 'none',
+                      background: savingA ? '#9b9890' : '#1a1a18', color: 'white',
+                      fontSize: 13, fontWeight: 500, cursor: savingA ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                    }}
+                  >
+                    {savingA ? 'Saving…' : editingId === 'new' ? 'Create' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    style={{ padding: '10px 20px', borderRadius: 10, border: '0.5px solid rgba(0,0,0,0.1)', background: 'transparent', color: '#6b6960', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {announcements.length === 0 && (
+                <p style={{ color: '#9b9890', fontSize: 14 }}>No announcements yet.</p>
+              )}
+              {announcements.map(a => (
+                <div key={a.id} style={{
+                  background: 'white', borderRadius: 14, border: '0.5px solid rgba(0,0,0,0.07)',
+                  padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: 14,
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>{a.title}</span>
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase',
+                        padding: '2px 6px', borderRadius: 4,
+                        background: a.published ? 'rgba(29,158,117,0.1)' : 'rgba(0,0,0,0.05)',
+                        color: a.published ? '#1D9E75' : '#9b9890',
+                      }}>
+                        {a.published ? 'Published' : 'Draft'}
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, color: '#9b9890', lineHeight: 1.4 }}>{a.body}</p>
+                    <p style={{ margin: '6px 0 0', fontSize: 11, color: '#c8c5be' }}>{formatDate(a.created_at)}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                    {/* Publish toggle */}
+                    <button
+                      onClick={async () => {
+                        const updated = await fetch(`/api/admin/announcements/${a.id}`, {
+                          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ published: !a.published }),
+                        }).then(r => r.json())
+                        setAnnouncements(prev => prev.map(x => x.id === a.id ? updated : x))
+                      }}
+                      style={{
+                        padding: '6px 12px', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.1)',
+                        background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                        color: a.published ? '#E24B4A' : '#1D9E75',
+                      }}
+                    >
+                      {a.published ? 'Unpublish' : 'Publish'}
+                    </button>
+                    {/* Edit */}
+                    <button
+                      onClick={() => {
+                        setAForm({ title: a.title, body: a.body, image_url: a.image_url ?? '', published: a.published })
+                        setEditingId(a.id)
+                      }}
+                      style={{ padding: '6px 12px', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.1)', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#6b6960' }}
+                    >
+                      Edit
+                    </button>
+                    {/* Delete */}
+                    <button
+                      onClick={async () => {
+                        if (!confirm('Delete this announcement?')) return
+                        await fetch(`/api/admin/announcements/${a.id}`, { method: 'DELETE' })
+                        setAnnouncements(prev => prev.filter(x => x.id !== a.id))
+                      }}
+                      style={{ padding: '6px 12px', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.1)', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#E24B4A' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
     </main>
   )
