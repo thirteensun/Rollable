@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
 import { logUsage } from '@/lib/log-usage'
+import { logger } from '@/lib/logger'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -556,7 +557,7 @@ Proactively suggest a chart when the user asks about pipeline, revenue, or perfo
     })
 
   } catch (error: any) {
-    console.error('Sandbox router error:', error)
+    logger.error('sandbox', 'Request failed', error)
     return NextResponse.json({ error: error.message || 'Sandbox failed' }, { status: 500 })
   }
 }

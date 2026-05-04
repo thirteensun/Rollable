@@ -6,6 +6,7 @@ import { getOrgContext } from '@/lib/org-context'
 import { getVisibleFields, getFieldOptions } from '@/lib/onboarding-inference'
 import { buildCaptureSchema } from '@/lib/capture-schema'
 import { coerceRecordToNarrowedSet, type EntityKey, type FieldOptions } from '@/lib/entity-fields'
+import { logger } from '@/lib/logger'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -155,7 +156,7 @@ ${schema.enumGuidance ? `\nEnum guidance:\n${schema.enumGuidance}` : ''}`
     try {
       parsed = JSON.parse(cleaned)
     } catch {
-      console.error('Failed to parse Claude response:', rawText)
+      logger.error('capture', 'Failed to parse Claude response', rawText.slice(0, 500))
       return NextResponse.json({ error: 'Failed to parse AI response', raw: rawText }, { status: 500 })
     }
 
@@ -199,7 +200,7 @@ ${schema.enumGuidance ? `\nEnum guidance:\n${schema.enumGuidance}` : ''}`
     return NextResponse.json(out)
 
   } catch (error: any) {
-    console.error('Capture error:', error)
+    logger.error('capture', 'Request failed', error)
     return NextResponse.json({ error: error.message || 'Capture failed' }, { status: 500 })
   }
 }

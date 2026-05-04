@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { logger } from '@/lib/logger'
 
 export async function PATCH(
   req: NextRequest,
@@ -19,7 +20,7 @@ export async function PATCH(
     .eq('id', params.id)
 
   if (error) {
-    console.error('Failed to update deal stage:', error)
+    logger.error('deals/stage', 'Failed to update deal stage', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 

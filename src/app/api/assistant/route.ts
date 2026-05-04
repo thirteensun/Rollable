@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import Anthropic from '@anthropic-ai/sdk'
 import { logUsage } from '@/lib/log-usage'
 import { getOrgContext, formatOrgContextForPrompt } from '@/lib/org-context'
+import { logger } from '@/lib/logger'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -424,7 +425,7 @@ After using a tool, summarise what you did in 1-2 sentences.`
     return NextResponse.json({ reply, history: [...messages, { role: 'assistant', content: reply }] })
 
   } catch (error: any) {
-    console.error('Assistant error:', error)
+    logger.error('assistant', 'Request failed', error)
     return NextResponse.json({ error: error.message || 'Assistant failed' }, { status: 500 })
   }
 }

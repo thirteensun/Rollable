@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { logger } from '@/lib/logger'
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -53,7 +54,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (error: any) {
-    console.error('analytics-layout error:', error)
+    logger.error('analytics-layout', 'Request failed', error)
     return NextResponse.json({ error: error.message || 'Failed' }, { status: 500 })
   }
 }

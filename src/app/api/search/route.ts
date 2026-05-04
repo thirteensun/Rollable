@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { logger } from '@/lib/logger'
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
       tasks: tasks ?? [],
     })
   } catch (err) {
-    console.error('Search error:', err)
+    logger.error('search', 'Request failed', err)
     return NextResponse.json({ contacts: [], deals: [], companies: [], tasks: [] }, { status: 500 })
   }
 }
