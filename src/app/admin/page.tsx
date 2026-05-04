@@ -34,16 +34,20 @@ export default async function AdminPage() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const [{ data: orgs }, { data: waitlist }, { data: settings }, { data: usageRaw }] = await Promise.all([
+  const [{ data: orgs }, { data: members }, { data: userProfiles }, { data: waitlist }, { data: settings }, { data: usageRaw }] = await Promise.all([
     admin
       .from('organisations')
-      .select(`
-        id, name, created_at,
-        subscriptions(plan, seats),
-        organisation_members(role, status, user_id, users(email, full_name))
-      `)
+      .select('id, name, created_at, subscriptions(plan, seats)')
       .order('created_at', { ascending: false })
       .limit(100),
+
+    admin
+      .from('organisation_members')
+      .select('org_id, user_id, role, status'),
+
+    admin
+      .from('users')
+      .select('id, email, full_name'),
 
     admin
       .from('waitlist')
@@ -61,6 +65,19 @@ export default async function AdminPage() {
       .limit(5000),
   ])
 
+  // Merge members + user profiles into orgs
+  const userMap = Object.fromEntries((userProfiles ?? []).map((u: any) => [u.id, u]))
+  const membersByOrg = (members ?? []).reduce((acc: any, m: any) => {
+    if (!acc[m.org_id]) acc[m.org_id] = []
+    acc[m.org_id].push({ ...m, user: userMap[m.user_id] ?? null })
+    return acc
+  }, {})
+
+  const orgsWithMembers = (orgs ?? []).map((org: any) => ({
+    ...org,
+    organisation_members: membersByOrg[org.id] ?? [],
+  }))
+
   const capSetting = (settings ?? []).find((s: any) => s.key === 'registration_cap')
   const cap = {
     enabled: capSetting?.value?.enabled ?? true,
@@ -69,7 +86,7 @@ export default async function AdminPage() {
 
   return (
     <AdminClient
-      orgs={orgs ?? []}
+      orgs={orgsWithMembers}
       waitlist={waitlist ?? []}
       cap={cap}
       usage={usageRaw ?? []}
