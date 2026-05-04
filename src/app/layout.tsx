@@ -9,8 +9,8 @@ import { createClient } from '@supabase/supabase-js'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Rollable — Sales & Deal Manager',
-  description: 'Liberate sales and marketing through effortless AI.',
+  title: 'Rollable — Effortless AI Sales Companion',
+  description: 'Your effortless AI sales companion. Capture, track, and close deals without the friction.',
   manifest: '/manifest.json',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Rollable' },
   icons: {
