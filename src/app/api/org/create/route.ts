@@ -13,8 +13,8 @@ export async function POST(req: Request) {
     {
       cookies: {
         get: (name: string) => cookieStore.get(name)?.value,
-        set: (name, value, opts) => cookieStore.set({ name, value, ...opts }),
-        remove: (name, opts) => cookieStore.set({ name, value: '', ...opts }),
+        set: (name: string, value: string, opts: any) => cookieStore.set({ name, value, ...opts }),
+        remove: (name: string, opts: any) => cookieStore.set({ name, value: '', ...opts }),
       },
     }
   )
