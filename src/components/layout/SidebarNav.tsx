@@ -8,9 +8,10 @@ type Props = {
   userInitials: string
   userRole: string
   userAvatar?: string
+  userPlan: string
 }
 
-export default function SidebarNav({ userName, userInitials, userRole, userAvatar }: Props) {
+export default function SidebarNav({ userName, userInitials, userRole, userAvatar, userPlan }: Props) {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
@@ -52,7 +53,7 @@ export default function SidebarNav({ userName, userInitials, userRole, userAvata
 
         <NavItem href="/analytics" active={isActive('/analytics')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M1.5 12L5 7.5l3 2.5 3-5 2.5 3" strokeLinecap="round" strokeLinejoin="round" /></svg>}>Analytics</NavItem>
 
-        <NavItem href="/ai-sandbox" active={isActive('/ai-sandbox')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M7.5 1.5a6 6 0 100 12 6 6 0 000-12z" /><path d="M7.5 5v3.5l2 2" strokeLinecap="round" strokeLinejoin="round" /></svg>}>AI Sandbox</NavItem>
+        <NavItem href="/ai-sandbox" active={isActive('/ai-sandbox')} pro isPro={userPlan === 'pro'} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M7.5 1.5a6 6 0 100 12 6 6 0 000-12z" /><path d="M7.5 5v3.5l2 2" strokeLinecap="round" strokeLinejoin="round" /></svg>}>AI Sandbox</NavItem>
 
         {/* Records group */}
         <div style={{ fontSize: 12, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 8px', margin: '16px 0 4px' }}>Records</div>
@@ -92,9 +93,11 @@ export default function SidebarNav({ userName, userInitials, userRole, userAvata
   )
 }
 
-function NavItem({ href, active, icon, badge, badgeColor, children }: {
+function NavItem({ href, active, icon, badge, badgeColor, pro, isPro, children }: {
   href: string; active: boolean; icon: React.ReactNode
-  badge?: number; badgeColor?: string; children: React.ReactNode
+  badge?: number; badgeColor?: string
+  pro?: boolean; isPro?: boolean
+  children: React.ReactNode
 }) {
   return (
     <Link href={href} style={{
@@ -108,6 +111,16 @@ function NavItem({ href, active, icon, badge, badgeColor, children }: {
     }} className="sidebar-nav-item">
       <span style={{ width: 15, height: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{icon}</span>
       <span style={{ flex: 1 }}>{children}</span>
+      {pro && (
+        <span style={{
+          fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
+          color: isPro ? '#185FA5' : '#9b9890',
+          background: isPro ? 'rgba(24,95,165,0.1)' : 'rgba(0,0,0,0.06)',
+          borderRadius: 4, padding: '2px 5px', textTransform: 'uppercase',
+        }}>
+          Pro
+        </span>
+      )}
       {badge && (
         <span style={{ background: badgeColor ?? '#1a1a18', color: 'white', fontSize: 10, fontWeight: 500, borderRadius: 10, padding: '1px 6px', minWidth: 18, textAlign: 'center' }}>
           {badge}
