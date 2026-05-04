@@ -105,6 +105,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const [aForm, setAForm] = useState({ title: '', body: '', image_url: '', link_url: '', published: false })
   const [savingA, setSavingA] = useState(false)
+  const [aError, setAError] = useState<string | null>(null)
 
   const handlePlanChange = async (orgId: string, newPlan: string) => {
     setOrgPlans(prev => ({ ...prev, [orgId]: newPlan }))
@@ -553,28 +554,38 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
                     <span style={{ fontSize: 13, color: '#6b6960' }}>Publish immediately</span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+                {aError && (
+                  <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(226,75,74,0.08)', border: '0.5px solid rgba(226,75,74,0.2)', marginTop: 16 }}>
+                    <p style={{ margin: 0, fontSize: 13, color: '#E24B4A' }}>{aError}</p>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                   <button
                     disabled={savingA || !aForm.title.trim() || !aForm.body.trim()}
                     onClick={async () => {
                       setSavingA(true)
+                      setAError(null)
                       try {
                         if (editingId === 'new') {
                           const res = await fetch('/api/admin/announcements', {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(aForm),
                           })
-                          const created = await res.json()
-                          setAnnouncements(prev => [created, ...prev])
+                          const data = await res.json()
+                          if (!res.ok) { setAError(data.error ?? 'Failed to create announcement'); return }
+                          setAnnouncements(prev => [data, ...prev])
                         } else {
                           const res = await fetch(`/api/admin/announcements/${editingId}`, {
                             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(aForm),
                           })
-                          const updated = await res.json()
-                          setAnnouncements(prev => prev.map(a => a.id === editingId ? updated : a))
+                          const data = await res.json()
+                          if (!res.ok) { setAError(data.error ?? 'Failed to save announcement'); return }
+                          setAnnouncements(prev => prev.map(a => a.id === editingId ? data : a))
                         }
                         setEditingId(null)
+                      } catch (e) {
+                        setAError('Network error — check your connection')
                       } finally {
                         setSavingA(false)
                       }
