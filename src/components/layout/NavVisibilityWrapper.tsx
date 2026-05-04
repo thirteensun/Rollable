@@ -17,12 +17,13 @@ interface Props {
   userInitials: string
   userRole: string
   userAvatar: string
+  userPlan: string
   /** Shown on the header bell; wire feedback from this wrapper (layout is a server component). */
   notificationCount?: number
 }
 
 export default function NavVisibilityWrapper({
-  children, userName, userInitials, userRole, userAvatar, notificationCount = 0,
+  children, userName, userInitials, userRole, userAvatar, userPlan, notificationCount = 0,
 }: Props) {
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const pathname = usePathname()
@@ -39,7 +40,7 @@ export default function NavVisibilityWrapper({
       <SearchModal />
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
       <div className="hidden md:block">
-        <SidebarNav userName={userName} userInitials={userInitials} userRole={userRole} userAvatar={userAvatar} />
+        <SidebarNav userName={userName} userInitials={userInitials} userRole={userRole} userAvatar={userAvatar} userPlan={userPlan} />
       </div>
       <div
         className="app-shell md:ml-[210px]"
