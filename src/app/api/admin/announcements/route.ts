@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       title: body.title,
       body: body.body,
       image_url: body.image_url || null,
+      link_url: body.link_url || null,
       published: body.published ?? false,
       published_at: body.published ? new Date().toISOString() : null,
     })

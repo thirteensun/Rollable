@@ -45,6 +45,7 @@ interface Announcement {
   title: string
   body: string
   image_url: string | null
+  link_url: string | null
   published: boolean
   published_at: string | null
   created_at: string
@@ -102,7 +103,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
   // Announcements state
   const [announcements, setAnnouncements] = useState<Announcement[]>(initialAnnouncements)
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
-  const [aForm, setAForm] = useState({ title: '', body: '', image_url: '', published: false })
+  const [aForm, setAForm] = useState({ title: '', body: '', image_url: '', link_url: '', published: false })
   const [savingA, setSavingA] = useState(false)
 
   const handlePlanChange = async (orgId: string, newPlan: string) => {
@@ -486,7 +487,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
             {editingId === null && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
                 <button
-                  onClick={() => { setAForm({ title: '', body: '', image_url: '', published: false }); setEditingId('new') }}
+                  onClick={() => { setAForm({ title: '', body: '', image_url: '', link_url: '', published: false }); setEditingId('new') }}
                   style={{ padding: '10px 20px', borderRadius: 12, border: 'none', background: '#1a1a18', color: 'white', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}
                 >
                   + New announcement
@@ -526,6 +527,15 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
                       value={aForm.image_url}
                       onChange={e => setAForm(f => ({ ...f, image_url: e.target.value }))}
                       placeholder="https://..."
+                      style={{ width: '100%', padding: '10px 14px', fontSize: 14, border: '0.5px solid rgba(0,0,0,0.12)', borderRadius: 10, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: '#6b6960', display: 'block', marginBottom: 6 }}>Link URL <span style={{ color: '#c8c5be' }}>(optional — where clicking takes the user)</span></label>
+                    <input
+                      value={aForm.link_url}
+                      onChange={e => setAForm(f => ({ ...f, link_url: e.target.value }))}
+                      placeholder="/capture or https://..."
                       style={{ width: '100%', padding: '10px 14px', fontSize: 14, border: '0.5px solid rgba(0,0,0,0.12)', borderRadius: 10, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
                     />
                   </div>
@@ -633,7 +643,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
                     {/* Edit */}
                     <button
                       onClick={() => {
-                        setAForm({ title: a.title, body: a.body, image_url: a.image_url ?? '', published: a.published })
+                        setAForm({ title: a.title, body: a.body, image_url: a.image_url ?? '', link_url: a.link_url ?? '', published: a.published })
                         setEditingId(a.id)
                       }}
                       style={{ padding: '6px 12px', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.1)', background: 'transparent', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: '#6b6960' }}
