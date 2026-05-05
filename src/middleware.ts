@@ -34,6 +34,7 @@ export async function middleware(request: NextRequest) {
   const isOnboarding = path.startsWith('/onboarding')
   const isWaitlist = path.startsWith('/waitlist')
   const isAdmin = path.startsWith('/admin')
+  const isApi = path.startsWith('/api/')
 
   if (!user) {
     if (isAuthRoute || isOnboarding || isWaitlist) return response
@@ -46,6 +47,9 @@ export async function middleware(request: NextRequest) {
 
   // Admin page: let through — page.tsx handles its own auth check
   if (isAdmin) return response
+
+  // API routes handle their own auth — never redirect them
+  if (isApi) return response
 
   const adminSupabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
