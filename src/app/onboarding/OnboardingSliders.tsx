@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { createClient } from '@/lib/supabase'
 import {
   ONBOARDING_QUESTIONS,
   inferFromScores,
@@ -139,6 +140,7 @@ export default function OnboardingSliders({ onComplete, userName }: Props) {
         const data = await res.json()
         throw new Error(data.error || 'Something went wrong.')
       }
+      await createClient().auth.refreshSession()
       setConfirmed(true)
     } catch (err: any) {
       setError(err.message || 'Something went wrong.')
