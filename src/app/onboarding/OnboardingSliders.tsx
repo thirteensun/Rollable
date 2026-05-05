@@ -1,11 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase'
 import {
   ONBOARDING_QUESTIONS,
   inferFromScores,
-  mergeIntoOrgContext,
   type OnboardingScores,
 } from '@/lib/onboarding-inference'
 
@@ -132,35 +130,15 @@ export default function OnboardingSliders({ onComplete, userName }: Props) {
     setSaving(true)
     setError('')
     try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-
-      const { data: membership } = await supabase
-        .from('organisation_members')
-        .select('org_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .limit(1)
-        .maybeSingle()
-
-      if (!membership) throw new Error('No active workspace found')
-
-      const { data: org } = await supabase
-        .from('organisations')
-        .select('context')
-        .eq('id', membership.org_id)
-        .single()
-
-      const merged = mergeIntoOrgContext(org?.context || {}, inferred)
-
-      const { error: updateError } = await supabase
-        .from('organisations')
-        .update({ context: merged })
-        .eq('id', membership.org_id)
-
-      if (updateError) throw updateError
-
+      const res = await fetch('/api/org/save-context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scores }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Something went wrong.')
+      }
       setConfirmed(true)
     } catch (err: any) {
       setError(err.message || 'Something went wrong.')
