@@ -32,93 +32,74 @@ const TEMPLATE_LABELS: Record<string, string> = {
 }
 
 function SliderInput({
-  question, low, high, lowHint, highHint, value, onChange,
+  question, low, high, lowHint, highHint, scaleHint, value, onChange,
 }: {
   question: string
   low: string
   high: string
   lowHint: string
   highHint: string
+  scaleHint: string
   value: number
   onChange: (v: number) => void
 }) {
   const pct = ((value - 1) / 6) * 100
+  const hintText = value <= 2 ? lowHint : value >= 6 ? highHint : ''
 
   return (
     <div style={{
       background: 'white',
       borderRadius: 18,
       border: '0.5px solid rgba(0,0,0,0.07)',
-      padding: '24px 20px',
+      padding: '20px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
     }}>
-      <p style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 500, color: '#1a1a18', lineHeight: 1.4 }}>
+      <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 500, color: '#1a1a18', lineHeight: 1.4 }}>
         {question}
       </p>
+      <p style={{ margin: '0 0 16px', fontSize: 12, color: '#9b9890', lineHeight: 1.4 }}>
+        {scaleHint}
+      </p>
 
-      <div style={{ position: 'relative', marginBottom: 10 }}>
-        <div style={{
-          height: 4, borderRadius: 2,
-          background: 'rgba(0,0,0,0.07)',
-          position: 'relative',
-        }}>
+      <div style={{ position: 'relative', paddingTop: 26, marginBottom: 8 }}>
+        <div style={{ height: 4, borderRadius: 999, background: 'rgba(0,0,0,0.08)', position: 'relative' }}>
           <div style={{
-            position: 'absolute', left: 0, top: 0, bottom: 0,
-            width: `${pct}%`,
-            background: '#1a1a18',
-            borderRadius: 2,
-            transition: 'width 0.1s ease',
+            position: 'absolute', left: `${pct}%`, top: '50%',
+            width: 14, height: 14, borderRadius: '50%',
+            background: '#e9e8e5', border: '1px solid rgba(0,0,0,0.2)',
+            transform: 'translate(-50%, -50%)', transition: 'left 0.1s ease',
           }} />
         </div>
-
         <input
-          type="range"
-          min={1} max={7} step={1}
-          value={value}
+          type="range" min={1} max={7} step={1} value={value}
           onChange={e => onChange(Number(e.target.value))}
           style={{
-            position: 'absolute',
-            top: -8, left: 0, right: 0,
-            width: '100%', height: 20,
-            opacity: 0, cursor: 'pointer', margin: 0,
+            position: 'absolute', top: 18, left: 0,
+            width: '100%', height: 20, opacity: 0, cursor: 'pointer', margin: 0,
           }}
         />
-
         <div style={{
-          display: 'flex', justifyContent: 'space-between',
-          position: 'absolute', top: -3, left: 0, right: 0,
-          pointerEvents: 'none',
+          position: 'absolute', left: `${pct}%`, top: 0,
+          transform: 'translateX(-50%)', pointerEvents: 'none',
+          background: '#1a1a18', color: 'white',
+          borderRadius: 8, fontSize: 12, fontWeight: 600,
+          lineHeight: 1, padding: '6px 9px', minWidth: 28, textAlign: 'center',
+          transition: 'left 0.1s ease',
         }}>
-          {[1,2,3,4,5,6,7].map(v => (
-            <div key={v} style={{
-              width: 10, height: 10, borderRadius: '50%',
-              background: v <= value ? '#1a1a18' : 'rgba(0,0,0,0.12)',
-              border: v === value ? '2px solid white' : 'none',
-              boxShadow: v === value ? '0 0 0 2px #1a1a18' : 'none',
-              transition: 'all 0.1s ease',
-              flexShrink: 0,
-            }} />
-          ))}
+          {value}
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
         <span style={{ fontSize: 11, color: '#9b9890', maxWidth: '42%', lineHeight: 1.3 }}>{low}</span>
-        <span style={{
-          fontSize: 12, fontWeight: 600, color: '#1a1a18',
-          background: '#f5f4f0', borderRadius: 6,
-          padding: '2px 10px', alignSelf: 'center',
-        }}>{value}</span>
         <span style={{ fontSize: 11, color: '#9b9890', maxWidth: '42%', textAlign: 'right', lineHeight: 1.3 }}>{high}</span>
       </div>
 
-      <p style={{
-        margin: '12px 0 0', fontSize: 12, color: '#6b6960',
-        lineHeight: 1.4, minHeight: 16,
-        transition: 'opacity 0.2s ease',
-      }}>
-        {value <= 2 ? lowHint : value >= 6 ? highHint : ''}
-      </p>
+      <div style={{ marginTop: 8, minHeight: 20 }}>
+        {hintText && (
+          <p style={{ margin: 0, fontSize: 12, color: '#6b6960', lineHeight: 1.4 }}>{hintText}</p>
+        )}
+      </div>
     </div>
   )
 }
@@ -278,6 +259,7 @@ export default function OnboardingSliders({ onComplete, userName }: Props) {
         question={currentQ.question}
         low={currentQ.low}
         high={currentQ.high}
+        scaleHint={currentQ.scaleHint}
         lowHint={currentQ.lowHint}
         highHint={currentQ.highHint}
         value={scores[currentQ.key]}

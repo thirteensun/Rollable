@@ -16,13 +16,14 @@ interface Props {
 }
 
 function SliderInput({
-  question, low, high, lowHint, highHint, value, onChange,
+  question, low, high, lowHint, highHint, scaleHint, value, onChange,
 }: {
   question: string
   low: string
   high: string
   lowHint: string
   highHint: string
+  scaleHint: string
   value: number
   onChange: (v: number) => void
 }) {
@@ -31,8 +32,11 @@ function SliderInput({
 
   return (
     <div style={{ paddingBottom: 20, borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
-      <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 500, color: '#1a1a18', lineHeight: 1.4 }}>
+      <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 500, color: '#1a1a18', lineHeight: 1.4 }}>
         {question}
+      </p>
+      <p style={{ margin: '0 0 12px', fontSize: 11, color: '#9b9890', lineHeight: 1.4 }}>
+        {scaleHint}
       </p>
 
       <div style={{ position: 'relative', marginBottom: 10, paddingTop: 26 }}>
@@ -188,6 +192,7 @@ export default function SettingsSliders({ orgId, orgContext }: Props) {
             question={q.question}
             low={q.low}
             high={q.high}
+            scaleHint={q.scaleHint}
             lowHint={q.lowHint}
             highHint={q.highHint}
             value={scores[q.key]}
