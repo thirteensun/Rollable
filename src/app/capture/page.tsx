@@ -152,9 +152,21 @@ interface SheetCompany {
   [k: string]: any
 }
 
+interface SheetDeal {
+  name: string
+  company_name?: string | null
+  contact_name?: string | null
+  value?: number | null
+  stage?: string | null
+  expected_close_date?: string | null
+  currency?: string | null
+  [k: string]: any
+}
+
 interface SheetResult {
   contacts: SheetContact[]
   companies: SheetCompany[]
+  deals: SheetDeal[]
   skipped: number
   notes: string
 }
@@ -196,6 +208,7 @@ export default function CapturePage() {
   const [sheetSaving, setSheetSaving] = useState(false)
   const [selectedContacts, setSelectedContacts] = useState<number[]>([])
   const [selectedCompanies, setSelectedCompanies] = useState<number[]>([])
+  const [selectedDeals, setSelectedDeals] = useState<number[]>([])
   const [sheetStep, setSheetStep] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<any>(null)
@@ -584,6 +597,7 @@ export default function CapturePage() {
       setSheetResult(result)
       setSelectedContacts(result.contacts.map((_, i) => i))
       setSelectedCompanies(result.companies.map((_, i) => i))
+      setSelectedDeals((result.deals ?? []).map((_, i) => i))
       setMode('sheet_confirm')
     } catch (err: any) {
       setMode('choose')
@@ -719,9 +733,73 @@ export default function CapturePage() {
       }
     }
 
+    // ─── Deals ────────────────────────────────────────────────────────────
+    const chosenDeals = (sheetResult.deals ?? []).filter((_, i) => selectedDeals.includes(i))
+    let dealsCreated = 0, dealsUpdated = 0
+
+    for (const d of chosenDeals) {
+      if (!d?.name) continue
+      const company_id = d.company_name ? (companyMap[d.company_name.toLowerCase()] || null) : null
+
+      // Resolve contact link
+      let contact_id: string | null = null
+      if (d.contact_name) {
+        const { data: existingContact } = await supabase
+          .from('contacts').select('id')
+          .eq('user_id', user.id).ilike('full_name', d.contact_name).maybeSingle()
+        contact_id = existingContact?.id || null
+      }
+
+      const enrich = pickRegistryFields('deals', d, ['name', 'stage', 'company_name', 'contact_name'])
+
+      const { data: existingDeal, error: dealLookupErr } = await supabase
+        .from('deals').select('id')
+        .eq('user_id', user.id).ilike('name', d.name).maybeSingle()
+
+      if (dealLookupErr) {
+        failures.push(`Deal lookup ${d.name}: ${dealLookupErr.message}`)
+        continue
+      }
+
+      if (existingDeal) {
+        const { error: updErr } = await supabase.from('deals').update({
+          company_id: company_id || undefined,
+          last_activity_at: new Date().toISOString(),
+          ...enrich,
+        }).eq('id', existingDeal.id)
+        if (updErr) {
+          failures.push(`Update deal ${d.name}: ${updErr.message}`)
+        } else {
+          dealsUpdated++
+          if (contact_id) {
+            await supabase.from('deal_contacts')
+              .upsert({ deal_id: existingDeal.id, contact_id }, { onConflict: 'deal_id,contact_id' })
+          }
+        }
+      } else {
+        const { data: newDeal, error: insErr } = await supabase.from('deals').insert({
+          user_id: user.id, org_id,
+          name: d.name,
+          company_id,
+          stage: d.stage || 'lead',
+          last_activity_at: new Date().toISOString(),
+          ...enrich,
+        }).select('id').maybeSingle()
+        if (insErr) {
+          failures.push(`Insert deal ${d.name}: ${insErr.message}`)
+        } else {
+          dealsCreated++
+          if (newDeal && contact_id) {
+            await supabase.from('deal_contacts')
+              .upsert({ deal_id: newDeal.id, contact_id }, { onConflict: 'deal_id,contact_id' })
+          }
+        }
+      }
+    }
+
     // ─── If everything failed, don't redirect ─────────────────────────────
-    const totalAttempted = chosenCompanies.length + chosenContacts.length
-    const totalSucceeded = companiesCreated + companiesUpdated + contactsCreated + contactsUpdated
+    const totalAttempted = chosenCompanies.length + chosenContacts.length + chosenDeals.length
+    const totalSucceeded = companiesCreated + companiesUpdated + contactsCreated + contactsUpdated + dealsCreated + dealsUpdated
     if (totalSucceeded === 0 && totalAttempted > 0) {
       const msg = failures.length > 0
         ? `Import failed. First error:\n\n${failures[0]}`
@@ -734,7 +812,8 @@ export default function CapturePage() {
     // ─── Log import event ─────────────────────────────────────────────────
     const summaryNote =
       `Spreadsheet import: ${contactsCreated} contacts created, ${contactsUpdated} updated, ` +
-      `${companiesCreated} companies created, ${companiesUpdated} updated.` +
+      `${companiesCreated} companies created, ${companiesUpdated} updated, ` +
+      `${dealsCreated} deals created, ${dealsUpdated} updated.` +
       (failures.length ? ` ${failures.length} rows failed.` : '')
 
     const { error: evErr } = await supabase.from('events').insert({
@@ -743,7 +822,8 @@ export default function CapturePage() {
       metadata: {
         source: 'spreadsheet_import',
         contactsCreated, contactsUpdated, companiesCreated, companiesUpdated,
-        failures: failures.slice(0, 20),  // cap to keep metadata small
+        dealsCreated, dealsUpdated,
+        failures: failures.slice(0, 20),
       },
     })
     if (evErr) {
@@ -1049,16 +1129,16 @@ export default function CapturePage() {
             <div style={{ padding: '12px 16px', borderBottom: '0.5px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '11px', fontWeight: 600, color: '#9b9890', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Review import</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '11px', color: '#9b9890' }}>{selectedContacts.length + selectedCompanies.length} of {sheetResult.contacts.length + sheetResult.companies.length} selected</span>
+                <span style={{ fontSize: '11px', color: '#9b9890' }}>{selectedContacts.length + selectedCompanies.length + selectedDeals.length} of {sheetResult.contacts.length + sheetResult.companies.length + (sheetResult.deals ?? []).length} selected</span>
                 <button
                   onClick={() => {
-                    const allSelected = selectedContacts.length === sheetResult.contacts.length && selectedCompanies.length === sheetResult.companies.length
-                    if (allSelected) { setSelectedContacts([]); setSelectedCompanies([]) }
-                    else { setSelectedContacts(sheetResult.contacts.map((_, i) => i)); setSelectedCompanies(sheetResult.companies.map((_, i) => i)) }
+                    const allSelected = selectedContacts.length === sheetResult.contacts.length && selectedCompanies.length === sheetResult.companies.length && selectedDeals.length === (sheetResult.deals ?? []).length
+                    if (allSelected) { setSelectedContacts([]); setSelectedCompanies([]); setSelectedDeals([]) }
+                    else { setSelectedContacts(sheetResult.contacts.map((_, i) => i)); setSelectedCompanies(sheetResult.companies.map((_, i) => i)); setSelectedDeals((sheetResult.deals ?? []).map((_, i) => i)) }
                   }}
                   style={{ background: 'none', border: 'none', fontSize: '11px', color: '#6b6960', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}
                 >
-                  {selectedContacts.length === sheetResult.contacts.length && selectedCompanies.length === sheetResult.companies.length ? 'Deselect all' : 'Select all'}
+                  {selectedContacts.length === sheetResult.contacts.length && selectedCompanies.length === sheetResult.companies.length && selectedDeals.length === (sheetResult.deals ?? []).length ? 'Deselect all' : 'Select all'}
                 </button>
               </div>
             </div>
@@ -1106,6 +1186,31 @@ export default function CapturePage() {
               )
             })}
 
+            {/* Deal rows */}
+            {(sheetResult.deals ?? []).map((d, i) => {
+              const selected = selectedDeals.includes(i)
+              return (
+                <button
+                  key={`d-${i}`}
+                  onClick={() => setSelectedDeals(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 16px', borderBottom: '0.5px solid rgba(0,0,0,0.06)', background: 'transparent', border: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: 'inherit', borderBottomStyle: 'solid', borderBottomWidth: '0.5px', borderBottomColor: 'rgba(0,0,0,0.06)' }}
+                >
+                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0, background: '#E1F5EE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0F6E56" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 1 18"/><polyline points="16 7 22 7 22 13"/></svg>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 500, color: '#1a1a18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#9b9890', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {[d.company_name, d.stage, d.value != null ? `${d.currency ?? ''}${Number(d.value).toLocaleString()}` : null].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <div style={{ width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, background: selected ? '#0F6E56' : 'transparent', border: selected ? 'none' : '1.5px solid rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
+                    {selected && <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                </button>
+              )
+            })}
+
             {/* Contact rows */}
             {sheetResult.contacts.map((c, i) => {
               const selected = selectedContacts.includes(i)
@@ -1137,12 +1242,12 @@ export default function CapturePage() {
           </div>
 
           <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
-            <button onClick={() => { setMode('choose'); setSheetResult(null) }} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: '22px', padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
-            <button onClick={handleSheetSave} disabled={sheetSaving || (selectedContacts.length === 0 && selectedCompanies.length === 0)} style={{
+            <button onClick={() => { setMode('choose'); setSheetResult(null); setSelectedDeals([]) }} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: '22px', padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
+            <button onClick={handleSheetSave} disabled={sheetSaving || (selectedContacts.length === 0 && selectedCompanies.length === 0 && selectedDeals.length === 0)} style={{
               flex: 2, background: sheetSaving ? '#6b6960' : '#1a1a18', border: 'none', borderRadius: '22px', padding: '15px', fontSize: '15px', color: 'white', fontWeight: 500,
-              cursor: (sheetSaving || (selectedContacts.length === 0 && selectedCompanies.length === 0)) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (selectedContacts.length === 0 && selectedCompanies.length === 0) ? 0.5 : 1,
+              cursor: (sheetSaving || (selectedContacts.length === 0 && selectedCompanies.length === 0 && selectedDeals.length === 0)) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (selectedContacts.length === 0 && selectedCompanies.length === 0 && selectedDeals.length === 0) ? 0.5 : 1,
             }}>
-              {sheetSaving ? 'Importing...' : `Import ${selectedContacts.length + selectedCompanies.length} records`}
+              {sheetSaving ? 'Importing...' : `Import ${selectedContacts.length + selectedCompanies.length + selectedDeals.length} records`}
             </button>
           </div>
         </div>

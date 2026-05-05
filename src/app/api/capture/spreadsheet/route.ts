@@ -25,10 +25,17 @@ interface ExtractedCompany {
   name: string | null
   [k: string]: any
 }
+interface ExtractedDeal {
+  name: string | null
+  company_name?: string | null
+  contact_name?: string | null
+  [k: string]: any
+}
 
 interface SpreadsheetResponse {
   contacts:  ExtractedContact[]
   companies: ExtractedCompany[]
+  deals:     ExtractedDeal[]
   skipped:   number
   notes:     string
 }
@@ -36,6 +43,7 @@ interface SpreadsheetResponse {
 interface BatchResult {
   contacts:  ExtractedContact[]
   companies: ExtractedCompany[]
+  deals:     ExtractedDeal[]
   skipped:   number
   notes:     string
   truncated: boolean
@@ -81,7 +89,16 @@ function buildBatchPrompt(
 ): string {
   const rowsText = JSON.stringify(rows, null, 0)
 
-  return `You are a CRM data importer for Rollable. The user has uploaded a spreadsheet — this is batch ${batchIx + 1} of ${total}. Extract contacts and companies from these rows.
+  return `You are a CRM data importer for Rollable. The user has uploaded a spreadsheet — this is batch ${batchIx + 1} of ${total}. Extract contacts, companies, and deals from these rows.
+
+This may be an export from Salesforce, HubSpot, SuperOffice, Pipedrive, or any other CRM. Column names will vary — use your judgment to map them:
+- "Opportunity", "Opportunity Name", "Deal Name", "Subject" → deal name
+- "Amount", "Value", "Deal Value", "ARR", "MRR", "Revenue" → deal value (number, no currency symbol)
+- "Stage", "Sales Stage", "Pipeline Stage", "Status" → deal stage
+- "Close Date", "Expected Close", "Closing Date", "Due Date" → expected_close_date
+- "Account", "Account Name", "Company", "Organisation" → company name
+- "Contact", "Contact Name", "Full Name", "Name" → contact name
+- "Owner", "Rep", "Assigned To" → ignore (not stored)
 
 ${schema.rationale}
 
@@ -101,17 +118,27 @@ ${schema.contactsSchema}
 ${schema.companiesSchema}
     }
   ],
+  "deals": [
+    {
+${schema.dealsSchema}
+      "company_name": string or null,
+      "contact_name": string or null
+    }
+  ],
   "skipped": 0,
   "notes": "One sentence describing what was found."
 }
 
 Rules:
-- Only include contacts with a full_name — skip rows with no identifiable person name
+- Extract ALL entity types present — contacts, companies, and deals
+- A row may represent a deal (with a contact and company embedded) — extract all three from that row
+- Only include contacts with a full_name — skip rows where no person name is identifiable
 - Deduplicate companies within this batch — list each unique company once
-- Infer column meaning from header names (name, email, company, title, phone, etc.)
-- If no headers exist, use position heuristics
+- Deduplicate deals within this batch — list each unique deal once (by name)
+- Map incoming stage values to the closest of: lead, qualified, demo, proposal, negotiation, closed_won, closed_lost
+- deal value: number only (no currency symbols), or null
 - phone: preserve as-is including country codes
-- skipped: integer count of rows excluded
+- skipped: integer count of rows that had no extractable data
 - Keep notes concise
 ${schema.enumGuidance ? `\nEnum guidance:\n${schema.enumGuidance}` : ''}`
 }
@@ -150,6 +177,7 @@ async function processBatch(
   return {
     contacts:  Array.isArray(parsed.contacts)  ? parsed.contacts  : [],
     companies: Array.isArray(parsed.companies) ? parsed.companies : [],
+    deals:     Array.isArray(parsed.deals)     ? parsed.deals     : [],
     skipped:   typeof parsed.skipped === 'number' ? parsed.skipped : 0,
     notes:     typeof parsed.notes === 'string'   ? parsed.notes   : '',
     truncated,
@@ -196,7 +224,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     const orgId = membership?.org_id
-    let visibleFields: { contacts: string[]; companies: string[] } = { contacts: [], companies: [] }
+    let visibleFields: { contacts: string[]; companies: string[]; deals: string[] } = { contacts: [], companies: [], deals: [] }
     let fieldOptions: FieldOptions = {}
     let scores: any = undefined
 
@@ -205,19 +233,17 @@ export async function POST(request: NextRequest) {
       visibleFields = {
         contacts:  getVisibleFields(orgCtx, 'contacts'),
         companies: getVisibleFields(orgCtx, 'companies'),
+        deals:     getVisibleFields(orgCtx, 'deals'),
       }
       fieldOptions = {
         contacts:  getFieldOptions(orgCtx, 'contacts'),
         companies: getFieldOptions(orgCtx, 'companies'),
+        deals:     getFieldOptions(orgCtx, 'deals'),
       }
       scores = orgCtx.onboarding_scores
     }
 
-    const schema = buildCaptureSchema({
-      visibleFields: { contacts: visibleFields.contacts, companies: visibleFields.companies, deals: [] },
-      fieldOptions,
-      scores,
-    })
+    const schema = buildCaptureSchema({ visibleFields, fieldOptions, scores })
 
     // ─── Split into batches ─────────────────────────────────────────────────
     const batches: any[][] = []
@@ -240,14 +266,16 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── Merge results ──────────────────────────────────────────────────────
-    const allContacts:   ExtractedContact[] = []
+    const allContacts:    ExtractedContact[] = []
     const allCompaniesRaw: ExtractedCompany[] = []
+    const allDealsRaw:    ExtractedDeal[] = []
     let totalSkipped = 0
     let anyTruncated = false
 
     for (const r of batchResults) {
       allContacts.push(...r.contacts)
       allCompaniesRaw.push(...r.companies)
+      allDealsRaw.push(...r.deals)
       totalSkipped += r.skipped
       if (r.truncated) anyTruncated = true
     }
@@ -260,6 +288,24 @@ export async function POST(request: NextRequest) {
       if (!companyMap.has(key)) companyMap.set(key, c)
     }
 
+    // Dedupe deals across batches by lowercased name
+    const dealMap = new Map<string, ExtractedDeal>()
+    for (const d of allDealsRaw) {
+      if (!d?.name) continue
+      const key = d.name.trim().toLowerCase()
+      if (!dealMap.has(key)) dealMap.set(key, d)
+    }
+
+    const contactCount = allContacts.filter(c => c?.full_name).length
+    const companyCount = companyMap.size
+    const dealCount    = dealMap.size
+
+    const summary = [
+      contactCount > 0 ? `${contactCount} contact${contactCount !== 1 ? 's' : ''}` : '',
+      companyCount > 0 ? `${companyCount} compan${companyCount !== 1 ? 'ies' : 'y'}` : '',
+      dealCount    > 0 ? `${dealCount} deal${dealCount !== 1 ? 's' : ''}` : '',
+    ].filter(Boolean).join(', ')
+
     // ─── Coerce to narrowed field options ───────────────────────────────────
     const out: SpreadsheetResponse = {
       contacts: allContacts
@@ -267,10 +313,12 @@ export async function POST(request: NextRequest) {
         .map(c => coerceRecordToNarrowedSet('contacts', c, fieldOptions)),
       companies: Array.from(companyMap.values())
         .map(c => coerceRecordToNarrowedSet('companies', c, fieldOptions)),
+      deals: Array.from(dealMap.values())
+        .map(d => coerceRecordToNarrowedSet('deals', d, fieldOptions)),
       skipped: totalSkipped,
       notes: anyTruncated
-        ? `${allContacts.length} contacts from ${companyMap.size} companies extracted across ${batches.length} batches. Some batches were truncated — results may be incomplete.`
-        : `${allContacts.length} contacts from ${companyMap.size} companies extracted across ${batches.length} batches.`,
+        ? `${summary} extracted. Some batches were truncated — results may be incomplete.`
+        : `${summary} extracted.`,
     }
 
     return NextResponse.json(out)
