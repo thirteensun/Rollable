@@ -90,9 +90,10 @@ export default function OnboardingPage() {
       background: '#f5f4f0',
       display: 'flex',
       flexDirection: 'column',
-      justifyContent: 'space-between',
+      alignItems: 'center',
       padding: '64px 24px 48px',
     }}>
+      <div style={{ width: '100%', maxWidth: '480px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', minHeight: 'calc(100dvh - 112px)' }}>
       <div>
         {/* Logo mark — hidden on chat step */}
         {step !== 'chat' && (
@@ -300,6 +301,7 @@ export default function OnboardingPage() {
       {step !== 'chat' && (
         <p style={{ margin: 0, fontSize: '12px', color: '#c8c5be', textAlign: 'center' }}>rollable app</p>
       )}
+      </div>
     </main>
   )
 }
