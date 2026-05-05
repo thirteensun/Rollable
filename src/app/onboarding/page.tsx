@@ -98,7 +98,11 @@ export default function OnboardingPage() {
         {/* Logo mark — hidden on chat step */}
         {step !== 'chat' && (
           <div style={{ marginBottom: '40px' }}>
-            <img src="/rollable-logo.svg" alt="Rollable" style={{ height: '32px', width: 'auto' }} />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 56" width="110" height="28">
+              <text y="44" fontFamily="Inter, -apple-system, BlinkMacSystemFont, sans-serif" fontSize="40" letterSpacing="-1">
+                <tspan fontWeight="700" fill="#1a1a18">Roll</tspan><tspan fontWeight="300" fill="#9b9890">able</tspan>
+              </text>
+            </svg>
           </div>
         )}
 
