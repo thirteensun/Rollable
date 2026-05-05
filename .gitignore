@@ -32,5 +32,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generated files
+*.pptx
 CRM context.md
 CRM context full.md
