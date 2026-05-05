@@ -42,7 +42,7 @@ Respond ONLY with valid JSON, no other text:
 }
 
 Rules:
-- needs_confirmation = true ONLY for create or update actions (add contact, create deal, add task, update stage, log invoice)
+- needs_confirmation = true ONLY for create or update actions (add contact, create deal, add task, update stage, log invoice, log note, set follow-up date)
 - needs_confirmation = false for searches, queries, pipeline summaries, or anything read-only
 - creates[] lists every record that will be created or modified
 - summary should be action-oriented and specific

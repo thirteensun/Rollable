@@ -147,6 +147,33 @@ const tools: Anthropic.Tool[] = [
       required: ['deal_name'],
     },
   },
+  {
+    name: 'log_note',
+    description: 'Log a meeting note, call summary, or any activity against a contact, deal, or company. Use when the user describes something that happened — a call, meeting, email, demo, etc.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        summary: { type: 'string', description: 'What happened — write in past tense, e.g. "Called Sarah, she loved the demo and wants a proposal by Friday"' },
+        event_type: { type: 'string', enum: ['call', 'meeting', 'email', 'demo', 'other'], description: 'Type of activity' },
+        contact_name: { type: 'string', description: 'Name of the contact involved' },
+        deal_name: { type: 'string', description: 'Name of the deal this relates to' },
+        company_name: { type: 'string', description: 'Name of the company this relates to' },
+      },
+      required: ['summary'],
+    },
+  },
+  {
+    name: 'set_followup',
+    description: 'Set or update the follow-up date on a contact. Use when the user says things like "remind me to follow up with X", "follow up with X next Tuesday", or "check in with X in 2 weeks". Also updates last_contacted_at.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        contact_name: { type: 'string', description: 'Name of the contact' },
+        follow_up_date: { type: 'string', description: 'Date to follow up in ISO format e.g. 2026-05-12' },
+      },
+      required: ['contact_name', 'follow_up_date'],
+    },
+  },
 ]
 
 async function executeTool(
@@ -290,6 +317,52 @@ async function executeTool(
       return `Updated financials for "${deal.name}": ${Object.entries(updates).map(([k, v]) => `${k} = ${v}`).join(', ')}.`
     }
 
+    case 'log_note': {
+      let contact_id: string | null = null
+      let deal_id: string | null = null
+      let company_id: string | null = null
+
+      if (toolInput.contact_name) {
+        const { data: c } = await admin.from('contacts').select('id').eq('user_id', userId).ilike('full_name', `%${toolInput.contact_name}%`).maybeSingle()
+        contact_id = c?.id || null
+        if (contact_id) {
+          await admin.from('contacts').update({ last_contacted_at: new Date().toISOString() }).eq('id', contact_id)
+        }
+      }
+      if (toolInput.deal_name) {
+        const { data: d } = await admin.from('deals').select('id').eq('user_id', userId).ilike('name', `%${toolInput.deal_name}%`).maybeSingle()
+        deal_id = d?.id || null
+        if (deal_id) {
+          await admin.from('deals').update({ last_activity_at: new Date().toISOString() }).eq('id', deal_id)
+        }
+      }
+      if (toolInput.company_name) {
+        const { data: co } = await admin.from('companies').select('id').eq('user_id', userId).ilike('name', `%${toolInput.company_name}%`).maybeSingle()
+        company_id = co?.id || null
+      }
+
+      await admin.from('events').insert({
+        user_id: userId, org_id: orgId,
+        contact_id, deal_id, company_id,
+        type: toolInput.event_type || 'other',
+        summary: toolInput.summary,
+        ai_confidence: 0.95,
+        metadata: { source: 'assistant' },
+      })
+      return `Logged note: "${toolInput.summary}"${contact_id || deal_id ? ` — linked to ${[toolInput.contact_name, toolInput.deal_name].filter(Boolean).join(' / ')}` : ''}.`
+    }
+
+    case 'set_followup': {
+      const { data: contact } = await admin.from('contacts').select('id, full_name').eq('user_id', userId).ilike('full_name', `%${toolInput.contact_name}%`).maybeSingle()
+      if (!contact) return `Couldn't find a contact matching "${toolInput.contact_name}".`
+      await admin.from('contacts').update({
+        next_followup_date: toolInput.follow_up_date,
+        last_contacted_at: new Date().toISOString(),
+      }).eq('id', contact.id)
+      const formatted = new Date(toolInput.follow_up_date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+      return `Follow-up with ${contact.full_name} set for ${formatted}. AI Signals will flag this if it passes without activity.`
+    }
+
     default:
       return 'Unknown tool.'
   }
@@ -355,6 +428,8 @@ When users ask you to:
 - Check pipeline status → use get_pipeline_summary tool
 - Move deals forward → use update_deal_stage tool
 - Log invoices, POs, or payments → use update_deal_financials tool
+- Log a meeting, call, demo, or any activity → use log_note tool
+- Set a follow-up reminder for a contact → use set_followup tool
 
 Always use tools to take real action — never just describe what you would do.
 After using a tool, summarise what you did in 1-2 sentences.`
@@ -401,7 +476,7 @@ After using a tool, summarise what you did in 1-2 sentences.`
     logUsage({ orgId: org_id, userId: user.id, route: 'assistant', model, inputTokens, outputTokens })
 
     // Log event if any write tools were used
-    const writeTools = ['add_contact', 'add_deal', 'add_task', 'add_company', 'update_deal_stage', 'update_deal_financials']
+    const writeTools = ['add_contact', 'add_deal', 'add_task', 'add_company', 'update_deal_stage', 'update_deal_financials', 'log_note', 'set_followup']
     const usedWriteTools = assistantMessages
       .flatMap((m: any) => Array.isArray(m.content) ? m.content : [])
       .filter((b: any) => b.type === 'tool_use' && writeTools.includes(b.name))
