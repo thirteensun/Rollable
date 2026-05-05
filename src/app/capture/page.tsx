@@ -796,126 +796,104 @@ export default function CapturePage() {
 
       {/* Choose */}
       {mode === 'choose' && (
-        <div style={{ padding: '0 24px 32px', flex: 1 }} className="animate-fade-in-up">
-          <div style={{ maxWidth: 980, margin: '0 auto' }}>
-            <div className="flex flex-col lg:flex-row lg:gap-10 lg:items-start">
-
-              {/* Action cards */}
-              <div className="lg:flex-1 mb-6 lg:mb-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <button onClick={() => fileInputRef.current?.click()} className="md:col-span-2" style={{
-                    background: '#1a1a18', borderRadius: '18px', padding: '20px',
-                    display: 'flex', alignItems: 'center', gap: '16px',
-                    border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
-                  }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <rect x="3" y="5" width="18" height="15" rx="2" stroke="white" strokeWidth="1.5" />
-                        <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="1.5" />
-                        <circle cx="17.5" cy="7.5" r="1" fill="white" />
-                      </svg>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: 'white' }}>Capture image or screenshot</p>
-                      <p style={{ margin: '3px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>Business card, WhatsApp, email, notes</p>
-                    </div>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M6 4l4 4-4 4" stroke="rgba(255,255,255,0.4)" strokeWidth="1.3" strokeLinecap="round" />
-                    </svg>
-                  </button>
-
-                  <button onClick={startVoiceFromChoose} style={{
-                    background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '20px',
-                    display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'left', width: '100%',
-                  }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f5f4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <rect x="9" y="2" width="6" height="12" rx="3" stroke="#1a1a18" strokeWidth="1.5" />
-                        <path d="M5 10a7 7 0 0 0 14 0" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" />
-                        <path d="M12 17v4M9 21h6" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: '#1a1a18' }}>Speak to assistant</p>
-                      <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#9b9890' }}>Add contacts, search, update deals</p>
-                    </div>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M6 4l4 4-4 4" stroke="#9b9890" strokeWidth="1.3" strokeLinecap="round" />
-                    </svg>
-                  </button>
-
-                  <button onClick={() => setMode('assistant')} style={{
-                    background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '20px',
-                    display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'left', width: '100%',
-                  }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f5f4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#1a1a18" strokeWidth="1.5" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: '#1a1a18' }}>Type a message</p>
-                      <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#9b9890' }}>Chat with your AI sales assistant</p>
-                    </div>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M6 4l4 4-4 4" stroke="#9b9890" strokeWidth="1.3" strokeLinecap="round" />
-                    </svg>
-                  </button>
-
-                  <button onClick={() => sheetInputRef.current?.click()} style={{
-                    background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '20px',
-                    display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'left', width: '100%',
-                  }}>
-                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f5f4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                        <rect x="3" y="3" width="18" height="18" rx="2" stroke="#1a1a18" strokeWidth="1.5" />
-                        <path d="M3 9h18M3 15h18M9 3v18" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: '#1a1a18' }}>Import spreadsheet</p>
-                      <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#9b9890' }}>Upload .xlsx or .csv — AI maps contacts & companies</p>
-                    </div>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M6 4l4 4-4 4" stroke="#9b9890" strokeWidth="1.3" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                </div>
+        <div style={{ padding: '0 24px', flex: 1 }} className="animate-fade-in-up">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+            <button onClick={() => fileInputRef.current?.click()} style={{
+              background: '#1a1a18', borderRadius: '18px', padding: '20px',
+              display: 'flex', alignItems: 'center', gap: '16px',
+              border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%',
+            }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="5" width="18" height="15" rx="2" stroke="white" strokeWidth="1.5" />
+                  <circle cx="12" cy="12" r="3" stroke="white" strokeWidth="1.5" />
+                  <circle cx="17.5" cy="7.5" r="1" fill="white" />
+                </svg>
               </div>
-
-              {/* Try saying — sidebar on desktop, below on mobile */}
-              <div className="lg:w-72 lg:flex-shrink-0">
-                <div style={{
-                  background: 'white', borderRadius: '18px',
-                  border: '0.5px solid rgba(0,0,0,0.07)',
-                  padding: '20px',
-                }}>
-                  <p style={{ margin: '0 0 14px', fontSize: '12px', fontWeight: 600, color: '#9b9890', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Try saying</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    {[
-                      'Add Tom from UC Architecture to my contacts',
-                      "What's the status of the TechCorp deal?",
-                      "Pull out Tracy's email from Loo Consulting",
-                      'Schedule a follow-up with Maria for Friday',
-                      'Show me my pipeline summary',
-                    ].map((example, i) => (
-                      <button key={i} onClick={() => { setMode('assistant'); setTimeout(() => sendMessage(example), 100) }} style={{
-                        background: 'transparent', borderRadius: '10px', border: 'none',
-                        padding: '9px 10px', textAlign: 'left', cursor: 'pointer', width: '100%',
-                        fontSize: '13px', color: '#6b6960', fontFamily: 'inherit',
-                        transition: 'background 0.15s ease',
-                      }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#f5f4f0')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <span style={{ color: '#c4c2bd', marginRight: 6 }}>›</span>"{example}"
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: 'white' }}>Capture image or screenshot</p>
+                <p style={{ margin: '3px 0 0', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>Business card, WhatsApp, email, notes</p>
               </div>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 4l4 4-4 4" stroke="rgba(255,255,255,0.4)" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+            </button>
 
-            </div>
+            <button onClick={startVoiceFromChoose} style={{
+              background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '20px',
+              display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'left', width: '100%',
+            }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f5f4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <rect x="9" y="2" width="6" height="12" rx="3" stroke="#1a1a18" strokeWidth="1.5" />
+                  <path d="M5 10a7 7 0 0 0 14 0" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M12 17v4M9 21h6" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: '#1a1a18' }}>Speak to assistant</p>
+                <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#9b9890' }}>Add contacts, search, update deals</p>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 4l4 4-4 4" stroke="#9b9890" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <button onClick={() => setMode('assistant')} style={{
+              background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '20px',
+              display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'left', width: '100%',
+            }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f5f4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="#1a1a18" strokeWidth="1.5" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: '#1a1a18' }}>Type a message</p>
+                <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#9b9890' }}>Chat with your AI sales assistant</p>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 4l4 4-4 4" stroke="#9b9890" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <button onClick={() => sheetInputRef.current?.click()} style={{
+              background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '20px',
+              display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'left', width: '100%',
+            }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f5f4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <rect x="3" y="3" width="18" height="18" rx="2" stroke="#1a1a18" strokeWidth="1.5" />
+                  <path d="M3 9h18M3 15h18M9 3v18" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '15px', fontWeight: 500, color: '#1a1a18' }}>Import spreadsheet</p>
+                <p style={{ margin: '3px 0 0', fontSize: '13px', color: '#9b9890' }}>Upload .xlsx or .csv — AI maps contacts & companies</p>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 4l4 4-4 4" stroke="#9b9890" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Try saying</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {[
+              'Add Tom from UC Architecture to my contacts',
+              "What's the status of the TechCorp deal?",
+              "Pull out Tracy's email from Loo Consulting",
+              'Schedule a follow-up with Maria for Friday',
+              'Show me my pipeline summary',
+            ].map((example, i) => (
+              <button key={i} onClick={() => { setMode('assistant'); setTimeout(() => sendMessage(example), 100) }} style={{
+                background: 'white', borderRadius: '12px', border: '0.5px solid rgba(0,0,0,0.07)',
+                padding: '11px 14px', textAlign: 'left', cursor: 'pointer', width: '100%',
+                fontSize: '13px', color: '#6b6960', fontFamily: 'inherit',
+              }}>
+                "{example}"
+              </button>
+            ))}
           </div>
         </div>
       )}
