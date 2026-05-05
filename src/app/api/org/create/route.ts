@@ -72,6 +72,13 @@ export async function POST(req: Request) {
 
   if (fnError) return NextResponse.json({ error: fnError.message }, { status: 500 })
 
+  // Ensure the creator's membership is active (RPC may set a different status)
+  await admin
+    .from('organisation_members')
+    .update({ status: 'active' })
+    .eq('user_id', user.id)
+    .neq('status', 'active')
+
   // Clean up waitlist entry now that they're in
   if (waitlistEntry) {
     await admin.from('waitlist').delete().eq('id', waitlistEntry.id)
