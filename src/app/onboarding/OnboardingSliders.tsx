@@ -11,6 +11,7 @@ import {
 
 interface Props {
   onComplete: () => void
+  userName?: string
 }
 
 const DEFAULT_SCORES: OnboardingScores = {
@@ -22,8 +23,16 @@ const DEFAULT_SCORES: OnboardingScores = {
   data_maturity:       3,
 }
 
+const TEMPLATE_LABELS: Record<string, string> = {
+  transactional: 'fast transactional',
+  smb:           'SMB',
+  saas:          'SaaS',
+  enterprise:    'enterprise',
+  other:         '',
+}
+
 function SliderInput({
-  question, low, high, lowHint, highHint, value, onChange, index,
+  question, low, high, lowHint, highHint, value, onChange,
 }: {
   question: string
   low: string
@@ -32,7 +41,6 @@ function SliderInput({
   highHint: string
   value: number
   onChange: (v: number) => void
-  index: number
 }) {
   const pct = ((value - 1) / 6) * 100
 
@@ -41,23 +49,19 @@ function SliderInput({
       background: 'white',
       borderRadius: 18,
       border: '0.5px solid rgba(0,0,0,0.07)',
-      padding: '18px 20px',
+      padding: '24px 20px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
     }}>
-      {/* Question */}
-      <p style={{ margin: '0 0 14px', fontSize: 14, fontWeight: 500, color: '#1a1a18', lineHeight: 1.4 }}>
+      <p style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 500, color: '#1a1a18', lineHeight: 1.4 }}>
         {question}
       </p>
 
-      {/* Track + thumb */}
       <div style={{ position: 'relative', marginBottom: 10 }}>
-        {/* Track background */}
         <div style={{
           height: 4, borderRadius: 2,
           background: 'rgba(0,0,0,0.07)',
           position: 'relative',
         }}>
-          {/* Filled portion */}
           <div style={{
             position: 'absolute', left: 0, top: 0, bottom: 0,
             width: `${pct}%`,
@@ -67,7 +71,6 @@ function SliderInput({
           }} />
         </div>
 
-        {/* Native range input — invisible but functional */}
         <input
           type="range"
           min={1} max={7} step={1}
@@ -81,7 +84,6 @@ function SliderInput({
           }}
         />
 
-        {/* Step dots */}
         <div style={{
           display: 'flex', justifyContent: 'space-between',
           position: 'absolute', top: -3, left: 0, right: 0,
@@ -100,8 +102,7 @@ function SliderInput({
         </div>
       </div>
 
-      {/* Labels */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12 }}>
         <span style={{ fontSize: 11, color: '#9b9890', maxWidth: '42%', lineHeight: 1.3 }}>{low}</span>
         <span style={{
           fontSize: 12, fontWeight: 600, color: '#1a1a18',
@@ -111,9 +112,8 @@ function SliderInput({
         <span style={{ fontSize: 11, color: '#9b9890', maxWidth: '42%', textAlign: 'right', lineHeight: 1.3 }}>{high}</span>
       </div>
 
-      {/* Contextual hint */}
       <p style={{
-        margin: '10px 0 0', fontSize: 12, color: '#6b6960',
+        margin: '12px 0 0', fontSize: 12, color: '#6b6960',
         lineHeight: 1.4, minHeight: 16,
         transition: 'opacity 0.2s ease',
       }}>
@@ -123,8 +123,9 @@ function SliderInput({
   )
 }
 
-export default function OnboardingSliders({ onComplete }: Props) {
+export default function OnboardingSliders({ onComplete, userName }: Props) {
   const [scores, setScores] = useState<OnboardingScores>(DEFAULT_SCORES)
+  const [currentIndex, setCurrentIndex] = useState(0)
   const [saving, setSaving] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
   const [error, setError] = useState('')
@@ -133,8 +134,18 @@ export default function OnboardingSliders({ onComplete }: Props) {
     setScores(prev => ({ ...prev, [key]: value }))
   }
 
-  // Live preview of what will be inferred
   const inferred = inferFromScores(scores)
+  const total = ONBOARDING_QUESTIONS.length
+  const currentQ = ONBOARDING_QUESTIONS[currentIndex]
+  const isLast = currentIndex === total - 1
+
+  const handleNext = () => {
+    if (!isLast) {
+      setCurrentIndex(i => i + 1)
+    } else {
+      handleSave()
+    }
+  }
 
   const handleSave = async () => {
     setSaving(true)
@@ -144,7 +155,6 @@ export default function OnboardingSliders({ onComplete }: Props) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
-      // Get current org
       const { data: membership } = await supabase
         .from('organisation_members')
         .select('org_id')
@@ -155,7 +165,6 @@ export default function OnboardingSliders({ onComplete }: Props) {
 
       if (!membership) throw new Error('No active workspace found')
 
-      // Get existing context
       const { data: org } = await supabase
         .from('organisations')
         .select('context')
@@ -179,38 +188,51 @@ export default function OnboardingSliders({ onComplete }: Props) {
     }
   }
 
-  // ── Confirmation card ──
+  // ── Confirmation screen ──
   if (confirmed) {
+    const templateLabel = TEMPLATE_LABELS[inferred.stage_template] || ''
+    const firstName = userName ? userName.split(' ')[0] : ''
+    const greeting = firstName ? `${firstName}, you're` : "You're"
+
+    const highlights = [
+      templateLabel
+        ? `Pipeline configured for ${templateLabel} deals`
+        : 'Pipeline configured for your sales process',
+      `AI flags deals quiet for ${inferred.at_risk_days}+ days`,
+      inferred.pain_points.length > 0
+        ? inferred.pain_points[0].charAt(0).toUpperCase() + inferred.pain_points[0].slice(1)
+        : 'Smart daily briefings enabled',
+    ]
+
     return (
       <div className="animate-fade-in-up">
+        <div style={{
+          width: 48, height: 48, borderRadius: 14,
+          background: '#1a1a18', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', marginBottom: 24,
+        }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M5 13l4 4L19 7" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+
         <p style={{ margin: '0 0 8px', fontSize: 13, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 500 }}>
           All set
         </p>
-        <h1 style={{ margin: '0 0 6px', fontSize: 28, fontWeight: 500, color: '#1a1a18', lineHeight: 1.2 }}>
-          Rollable is configured<br />for your team
+        <h1 style={{ margin: '0 0 8px', fontSize: 28, fontWeight: 500, color: '#1a1a18', lineHeight: 1.2 }}>
+          {greeting} ready<br />to close deals.
         </h1>
-        <p style={{ margin: '0 0 24px', fontSize: 14, color: '#9b9890', lineHeight: 1.5 }}>
-          You can adjust any of this from settings at any time.
+        <p style={{ margin: '0 0 28px', fontSize: 14, color: '#9b9890', lineHeight: 1.5 }}>
+          Rollable is configured for your team. You can adjust everything in settings.
         </p>
 
-        <div style={{ background: 'white', borderRadius: 18, border: '0.5px solid rgba(0,0,0,0.07)', padding: 20, marginBottom: 16 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-            {[
-              { label: 'Pipeline template', value: inferred.stage_template.replace(/_/g, ' ') },
-              { label: 'At-risk after',     value: `${inferred.at_risk_days} days inactive` },
-              { label: 'Contact fields',    value: `${inferred.visible_fields.contacts.length} fields active` },
-              { label: 'Company fields',    value: `${inferred.visible_fields.companies.length} fields active` },
-              { label: 'Deal fields',       value: `${inferred.visible_fields.deals.length} fields active` },
-              ...(inferred.pain_points.length > 0
-                ? [{ label: 'AI focus areas', value: `${inferred.pain_points.length} configured` }]
-                : []),
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
-                <span style={{ fontSize: 13, color: '#6b6960' }}>{label}</span>
-                <span style={{ fontSize: 13, color: '#1a1a18', fontWeight: 500, textAlign: 'right', textTransform: 'capitalize' }}>{value}</span>
-              </div>
-            ))}
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
+          {highlights.map((h, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#1a1a18', flexShrink: 0, marginTop: 5 }} />
+              <p style={{ margin: 0, fontSize: 14, color: '#6b6960', lineHeight: 1.5 }}>{h}</p>
+            </div>
+          ))}
         </div>
 
         <button
@@ -221,15 +243,27 @@ export default function OnboardingSliders({ onComplete }: Props) {
             fontSize: 16, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
-          Take me to my dashboard →
+          Let's go →
         </button>
       </div>
     )
   }
 
-  // ── Sliders ──
+  // ── Slider (one at a time) ──
   return (
     <div className="animate-fade-in-up">
+      {/* Progress bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 36 }}>
+        <div style={{ flex: 1, height: 3, borderRadius: 2, background: 'rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', borderRadius: 2, background: '#1a1a18',
+            width: `${((currentIndex + 1) / total) * 100}%`,
+            transition: 'width 0.3s ease',
+          }} />
+        </div>
+        <span style={{ fontSize: 12, color: '#9b9890', flexShrink: 0 }}>{currentIndex + 1} of {total}</span>
+      </div>
+
       <p style={{ margin: '0 0 8px', fontSize: 13, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 500 }}>
         Quick setup
       </p>
@@ -237,68 +271,49 @@ export default function OnboardingSliders({ onComplete }: Props) {
         Describe your<br />sales process
       </h1>
       <p style={{ margin: '0 0 24px', fontSize: 14, color: '#9b9890', lineHeight: 1.5 }}>
-        Six sliders. Rollable configures itself from the answers.
+        Rollable configures itself from your answers.
       </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-        {ONBOARDING_QUESTIONS.map((q, i) => (
-          <SliderInput
-            key={q.key}
-            index={i}
-            question={q.question}
-            low={q.low}
-            high={q.high}
-            lowHint={q.lowHint}
-            highHint={q.highHint}
-            value={scores[q.key]}
-            onChange={v => setScore(q.key, v)}
-          />
-        ))}
+      <SliderInput
+        question={currentQ.question}
+        low={currentQ.low}
+        high={currentQ.high}
+        lowHint={currentQ.lowHint}
+        highHint={currentQ.highHint}
+        value={scores[currentQ.key]}
+        onChange={v => setScore(currentQ.key, v)}
+      />
+
+      {error && <p style={{ margin: '12px 0 0', fontSize: 13, color: '#E24B4A' }}>{error}</p>}
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+        {currentIndex > 0 && (
+          <button
+            onClick={() => setCurrentIndex(i => i - 1)}
+            style={{
+              padding: '16px 20px', fontSize: 15, fontWeight: 500,
+              color: '#1a1a18', background: 'white',
+              border: '0.5px solid rgba(0,0,0,0.12)', borderRadius: 22,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            ←
+          </button>
+        )}
+        <button
+          onClick={handleNext}
+          disabled={saving}
+          style={{
+            flex: 1, padding: '16px', fontSize: 16, fontWeight: 500,
+            color: 'white', background: saving ? '#9b9890' : '#1a1a18',
+            border: 'none', borderRadius: 22,
+            cursor: saving ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit', transition: 'background 0.2s ease',
+          }}
+        >
+          {saving ? 'Configuring...' : isLast ? 'Finish →' : 'Next →'}
+        </button>
       </div>
-
-      {/* Live preview strip */}
-      <div style={{
-        background: 'white', borderRadius: 14,
-        border: '0.5px solid rgba(0,0,0,0.07)',
-        padding: '12px 16px', marginBottom: 16,
-        display: 'flex', gap: 8, flexWrap: 'wrap',
-      }}>
-        <span style={{ fontSize: 11, color: '#9b9890', width: '100%', marginBottom: 4 }}>
-          ROLLABLE WILL SET UP
-        </span>
-        {[
-          { label: 'Template', value: inferred.stage_template.replace(/_/g, ' ') },
-          { label: 'At-risk', value: `${inferred.at_risk_days}d` },
-          { label: 'Contact fields', value: String(inferred.visible_fields.contacts.length) },
-          { label: 'Deal fields', value: String(inferred.visible_fields.deals.length) },
-        ].map(item => (
-          <div key={item.label} style={{
-            background: '#f5f4f0', borderRadius: 8,
-            padding: '5px 10px', display: 'flex', gap: 5, alignItems: 'center',
-          }}>
-            <span style={{ fontSize: 11, color: '#9b9890' }}>{item.label}</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#1a1a18', textTransform: 'capitalize' }}>{item.value}</span>
-          </div>
-        ))}
-      </div>
-
-      {error && (
-        <p style={{ margin: '0 0 12px', fontSize: 13, color: '#E24B4A' }}>{error}</p>
-      )}
-
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        style={{
-          width: '100%', background: saving ? '#9b9890' : '#1a1a18',
-          color: 'white', border: 'none', borderRadius: 22,
-          padding: '16px 24px', fontSize: 16, fontWeight: 500,
-          cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-          transition: 'background 0.2s ease',
-        }}
-      >
-        {saving ? 'Configuring...' : 'Set up my workspace →'}
-      </button>
     </div>
   )
 }
