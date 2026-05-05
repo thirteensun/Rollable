@@ -97,14 +97,8 @@ export default function OnboardingPage() {
       <div>
         {/* Logo mark — hidden on chat step */}
         {step !== 'chat' && (
-          <div style={{
-            width: '48px', height: '48px', borderRadius: '14px',
-            background: '#1a1a18', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', marginBottom: '40px',
-          }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+          <div style={{ marginBottom: '40px' }}>
+            <img src="/rollable-logo.svg" alt="Rollable" style={{ height: '32px', width: 'auto' }} />
           </div>
         )}
 
