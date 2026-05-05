@@ -404,7 +404,16 @@ export default function OnboardingPage() {
         </div>
 
         {step !== 'chat' && (
-          <p style={{ margin: 0, fontSize: '12px', color: '#c8c5be', textAlign: 'center' }}>rollable app</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+            <p style={{ margin: 0, fontSize: '12px', color: '#c8c5be' }}>rollable app</p>
+            <span style={{ fontSize: '12px', color: '#c8c5be' }}>·</span>
+            <button onClick={handleSignOut} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '12px', color: '#c8c5be', padding: 0, fontFamily: 'inherit',
+            }}>
+              Sign out
+            </button>
+          </div>
         )}
       </div>
     </main>
