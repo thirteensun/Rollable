@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -30,10 +31,12 @@ export default function SidebarNav({ userName, userInitials, userRole, userAvata
 
       {/* Logo */}
       <div style={{ padding: '0 18px 20px' }}>
-        <img
+        <Image
           src="/rollable-logo.svg"
           alt="Rollable"
-          style={{ height: 28, width: 'auto' }}
+          height={28}
+          width={110}
+          priority
         />
       </div>
 
