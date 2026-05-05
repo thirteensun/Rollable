@@ -93,6 +93,23 @@ export default function SettingsClient({
     }
   }
 
+  const [editingName, setEditingName]       = useState(false)
+  const [nameValue, setNameValue]           = useState(name)
+  const [savingName, setSavingName]         = useState(false)
+
+  const handleNameSave = async () => {
+    if (!nameValue.trim() || nameValue.trim() === name) { setEditingName(false); return }
+    setSavingName(true)
+    await fetch('/api/user/name', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: nameValue.trim() }),
+    })
+    setSavingName(false)
+    setEditingName(false)
+    router.refresh()
+  }
+
   const [editingOrgName, setEditingOrgName] = useState(false)
   const [orgNameValue, setOrgNameValue]     = useState(orgName)
   const [savingOrgName, setSavingOrgName]   = useState(false)
@@ -183,7 +200,26 @@ export default function SettingsClient({
               }
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ margin: 0, fontSize: 16, fontWeight: 500, color: '#1a1a18' }}>{name}</p>
+              {editingName ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                  <input
+                    autoFocus
+                    value={nameValue}
+                    onChange={e => setNameValue(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleNameSave(); if (e.key === 'Escape') setEditingName(false) }}
+                    style={{ fontSize: 15, color: '#1a1a18', border: '0.5px solid rgba(0,0,0,0.15)', borderRadius: 8, padding: '4px 8px', outline: 'none', fontFamily: 'inherit', width: 160, fontWeight: 500 }}
+                  />
+                  <button onClick={handleNameSave} disabled={savingName} style={{ fontSize: 12, color: 'white', background: '#1a1a18', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {savingName ? '…' : 'Save'}
+                  </button>
+                  <button onClick={() => { setEditingName(false); setNameValue(name) }} style={{ fontSize: 12, color: '#9b9890', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Cancel</button>
+                </div>
+              ) : (
+                <button onClick={() => setEditingName(true)} style={{ margin: 0, fontSize: 16, fontWeight: 500, color: '#1a1a18', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {nameValue}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="#c8c5be" strokeWidth="1.5" strokeLinecap="round"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="#c8c5be" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                </button>
+              )}
               <p style={{ margin: '2px 0 0', fontSize: 13, color: '#9b9890' }}>{email}</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
                 <span style={{
