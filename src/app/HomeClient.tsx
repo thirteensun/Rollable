@@ -8,7 +8,7 @@ import { type HomePriority } from '@/lib/stage-templates'
 // ─── Nudge types (inline — no longer needs separate component) ────────────────
 interface Nudge {
   id: string
-  type: 'stalled_deal' | 'overdue_followup' | 'closing_soon' | 'uninvoiced_won' | 'relationship_decay'
+  type: 'stalled_deal' | 'overdue_followup' | 'closing_soon' | 'uninvoiced_won' | 'relationship_decay' | 'opportunity'
   urgency: 'high' | 'medium' | 'low'
   title: string
   body: string
@@ -112,6 +112,10 @@ const NUDGE_META: Record<Nudge['type'], { label: string; icon: React.ReactNode }
   relationship_decay: {
     label: 'Gone quiet',
     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  },
+  opportunity: {
+    label: 'Momentum',
+    icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
   },
 }
 
@@ -263,10 +267,9 @@ function AISignalsSection({ collapsed, onToggle }: { collapsed: boolean; onToggl
   const visible = nudges.filter(n => !dismissed.has(n.id))
   const dismiss = (id: string) => setDismissed(prev => new Set([...Array.from(prev), id]))
 
-  if (!loading && visible.length === 0) return null
-
-  const badge = loading ? '…' : `${visible.length} signal${visible.length !== 1 ? 's' : ''}`
-  const badgeColor = visible.some(n => n.urgency === 'high') ? '#E24B4A' : '#EF9F27'
+  const isEmpty = !loading && visible.length === 0
+  const badge = loading ? '…' : isEmpty ? 'watching' : `${visible.length} signal${visible.length !== 1 ? 's' : ''}`
+  const badgeColor = visible.some(n => n.urgency === 'high') ? '#E24B4A' : isEmpty ? '#9b9890' : '#EF9F27'
 
   // Icon + bg color per nudge type
   const NUDGE_ICON: Record<Nudge['type'], { bg: string; stroke: string; path: React.ReactNode }> = {
@@ -289,6 +292,10 @@ function AISignalsSection({ collapsed, onToggle }: { collapsed: boolean; onToggl
     relationship_decay: {
       bg: '#F1EFE8', stroke: '#5F5E5A',
       path: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+    },
+    opportunity: {
+      bg: '#E6F5F0', stroke: '#0F6E56',
+      path: <><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
     },
   }
 
@@ -316,6 +323,20 @@ function AISignalsSection({ collapsed, onToggle }: { collapsed: boolean; onToggl
               </div>
             </div>
           ))}
+        </div>
+      ) : isEmpty ? (
+        <div style={{ padding: '16px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9b9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+              </svg>
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 500, color: '#6b6960' }}>No signals yet</span>
+          </div>
+          <p style={{ margin: 0, fontSize: 12, color: '#9b9890', lineHeight: 1.6 }}>
+            Risks and opportunities will surface here automatically — stalled deals, overdue follow-ups, deals with momentum, and more. Add contacts and deals to get started.
+          </p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column' }}>

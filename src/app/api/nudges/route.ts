@@ -5,7 +5,7 @@ import { getOrgContext } from '@/lib/org-context'
 
 export interface Nudge {
   id: string
-  type: 'stalled_deal' | 'overdue_followup' | 'closing_soon' | 'uninvoiced_won' | 'relationship_decay'
+  type: 'stalled_deal' | 'overdue_followup' | 'closing_soon' | 'uninvoiced_won' | 'relationship_decay' | 'opportunity'
   urgency: 'high' | 'medium' | 'low'
   title: string
   body: string
@@ -271,6 +271,52 @@ export async function GET() {
       days: daysSince,
       action_label: 'Log touchpoint',
       action_href: `/contacts/${contact.id}`,
+    })
+  }
+
+  // ── 6. OPPORTUNITY — DEALS WITH MOMENTUM ────────────────────────────────────
+  // Active deals in proposal/negotiation with an event in the last 3 days.
+  const { data: hotDeals } = await supabase
+    .from('deals')
+    .select(`
+      id, name, value, stage, currency,
+      deal_contacts(contact:contacts(id, full_name, role)),
+      companies(id, name),
+      events(created_at)
+    `)
+    .eq('org_id', membership.org_id)
+    .in('stage', ['proposal', 'negotiation'])
+    .order('value', { ascending: false })
+    .limit(20)
+
+  for (const deal of hotDeals ?? []) {
+    const events = (deal.events as { created_at: string }[]) ?? []
+    const lastEvent = events.length > 0
+      ? new Date(Math.max(...events.map(e => new Date(e.created_at).getTime())))
+      : null
+    if (!lastEvent) continue
+    const daysSince = Math.floor((now.getTime() - lastEvent.getTime()) / DAY)
+    if (daysSince > 3) continue
+
+    const alreadyNudged = nudges.some(n => n.deal?.id === deal.id)
+    if (alreadyNudged) continue
+
+    const contact = (deal.deal_contacts as any[])?.[0]?.contact ?? null
+    const company = Array.isArray(deal.companies) ? deal.companies[0] ?? null : deal.companies ?? null
+    const stageLabel = deal.stage.charAt(0).toUpperCase() + deal.stage.slice(1)
+
+    nudges.push({
+      id: `opportunity_${deal.id}`,
+      type: 'opportunity',
+      urgency: 'medium',
+      title: deal.name,
+      body: `${stageLabel} · active ${daysSince === 0 ? 'today' : `${daysSince} day${daysSince !== 1 ? 's' : ''} ago`} · keep the momentum`,
+      deal: { id: deal.id, name: deal.name, value: deal.value, stage: deal.stage, currency: deal.currency },
+      contact,
+      company,
+      days: daysSince,
+      action_label: 'View deal',
+      action_href: `/deals/${deal.id}`,
     })
   }
 
