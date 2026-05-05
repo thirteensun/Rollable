@@ -179,7 +179,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
   const pendingCount = waitlistItems.filter(e => e.status === 'pending').length
 
   return (
-    <main style={{ minHeight: '100dvh', background: '#f5f4f0', padding: '32px 24px' }}>
+    <main className="min-h-dvh px-4 py-6 sm:px-6 sm:py-8" style={{ background: '#f5f4f0' }}>
       <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
 
         {/* Header */}
@@ -197,7 +197,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
         </div>
 
         {/* Stats row */}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '28px' }}>
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '28px', flexWrap: 'wrap' }}>
           {[
             { label: 'Registered', value: orgs.length },
             { label: 'Waitlist', value: waitlistItems.length },
@@ -205,7 +205,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
             { label: 'Cap', value: capEnabled ? `${orgs.length} / ${capLimit}` : 'Off' },
           ].map(stat => (
             <div key={stat.label} style={{
-              flex: 1, background: 'white', borderRadius: '14px',
+              flex: '1 1 calc(50% - 6px)', minWidth: '120px', background: 'white', borderRadius: '14px',
               border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px',
             }}>
               <p style={{ margin: '0 0 4px', fontSize: '22px', fontWeight: 600, color: '#1a1a18' }}>{stat.value}</p>
@@ -215,7 +215,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: 'white', borderRadius: '12px', padding: '4px', border: '0.5px solid rgba(0,0,0,0.07)', width: 'fit-content' }}>
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', background: 'white', borderRadius: '12px', padding: '4px', border: '0.5px solid rgba(0,0,0,0.07)', width: 'fit-content', maxWidth: '100%', overflowX: 'auto' }}>
           {(['registrations', 'waitlist', 'usage', 'settings', 'announcements'] as Tab[]).map(t => (
             <button key={t} onClick={() => setTab(t)} style={{
               padding: '8px 16px', borderRadius: '9px', border: 'none',
@@ -269,7 +269,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
                       {owner?.email ?? '—'}
                     </p>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     <div style={{ position: 'relative' }}>
                       <select
                         value={plan}
@@ -309,10 +309,10 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
                       }}
                     />
                     <span style={{ fontSize: '11px', color: '#c8c5be', marginLeft: -6 }}>seats</span>
-                    <span style={{ fontSize: '12px', color: '#c8c5be' }}>
+                    <span className="hidden sm:inline" style={{ fontSize: '12px', color: '#c8c5be' }}>
                       {memberCount} {memberCount === 1 ? 'member' : 'members'}
                     </span>
-                    <span style={{ fontSize: '12px', color: '#c8c5be' }}>{formatDate(org.created_at)}</span>
+                    <span className="hidden sm:inline" style={{ fontSize: '12px', color: '#c8c5be' }}>{formatDate(org.created_at)}</span>
                   </div>
                 </div>
               )
