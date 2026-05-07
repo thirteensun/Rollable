@@ -10,7 +10,7 @@ export default async function DealsPage() {
 
   const { data: deals } = await supabase
     .from('deals')
-    .select('id, name, value, stage, last_activity_at, companies(name)')
+    .select('id, name, value, stage, priority, last_activity_at, companies(name)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 

@@ -10,7 +10,7 @@ export default async function ContactsPage() {
 
   const { data: contacts } = await supabase
     .from('contacts')
-    .select('id, full_name, role, email, companies(name), last_contacted_at')
+    .select('id, full_name, role, email, companies(name), last_contacted_at, status, seniority_level')
     .eq('user_id', user.id)
     .order('last_contacted_at', { ascending: false, nullsFirst: false })
 

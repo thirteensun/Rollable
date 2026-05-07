@@ -2,12 +2,14 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import FilterPills, { PillOption } from '@/components/FilterPills'
 
 interface Deal {
   id: string
   name: string
   value: number | null
   stage: string
+  priority: string | null
   last_activity_at: string | null
   companies: { name: string } | { name: string }[] | null
 }
@@ -27,6 +29,25 @@ const STAGE_COLORS: Record<string, { bg: string; color: string }> = {
   closed_won:  { bg: 'rgba(29,158,117,0.1)',  color: '#1D9E75' },
   closed_lost: { bg: 'rgba(0,0,0,0.05)',      color: '#9b9890' },
 }
+
+const PRIORITY_LABELS: Record<string, string> = {
+  low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical',
+  p0: 'P0', p1: 'P1', p2: 'P2', p3: 'P3',
+}
+
+const PRIORITY_COLORS: Record<string, { bg: string; color: string }> = {
+  low:      { bg: 'rgba(29,158,117,0.1)',   color: '#1D9E75' },
+  medium:   { bg: 'rgba(160,136,64,0.1)',   color: '#8a7040' },
+  high:     { bg: 'rgba(239,159,39,0.12)',  color: '#b87a10' },
+  critical: { bg: 'rgba(226,75,74,0.1)',    color: '#c03030' },
+  p0:       { bg: 'rgba(226,75,74,0.1)',    color: '#c03030' },
+  p1:       { bg: 'rgba(239,159,39,0.12)',  color: '#b87a10' },
+  p2:       { bg: 'rgba(160,136,64,0.1)',   color: '#8a7040' },
+  p3:       { bg: 'rgba(29,158,117,0.1)',   color: '#1D9E75' },
+}
+
+const STAGE_ORDER    = ['lead','qualified','demo','proposal','negotiation','closed_won','closed_lost']
+const PRIORITY_ORDER = ['critical','high','medium','low','p0','p1','p2','p3']
 
 function getCompanyName(companies: Deal['companies']): string | null {
   if (!companies) return null
@@ -49,29 +70,42 @@ function timeAgo(dateStr: string) {
 }
 
 export default function DealsList({ deals }: { deals: Deal[] }) {
-  const [query, setQuery] = useState('')
-  const [stageFilter, setStageFilter] = useState('all')
+  const [query, setQuery]               = useState('')
+  const [stageFilter, setStageFilter]   = useState('all')
+  const [priorityFilter, setPriority]   = useState('all')
 
-  // Only show stages that exist in data
-  const availableStages = useMemo(() =>
-    ['all', ...Array.from(new Set(deals.map(d => d.stage)))
-      .sort((a, b) => {
-        const order = ['lead','qualified','demo','proposal','negotiation','closed_won','closed_lost']
-        return order.indexOf(a) - order.indexOf(b)
-      })
-    ], [deals])
+  const stageOptions = useMemo<PillOption[]>(() => {
+    const vals = Array.from(new Set(deals.map(d => d.stage)))
+      .sort((a, b) => STAGE_ORDER.indexOf(a) - STAGE_ORDER.indexOf(b))
+    return [
+      { value: 'all', label: `All · ${deals.length}` },
+      ...vals.map(v => ({ value: v, label: STAGE_LABELS[v] ?? v, colors: STAGE_COLORS[v] })),
+    ]
+  }, [deals])
+
+  const priorityOptions = useMemo<PillOption[]>(() => {
+    const vals = Array.from(new Set(deals.map(d => d.priority).filter(Boolean) as string[]))
+      .sort((a, b) => PRIORITY_ORDER.indexOf(a) - PRIORITY_ORDER.indexOf(b))
+    return [
+      { value: 'all', label: 'All priorities' },
+      ...vals.map(v => ({ value: v, label: PRIORITY_LABELS[v] ?? v, colors: PRIORITY_COLORS[v] })),
+    ]
+  }, [deals])
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
     return deals.filter(d => {
-      const matchesQuery = !q ||
+      const matchesQuery    = !q ||
         d.name.toLowerCase().includes(q) ||
         getCompanyName(d.companies)?.toLowerCase().includes(q) ||
         STAGE_LABELS[d.stage]?.toLowerCase().includes(q)
-      const matchesStage = stageFilter === 'all' || d.stage === stageFilter
-      return matchesQuery && matchesStage
+      const matchesStage    = stageFilter   === 'all' || d.stage    === stageFilter
+      const matchesPriority = priorityFilter === 'all' || d.priority === priorityFilter
+      return matchesQuery && matchesStage && matchesPriority
     })
-  }, [deals, query, stageFilter])
+  }, [deals, query, stageFilter, priorityFilter])
+
+  const hasActiveFilter = query.trim() || stageFilter !== 'all' || priorityFilter !== 'all'
 
   return (
     <>
@@ -104,38 +138,15 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
         )}
       </div>
 
-      {/* Stage filter pills */}
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4, marginBottom: 14 }} className="no-scrollbar">
-        {availableStages.map(s => {
-          const active = stageFilter === s
-          const sc = s !== 'all' ? STAGE_COLORS[s] : null
-          return (
-            <button
-              key={s}
-              onClick={() => setStageFilter(s)}
-              style={{
-                flexShrink: 0,
-                padding: '5px 12px', borderRadius: 20,
-                border: active ? 'none' : '0.5px solid rgba(0,0,0,0.09)',
-                background: active ? (sc?.bg || '#1a1a18') : 'white',
-                color: active ? (sc?.color || (s === 'all' ? 'white' : '#1a1a18')) : '#6b6960',
-                fontSize: 12, fontWeight: active ? 600 : 400,
-                cursor: 'pointer', fontFamily: 'inherit',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {s === 'all' ? `All · ${deals.length}` : STAGE_LABELS[s] ?? s}
-            </button>
-          )
-        })}
-      </div>
+      {/* Stage + priority filter pills */}
+      <FilterPills options={stageOptions}    active={stageFilter}    onChange={setStageFilter} />
+      <FilterPills options={priorityOptions} active={priorityFilter} onChange={setPriority} />
 
-      {/* Result count when searching */}
-      {(query.trim() || stageFilter !== 'all') && (
+      {/* Result count when filtering */}
+      {hasActiveFilter && (
         <p style={{ margin: '0 0 12px', fontSize: 12, color: '#9b9890' }}>
           {filtered.length} deal{filtered.length !== 1 ? 's' : ''}
           {query.trim() ? ` matching "${query}"` : ''}
-          {stageFilter !== 'all' ? ` in ${STAGE_LABELS[stageFilter]}` : ''}
         </p>
       )}
 
@@ -148,6 +159,7 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
           const atRisk = days !== null && days >= 14 && deal.stage !== 'closed_won' && deal.stage !== 'closed_lost'
           const sc = STAGE_COLORS[deal.stage] ?? { bg: 'rgba(0,0,0,0.05)', color: '#6b6960' }
           const value = formatValue(deal.value)
+          const pc = deal.priority ? PRIORITY_COLORS[deal.priority] : null
 
           return (
             <Link key={deal.id} href={`/deals/${deal.id}`} style={{ textDecoration: 'none' }}>
@@ -176,13 +188,24 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
                   )}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{
-                    fontSize: 11, fontWeight: 500,
-                    background: sc.bg, color: sc.color,
-                    padding: '3px 9px', borderRadius: 6,
-                  }}>
-                    {STAGE_LABELS[deal.stage] ?? deal.stage}
-                  </span>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 500,
+                      background: sc.bg, color: sc.color,
+                      padding: '3px 9px', borderRadius: 6,
+                    }}>
+                      {STAGE_LABELS[deal.stage] ?? deal.stage}
+                    </span>
+                    {deal.priority && pc && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 500,
+                        background: pc.bg, color: pc.color,
+                        padding: '3px 9px', borderRadius: 6,
+                      }}>
+                        {PRIORITY_LABELS[deal.priority] ?? deal.priority}
+                      </span>
+                    )}
+                  </div>
                   {atRisk && days !== null && (
                     <span style={{ fontSize: 11, color: '#EF9F27', fontWeight: 500 }}>
                       {days}d no activity
@@ -202,10 +225,10 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
         {filtered.length === 0 && (
           <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 32, textAlign: 'center' }}>
             <p style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>
-              {query || stageFilter !== 'all' ? 'No deals match your filters' : 'No deals yet'}
+              {hasActiveFilter ? 'No deals match your filters' : 'No deals yet'}
             </p>
             <p style={{ margin: 0, fontSize: 13, color: '#9b9890' }}>
-              {query || stageFilter !== 'all' ? 'Try clearing your search or filter' : 'Use Capture to add your first deal'}
+              {hasActiveFilter ? 'Try clearing your search or filters' : 'Use Capture to add your first deal'}
             </p>
           </div>
         )}

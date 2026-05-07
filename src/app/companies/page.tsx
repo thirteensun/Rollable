@@ -10,7 +10,7 @@ export default async function CompaniesPage() {
 
   const { data: companies } = await supabase
     .from('companies')
-    .select('id, name, industry, created_at')
+    .select('id, name, industry, created_at, status, type')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
