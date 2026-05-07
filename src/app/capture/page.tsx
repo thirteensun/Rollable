@@ -857,7 +857,7 @@ export default function CapturePage() {
       <div style={{ padding: '56px 24px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         {mode !== 'choose' && (
           <button onClick={() => { setMode('choose'); setMessages([]); setTranscript(''); setPendingAction(null); setSheetResult(null); transcriptRef.current = ''; recognitionRef.current?.stop() }} style={{
-            width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.07)',
+            width: '32px', height: '32px', borderRadius: 'var(--radius-md)', background: 'rgba(0,0,0,0.07)',
             border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
@@ -900,7 +900,7 @@ export default function CapturePage() {
             </button>
 
             <button onClick={startVoiceFromChoose} style={{
-              background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '20px',
+              background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', padding: '20px',
               display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'left', width: '100%',
             }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f5f4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -920,7 +920,7 @@ export default function CapturePage() {
             </button>
 
             <button onClick={() => setMode('assistant')} style={{
-              background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '20px',
+              background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', padding: '20px',
               display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'left', width: '100%',
             }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f5f4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -938,7 +938,7 @@ export default function CapturePage() {
             </button>
 
             <button onClick={() => sheetInputRef.current?.click()} style={{
-              background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '20px',
+              background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', padding: '20px',
               display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', textAlign: 'left', width: '100%',
             }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f5f4f0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -957,7 +957,7 @@ export default function CapturePage() {
             </button>
           </div>
 
-          <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Try saying</p>
+          <p style={{ margin: '0 0 10px', fontSize: '10px', fontWeight: 600, color: '#9b9890', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>Try saying</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {[
               'Add Tom from UC Architecture to my contacts',
@@ -1006,7 +1006,7 @@ export default function CapturePage() {
       {/* Image confirm */}
       {mode === 'image_confirm' && aiResult && (
         <div style={{ padding: '0 24px', flex: 1 }} className="animate-slide-up">
-          <div style={{ background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px', marginBottom: '16px' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', padding: '16px 18px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1D9E75' }} />
               <span style={{ fontSize: '12px', fontWeight: 500, color: '#1D9E75' }}>AI processed</span>
@@ -1024,7 +1024,7 @@ export default function CapturePage() {
             if (items.length === 0) return null
             return (
             <div style={{ marginBottom: '16px' }}>
-              <p style={{ margin: '0 0 10px', fontSize: '12px', fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>I'll create or update</p>
+              <p style={{ margin: '0 0 10px', fontSize: '10px', fontWeight: 600, color: '#9b9890', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>I'll create or update</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {items.map((item, i) => {
                   const selected = selectedItems.has(item.selectionKey)
@@ -1085,8 +1085,8 @@ export default function CapturePage() {
           })()}
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-            <button onClick={() => setMode('choose')} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: '22px', padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
-            <button onClick={handleImageSave} disabled={saving} style={{ flex: 2, background: saving ? '#6b6960' : '#1a1a18', border: 'none', borderRadius: '22px', padding: '15px', fontSize: '15px', color: 'white', fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+            <button onClick={() => setMode('choose')} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: 9999, padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
+            <button onClick={handleImageSave} disabled={saving} className="btn-chrome" style={{ flex: 2, fontSize: '15px', padding: '15px', borderRadius: 9999, justifyContent: 'center', opacity: saving ? 0.55 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
               {saving ? 'Saving...' : 'Looks good, save it'}
             </button>
           </div>
@@ -1123,11 +1123,11 @@ export default function CapturePage() {
       {mode === 'sheet_confirm' && sheetResult && (
         <div style={{ padding: '0 24px', flex: 1, overflowY: 'auto' }} className="animate-slide-up no-scrollbar">
           {/* Single card containing all rows */}
-          <div style={{ background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', overflow: 'hidden', marginBottom: '16px' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', overflow: 'hidden', marginBottom: '16px' }}>
 
             {/* Card header */}
             <div style={{ padding: '12px 16px', borderBottom: '0.5px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '11px', fontWeight: 600, color: '#9b9890', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Review import</span>
+              <span style={{ fontSize: '10px', fontWeight: 600, color: '#9b9890', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>Review import</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '11px', color: '#9b9890' }}>{selectedContacts.length + selectedCompanies.length + selectedDeals.length} of {sheetResult.contacts.length + sheetResult.companies.length + (sheetResult.deals ?? []).length} selected</span>
                 <button
@@ -1242,12 +1242,15 @@ export default function CapturePage() {
           </div>
 
           <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
-            <button onClick={() => { setMode('choose'); setSheetResult(null); setSelectedDeals([]) }} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: '22px', padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
-            <button onClick={handleSheetSave} disabled={sheetSaving || (selectedContacts.length === 0 && selectedCompanies.length === 0 && selectedDeals.length === 0)} style={{
-              flex: 2, background: sheetSaving ? '#6b6960' : '#1a1a18', border: 'none', borderRadius: '22px', padding: '15px', fontSize: '15px', color: 'white', fontWeight: 500,
-              cursor: (sheetSaving || (selectedContacts.length === 0 && selectedCompanies.length === 0 && selectedDeals.length === 0)) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (selectedContacts.length === 0 && selectedCompanies.length === 0 && selectedDeals.length === 0) ? 0.5 : 1,
-            }}>
-              {sheetSaving ? 'Importing...' : `Import ${selectedContacts.length + selectedCompanies.length + selectedDeals.length} records`}
+            <button onClick={() => { setMode('choose'); setSheetResult(null); setSelectedDeals([]) }} style={{ flex: 1, background: 'white', border: '0.5px solid rgba(0,0,0,0.1)', borderRadius: 9999, padding: '15px', fontSize: '15px', color: '#6b6960', fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
+            <button onClick={handleSheetSave} disabled={sheetSaving || (selectedContacts.length === 0 && selectedCompanies.length === 0 && selectedDeals.length === 0)}
+              className="btn-chrome"
+              style={{
+                flex: 2, fontSize: '15px', padding: '15px', borderRadius: 9999, justifyContent: 'center',
+                opacity: (sheetSaving || (selectedContacts.length === 0 && selectedCompanies.length === 0 && selectedDeals.length === 0)) ? 0.5 : 1,
+                cursor: (sheetSaving || (selectedContacts.length === 0 && selectedCompanies.length === 0 && selectedDeals.length === 0)) ? 'not-allowed' : 'pointer',
+              }}>
+              {sheetSaving ? 'Importing…' : `Import ${selectedContacts.length + selectedCompanies.length + selectedDeals.length} records`}
             </button>
           </div>
         </div>
@@ -1280,7 +1283,7 @@ export default function CapturePage() {
             {/* Pending action confirm card */}
             {pendingAction && (
               <div style={{ marginBottom: 10 }}>
-                <div style={{ background: 'white', borderRadius: '18px', border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px' }}>
+                <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', padding: '16px 18px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                     <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF9F27' }} />
                     <span style={{ fontSize: '12px', fontWeight: 500, color: '#EF9F27' }}>Confirm action</span>

@@ -35,8 +35,8 @@ export default async function PipelinePage() {
         background: '#f5f4f0', display: 'flex', flexDirection: 'column', zIndex: 10,
       }}>
         <div style={{
-          height: 52, background: 'white',
-          borderBottom: '0.5px solid rgba(0,0,0,0.07)',
+          height: 52, background: 'var(--bg-card)',
+          borderBottom: '0.5px solid var(--border-subtle)',
           display: 'flex', alignItems: 'center',
           padding: '0 20px', gap: 12, flexShrink: 0,
         }}>
@@ -44,11 +44,7 @@ export default async function PipelinePage() {
           <Link href="/deals" style={{ fontSize: 12, color: '#6b6960', textDecoration: 'none' }}>
             List view
           </Link>
-          <Link href="/capture" style={{
-            background: '#1a1a18', color: 'white',
-            borderRadius: 10, padding: '7px 14px',
-            fontSize: 12, fontWeight: 500, textDecoration: 'none',
-          }}>
+          <Link href="/capture" className="btn-chrome">
             + Add Deal
           </Link>
         </div>

@@ -109,7 +109,7 @@ function InlineBar({ chart }: { chart: Extract<ChartData, { type: 'bar' }> }) {
   const spacing = (VW - 10) / chart.data.length
   return (
     <div style={{ background: C.bg, borderRadius: 10, padding: '10px 12px', marginTop: 6 }}>
-      <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{chart.title}</div>
+      <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>{chart.title}</div>
       <svg width="100%" viewBox={`0 0 ${VW} ${VH}`} style={{ display: 'block' }}>
         {chart.data.map((d, i) => {
           const barH = Math.max((d.value / max) * 80, d.value > 0 ? 2 : 0)
@@ -137,7 +137,7 @@ function InlineDonut({ chart }: { chart: Extract<ChartData, { type: 'donut' }> }
   return (
     <div style={{ background: C.bg, borderRadius: 10, padding: '10px 12px', marginTop: 6, display: 'flex', gap: 12, alignItems: 'center' }}>
       <div>
-        <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{chart.title}</div>
+        <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>{chart.title}</div>
         <svg width={88} height={88}>
           <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth={stroke} />
           {chart.segments.map((seg, i) => {
@@ -181,7 +181,7 @@ function InlineStages({ chart }: { chart: Extract<ChartData, { type: 'stages' }>
   const max = Math.max(...chart.data.map(d => d.value), 1)
   return (
     <div style={{ background: C.bg, borderRadius: 10, padding: '10px 12px', marginTop: 6 }}>
-      <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{chart.title}</div>
+      <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>{chart.title}</div>
       {chart.data.map((d, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
           <div style={{ width: 72, fontSize: 11, color: C.muted, flexShrink: 0 }}>{d.label}</div>
@@ -204,7 +204,7 @@ function InlineFunnel({ chart }: { chart: Extract<ChartData, { type: 'funnel' }>
   const max = Math.max(...chart.data.map(d => d.count), 1)
   return (
     <div style={{ background: C.bg, borderRadius: 10, padding: '10px 12px', marginTop: 6 }}>
-      <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{chart.title}</div>
+      <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>{chart.title}</div>
       {chart.data.map((d, i) => {
         const pct = (d.count / max) * 100
         const color = STAGE_COLOR[d.label.toLowerCase()] || C.dark
@@ -342,7 +342,7 @@ function SignalCard({ s, onSend, onDismiss }: {
             {icon.path}
           </svg>
         </div>
-        <span style={{ fontSize: 11, fontWeight: 600, color: meta.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: meta.color, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>
           {meta.label}
         </span>
         {value && (
@@ -469,7 +469,7 @@ function HistoryPanel({ onLoad }: { onLoad: (id: string) => void }) {
   )
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ fontSize: 10, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>Recent sessions</div>
+      <div style={{ fontSize: 10, color: C.faint, textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace', marginBottom: 2 }}>Recent sessions</div>
       {convos.map(c => (
         <button key={c.id} onClick={() => onLoad(c.id)} style={{ background: C.card, border: `0.5px solid ${C.border}`, borderRadius: 10, padding: '10px 12px', textAlign: 'left', fontFamily: 'inherit', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 3 }} className="question-btn">
           <div style={{ fontSize: 12, fontWeight: 500, color: C.dark, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>{c.title || 'Untitled session'}</div>
@@ -789,7 +789,7 @@ export default function AISandboxClient({ deals, contacts, tasks, companies }: P
               <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Ask anything about your pipeline…" rows={1}
                 style={{ flex: 1, background: C.bg, border: `0.5px solid ${C.border}`, borderRadius: 12, padding: '10px 14px', fontSize: 13, color: C.dark, resize: 'none', outline: 'none', fontFamily: 'inherit', lineHeight: 1.5, maxHeight: 100, overflowY: 'auto' }} />
               <button onClick={() => sendMessage(input)} disabled={!input.trim() || loading}
-                style={{ width: 36, height: 36, flexShrink: 0, background: input.trim() && !loading ? C.dark : C.bg, border: 'none', borderRadius: 10, cursor: input.trim() && !loading ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}>
+                style={{ width: 36, height: 36, flexShrink: 0, background: input.trim() && !loading ? C.dark : C.bg, border: 'none', borderRadius: 'var(--radius-md)', cursor: input.trim() && !loading ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s' }}>
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
                   <path d="M6.5 11V2M2 6.5l4.5-4.5 4.5 4.5" stroke={input.trim() && !loading ? 'white' : C.faint} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>

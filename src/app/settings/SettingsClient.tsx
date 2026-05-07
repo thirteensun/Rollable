@@ -175,7 +175,7 @@ export default function SettingsClient({
       <div style={{ padding: '56px 24px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button
           onClick={() => router.back()}
-          style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.07)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'rgba(0,0,0,0.07)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <path d="M10 4L6 8l4 4" stroke="#1a1a18" strokeWidth="1.3" strokeLinecap="round"/>
@@ -187,7 +187,7 @@ export default function SettingsClient({
       <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* ── Profile card ── */}
-        <div style={{ background: 'white', borderRadius: 18, border: '0.5px solid rgba(0,0,0,0.07)', padding: 20 }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', padding: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{
               width: 52, height: 52, borderRadius: '50%', background: '#1a1a18',
@@ -238,10 +238,10 @@ export default function SettingsClient({
 
         {/* ── Workspace ── */}
         <div>
-          <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          <p style={{ margin: '0 0 10px', fontSize: 10, fontWeight: 600, color: '#9b9890', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>
             Workspace
           </p>
-          <div style={{ background: 'white', borderRadius: 18, border: '0.5px solid rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
             <Row label="Name" value={
               isAdmin ? (
                 editingOrgName ? (
@@ -282,10 +282,10 @@ export default function SettingsClient({
         {/* ── Customise — admin only ── */}
         {isAdmin && (
           <div>
-            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            <p style={{ margin: '0 0 10px', fontSize: 10, fontWeight: 600, color: '#9b9890', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>
               Customise
             </p>
-            <div style={{ background: 'white', borderRadius: 18, border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px' }}>
+            <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', padding: '16px 18px' }}>
               <p style={{ margin: '0 0 18px', fontSize: 13, color: '#6b6960', lineHeight: 1.5 }}>
                 Describe your sales process — Rollable configures fields, pipeline stages, and AI behaviour automatically.
               </p>
@@ -297,10 +297,10 @@ export default function SettingsClient({
         {/* ── Customise — read-only notice for non-admins ── */}
         {!isAdmin && (
           <div>
-            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            <p style={{ margin: '0 0 10px', fontSize: 10, fontWeight: 600, color: '#9b9890', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>
               Customise
             </p>
-            <div style={{ background: 'white', borderRadius: 18, border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px' }}>
+            <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', padding: '16px 18px' }}>
               <p style={{ margin: 0, fontSize: 13, color: '#6b6960', lineHeight: 1.5 }}>
                 Workspace configuration is managed by your admin. Reach out to them if you'd like to adjust pipeline stages, fields, or AI focus areas.
               </p>
@@ -310,10 +310,10 @@ export default function SettingsClient({
 
         {/* ── Team ── */}
         <div>
-          <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          <p style={{ margin: '0 0 10px', fontSize: 10, fontWeight: 600, color: '#9b9890', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>
             Team
           </p>
-          <div style={{ background: 'white', borderRadius: 18, border: '0.5px solid rgba(0,0,0,0.07)', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', overflow: 'hidden' }}>
             {memberList.map((member, i) => {
               const memberName     = member.users?.full_name || member.users?.email || member.invited_email || 'Unknown'
               const memberEmail    = member.users?.email || member.invited_email || ''
@@ -403,10 +403,10 @@ export default function SettingsClient({
         {/* ── Invite — admin only ── */}
         {isAdmin && (
           <div>
-            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 500, color: '#9b9890', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            <p style={{ margin: '0 0 10px', fontSize: 10, fontWeight: 600, color: '#9b9890', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace' }}>
               Invite teammate
             </p>
-            <div style={{ background: 'white', borderRadius: 18, border: '0.5px solid rgba(0,0,0,0.07)', padding: '16px 18px' }}>
+            <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', padding: '16px 18px' }}>
               <form onSubmit={handleInvite} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <input
                   type="email"
@@ -448,16 +448,14 @@ export default function SettingsClient({
                 <button
                   type="submit"
                   disabled={inviting || !inviteEmail.trim()}
+                  className="btn-chrome"
                   style={{
-                    width: '100%', padding: 13, fontSize: 15, fontWeight: 500,
-                    color: 'white',
-                    background: inviting || !inviteEmail.trim() ? '#9b9890' : '#1a1a18',
-                    border: 'none', borderRadius: 14,
+                    width: '100%', padding: 13, fontSize: 14, justifyContent: 'center',
+                    opacity: inviting || !inviteEmail.trim() ? 0.45 : 1,
                     cursor: inviting || !inviteEmail.trim() ? 'not-allowed' : 'pointer',
-                    fontFamily: 'inherit',
                   }}
                 >
-                  {inviting ? 'Sending...' : `Send invite as ${inviteRole}`}
+                  {inviting ? 'Sending…' : `Send invite as ${inviteRole}`}
                 </button>
               </form>
               <p style={{ margin: '10px 0 0', fontSize: 12, color: '#9b9890', lineHeight: 1.5 }}>
@@ -474,15 +472,15 @@ export default function SettingsClient({
               onClick={() => setShowSignOutConfirm(true)}
               style={{
                 width: '100%', padding: 15, fontSize: 15, fontWeight: 500,
-                color: '#E24B4A', background: 'white',
+                color: '#E24B4A', background: 'var(--bg-card)',
                 border: '0.5px solid rgba(226,75,74,0.2)',
-                borderRadius: 18, cursor: 'pointer', fontFamily: 'inherit',
+                borderRadius: 'var(--radius-2xl)', cursor: 'pointer', fontFamily: 'inherit',
               }}
             >
               Sign out
             </button>
           ) : (
-            <div style={{ background: 'white', borderRadius: 18, border: '0.5px solid rgba(226,75,74,0.2)', padding: '16px 18px' }}>
+            <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid rgba(226,75,74,0.2)', padding: '16px 18px' }}>
               <p style={{ margin: '0 0 14px', fontSize: 14, color: '#1a1a18', textAlign: 'center' }}>
                 Are you sure you want to sign out?
               </p>

@@ -124,8 +124,8 @@ export default function KanbanBoard({ deals, stageTemplate }: Props) {
             {saveError && <span style={{ fontSize: 12, color: '#E24B4A' }}>{saveError}</span>}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleDiscard} style={{ padding: '6px 14px', borderRadius: 20, border: '0.5px solid rgba(0,0,0,0.12)', background: 'transparent', fontSize: 12, color: '#6b6960', cursor: 'pointer' }}>Discard</button>
-            <button onClick={handleSave} disabled={saving} style={{ padding: '6px 16px', borderRadius: 20, border: 'none', background: saving ? '#9b9890' : '#1a1a18', color: 'white', fontSize: 12, fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving…' : 'Save changes'}</button>
+            <button onClick={handleDiscard} style={{ padding: '6px 14px', borderRadius: 9999, border: '0.5px solid rgba(0,0,0,0.12)', background: 'transparent', fontSize: 12, color: '#6b6960', cursor: 'pointer', fontFamily: 'inherit' }}>Discard</button>
+            <button onClick={handleSave} disabled={saving} className="btn-chrome" style={{ opacity: saving ? 0.55 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving…' : 'Save changes'}</button>
           </div>
         </div>
       )}
