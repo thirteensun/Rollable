@@ -654,9 +654,9 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
                 <p style={{ color: '#9b9890', fontSize: 14 }}>No announcements yet.</p>
               )}
               {announcements.map(a => (
-                <div key={a.id} style={{
+                <div key={a.id} className="flex flex-col sm:flex-row sm:items-start" style={{
                   background: 'white', borderRadius: 14, border: '0.5px solid rgba(0,0,0,0.07)',
-                  padding: '16px 18px', display: 'flex', alignItems: 'flex-start', gap: 14,
+                  padding: '16px 18px', gap: 12,
                 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -673,7 +673,7 @@ export default function AdminClient({ orgs, waitlist, cap, usage, announcements:
                     <p style={{ margin: 0, fontSize: 13, color: '#9b9890', lineHeight: 1.4 }}>{a.body}</p>
                     <p style={{ margin: '6px 0 0', fontSize: 11, color: '#c8c5be' }}>{formatDate(a.created_at)}</p>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
                     {/* Publish toggle */}
                     <button
                       onClick={async () => {
