@@ -41,6 +41,7 @@ const TYPE_ORDER   = ['prospect', 'customer', 'partner', 'competitor', 'investor
 
 function timeAgo(dateStr: string) {
   const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
+  if (d < 0)  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   if (d === 0) return 'Today'
   if (d === 1) return 'Yesterday'
   return `${d}d ago`
