@@ -64,17 +64,27 @@ function formatValue(v?: number | null) {
 
 function timeAgo(dateStr: string) {
   const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
-  if (d < 0)  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  if (d < 0)   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   if (d === 0) return 'Today'
   if (d === 1) return 'Yesterday'
-  return `${d}d ago`
+  if (d < 30)  return `${d}d ago`
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const COL = '2fr 1.5fr 72px 108px 88px 96px 32px'
+
+const TH_STYLE: React.CSSProperties = {
+  fontSize: 10, color: '#9b9890', fontWeight: 600,
+  textTransform: 'uppercase', letterSpacing: '0.07em',
+  fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
 }
 
 export default function DealsList({ deals }: { deals: Deal[] }) {
-  const [query, setQuery]               = useState('')
-  const [stageFilter, setStageFilter]   = useState('all')
-  const [priorityFilter, setPriority]   = useState('all')
-  const [riskFilter, setRisk]           = useState('all')
+  const [query, setQuery]             = useState('')
+  const [stageFilter, setStageFilter] = useState('all')
+  const [priorityFilter, setPriority] = useState('all')
+  const [riskFilter, setRisk]         = useState('all')
 
   const stageOptions = useMemo<PillOption[]>(() => {
     const vals = Array.from(new Set(deals.map(d => d.stage)))
@@ -85,7 +95,6 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
     ]
   }, [deals])
 
-  // Priority pills — always show standard levels; p0-p3 only if any deal uses them
   const priorityOptions = useMemo<PillOption[]>(() => {
     const usedVals = new Set(deals.map(d => d.priority).filter(Boolean) as string[])
     const pScale = usedVals.has('p0') || usedVals.has('p1') || usedVals.has('p2') || usedVals.has('p3')
@@ -97,7 +106,6 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
     ]
   }, [deals])
 
-  // At-risk pills: deals with 14+ days no activity, not closed
   const riskOptions = useMemo<PillOption[]>(() => {
     const atRiskCount = deals.filter(d => {
       if (d.stage === 'closed_won' || d.stage === 'closed_lost') return false
@@ -135,8 +143,8 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
     <>
       {/* Search */}
       <div style={{ position: 'relative', marginBottom: 12 }}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9b9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9b9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
         <input
@@ -146,116 +154,138 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
           style={{
             width: '100%', boxSizing: 'border-box',
             background: 'white', border: '0.5px solid rgba(0,0,0,0.09)',
-            borderRadius: 12, padding: '10px 36px 10px 36px',
-            fontSize: 14, color: '#1a1a18', outline: 'none',
-            fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+            borderRadius: 10, padding: '9px 34px 9px 34px',
+            fontSize: 13, color: '#1a1a18', outline: 'none', fontFamily: 'inherit',
           }}
         />
         {query && (
           <button onClick={() => setQuery('')} style={{
-            position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+            position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)',
             background: 'none', border: 'none', cursor: 'pointer', color: '#9b9890',
             display: 'flex', alignItems: 'center', padding: 2,
           }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         )}
       </div>
 
-      {/* Stage + priority + risk filter pills */}
       <FilterPills options={stageOptions}    active={stageFilter}    onChange={setStageFilter} />
       <FilterPills options={priorityOptions} active={priorityFilter} onChange={setPriority} />
       <FilterPills options={riskOptions}     active={riskFilter}     onChange={setRisk} />
 
-      {/* Result count when filtering */}
       {hasActiveFilter && (
-        <p style={{ margin: '0 0 12px', fontSize: 12, color: '#9b9890' }}>
+        <p style={{ margin: '0 0 10px', fontSize: 12, color: '#9b9890' }}>
           {filtered.length} deal{filtered.length !== 1 ? 's' : ''}
           {query.trim() ? ` matching "${query}"` : ''}
         </p>
       )}
 
-      {/* List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {filtered.map(deal => {
-          const days = deal.last_activity_at
-            ? Math.floor((Date.now() - new Date(deal.last_activity_at).getTime()) / 86400000)
-            : null
-          const atRisk = days !== null && days >= 14 && deal.stage !== 'closed_won' && deal.stage !== 'closed_lost'
-          const sc = STAGE_COLORS[deal.stage] ?? { bg: 'rgba(0,0,0,0.05)', color: '#6b6960' }
-          const value = formatValue(deal.value)
-          const pc = deal.priority ? PRIORITY_COLORS[deal.priority] : null
+      {/* Table */}
+      <div style={{ border: '1px solid rgba(0,0,0,0.07)', borderRadius: 12, overflow: 'hidden', background: 'white', overflowX: 'auto' }}>
+        {/* Header */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: COL,
+          padding: '0 16px', height: 36, alignItems: 'center',
+          background: '#faf9f7', borderBottom: '0.5px solid rgba(0,0,0,0.06)',
+          minWidth: 620,
+        }}>
+          {['Name', 'Company', 'Value', 'Stage', 'Priority', 'Activity', ''].map((h, i) => (
+            <span key={i} style={TH_STYLE}>{h}</span>
+          ))}
+        </div>
 
-          return (
-            <Link key={deal.id} href={`/deals/${deal.id}`} style={{ textDecoration: 'none' }}>
-              <div
-                style={{
-                  background: 'white',
-                  border: atRisk ? '0.5px solid rgba(239,159,39,0.3)' : '0.5px solid rgba(0,0,0,0.07)',
-                  borderLeft: atRisk ? '2.5px solid #EF9F27' : undefined,
-                  borderRadius: 16, padding: '14px 16px',
-                  transition: 'box-shadow 0.15s ease',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.07)')}
-                onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                  <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {deal.name}
-                    </div>
-                    {getCompanyName(deal.companies) && (
-                      <div style={{ fontSize: 12, color: '#9b9890' }}>{getCompanyName(deal.companies)}</div>
-                    )}
-                  </div>
-                  {value && (
-                    <div style={{ fontSize: 15, fontWeight: 600, color: '#1a1a18', flexShrink: 0 }}>{value}</div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <span style={{
-                      fontSize: 11, fontWeight: 500,
-                      background: sc.bg, color: sc.color,
-                      padding: '3px 9px', borderRadius: 6,
-                    }}>
-                      {STAGE_LABELS[deal.stage] ?? deal.stage}
-                    </span>
-                    {deal.priority && pc && (
-                      <span style={{
-                        fontSize: 11, fontWeight: 500,
-                        background: pc.bg, color: pc.color,
-                        padding: '3px 9px', borderRadius: 6,
-                      }}>
-                        {PRIORITY_LABELS[deal.priority] ?? deal.priority}
-                      </span>
-                    )}
-                  </div>
-                  {atRisk && days !== null && (
-                    <span style={{ fontSize: 11, color: '#EF9F27', fontWeight: 500 }}>
-                      {days}d no activity
-                    </span>
-                  )}
-                  {!atRisk && deal.last_activity_at && (
-                    <span style={{ fontSize: 11, color: '#9b9890' }}>
-                      {timeAgo(deal.last_activity_at)}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </Link>
-          )
-        })}
-
-        {filtered.length === 0 && (
-          <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 32, textAlign: 'center' }}>
-            <p style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>
+        {/* Rows */}
+        {filtered.length === 0 ? (
+          <div style={{ padding: '28px 16px', textAlign: 'center' }}>
+            <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>
               {hasActiveFilter ? 'No deals match your filters' : 'No deals yet'}
             </p>
-            <p style={{ margin: 0, fontSize: 13, color: '#9b9890' }}>
+            <p style={{ margin: 0, fontSize: 12, color: '#9b9890' }}>
               {hasActiveFilter ? 'Try clearing your search or filters' : 'Use Capture to add your first deal'}
             </p>
           </div>
+        ) : (
+          filtered.map((deal, i) => {
+            const days = deal.last_activity_at
+              ? Math.floor((Date.now() - new Date(deal.last_activity_at).getTime()) / 86400000)
+              : null
+            const atRisk = days !== null && days >= 14 && deal.stage !== 'closed_won' && deal.stage !== 'closed_lost'
+            const sc = STAGE_COLORS[deal.stage] ?? { bg: 'rgba(0,0,0,0.05)', color: '#6b6960' }
+            const pc = deal.priority ? PRIORITY_COLORS[deal.priority] : null
+            const company = getCompanyName(deal.companies)
+
+            return (
+              <Link
+                key={deal.id}
+                href={`/deals/${deal.id}`}
+                className="data-table-row"
+                style={{
+                  gridTemplateColumns: COL,
+                  borderBottom: i < filtered.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none',
+                  borderLeft: atRisk ? '2px solid #EF9F27' : '2px solid transparent',
+                  minWidth: 620,
+                }}
+              >
+                {/* Name */}
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {deal.name}
+                </span>
+
+                {/* Company */}
+                <span style={{ fontSize: 12, color: '#6b6960', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {company ?? <span style={{ color: '#c8c5be' }}>—</span>}
+                </span>
+
+                {/* Value */}
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#1a1a18' }}>
+                  {formatValue(deal.value) ?? <span style={{ fontSize: 12, fontWeight: 400, color: '#c8c5be' }}>—</span>}
+                </span>
+
+                {/* Stage */}
+                <div>
+                  <span style={{
+                    fontSize: 10, fontWeight: 500,
+                    background: sc.bg, color: sc.color,
+                    padding: '2px 7px', borderRadius: 5,
+                  }}>
+                    {STAGE_LABELS[deal.stage] ?? deal.stage}
+                  </span>
+                </div>
+
+                {/* Priority */}
+                <div>
+                  {deal.priority && pc ? (
+                    <span style={{
+                      fontSize: 10, fontWeight: 500,
+                      background: pc.bg, color: pc.color,
+                      padding: '2px 7px', borderRadius: 5,
+                    }}>
+                      {PRIORITY_LABELS[deal.priority] ?? deal.priority}
+                    </span>
+                  ) : (
+                    <span style={{ color: '#c8c5be', fontSize: 12 }}>—</span>
+                  )}
+                </div>
+
+                {/* Activity */}
+                <span style={{ fontSize: 12, color: atRisk ? '#EF9F27' : '#9b9890', fontWeight: atRisk ? 500 : 400 }}>
+                  {atRisk && days !== null
+                    ? `${days}d idle`
+                    : deal.last_activity_at
+                      ? timeAgo(deal.last_activity_at)
+                      : <span style={{ color: '#c8c5be' }}>—</span>
+                  }
+                </span>
+
+                {/* Action */}
+                <div className="row-action" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 4l4 4-4 4" stroke="#9b9890" strokeWidth="1.4" strokeLinecap="round"/>
+                  </svg>
+                </div>
+              </Link>
+            )
+          })
         )}
       </div>
     </>

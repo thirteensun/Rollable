@@ -63,39 +63,17 @@ function timeAgo(dateStr: string) {
   if (d < 0)   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   if (d === 0) return 'Today'
   if (d === 1) return 'Yesterday'
-  return `${d}d ago`
+  if (d < 30)  return `${d}d ago`
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function SearchInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
-  return (
-    <div style={{ position: 'relative', marginBottom: 12 }}>
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9b9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-        style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-      </svg>
-      <input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        style={{
-          width: '100%', boxSizing: 'border-box',
-          background: 'white', border: '0.5px solid rgba(0,0,0,0.09)',
-          borderRadius: 12, padding: '10px 36px 10px 36px',
-          fontSize: 14, color: '#1a1a18', outline: 'none',
-          fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        }}
-      />
-      {value && (
-        <button onClick={() => onChange('')} style={{
-          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-          background: 'none', border: 'none', cursor: 'pointer', color: '#9b9890',
-          display: 'flex', alignItems: 'center', padding: 2,
-        }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        </button>
-      )}
-    </div>
-  )
+const COL = '2fr 1.5fr 1fr 90px 106px 32px'
+
+const TH_STYLE: React.CSSProperties = {
+  fontSize: 10, color: '#9b9890', fontWeight: 600,
+  textTransform: 'uppercase', letterSpacing: '0.07em',
+  fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
+  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
 }
 
 export default function ContactsList({ contacts }: { contacts: Contact[] }) {
@@ -104,19 +82,16 @@ export default function ContactsList({ contacts }: { contacts: Contact[] }) {
   const [seniorityFilter, setSeniority] = useState('all')
   const [recencyFilter, setRecency]     = useState('all')
 
-  // Status pills — always show all defined statuses
   const statusOptions = useMemo<PillOption[]>(() => [
     { value: 'all', label: `All · ${contacts.length}` },
     ...STATUS_ORDER.map(v => ({ value: v, label: STATUS_LABELS[v] ?? v, colors: STATUS_COLORS[v] })),
   ], [contacts])
 
-  // Seniority pills — always show all defined seniority levels
   const seniorityOptions = useMemo<PillOption[]>(() => [
     { value: 'all', label: 'All seniorities' },
     ...SENIORITY_ORDER.map(v => ({ value: v, label: SENIORITY_LABELS[v] ?? v })),
   ], [])
 
-  // Last-contacted time buckets — always derived from real timestamps
   const recencyOptions = useMemo<PillOption[]>(() => {
     const counts = { recent: 0, this_month: 0, older: 0, never: 0 }
     for (const c of contacts) counts[getLastContactedBucket(c.last_contacted_at)]++
@@ -147,79 +122,141 @@ export default function ContactsList({ contacts }: { contacts: Contact[] }) {
 
   return (
     <>
-      <SearchInput value={query} onChange={setQuery} placeholder={`Search ${contacts.length} contacts…`} />
+      {/* Search */}
+      <div style={{ position: 'relative', marginBottom: 12 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9b9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+          style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder={`Search ${contacts.length} contacts…`}
+          style={{
+            width: '100%', boxSizing: 'border-box',
+            background: 'white', border: '0.5px solid rgba(0,0,0,0.09)',
+            borderRadius: 10, padding: '9px 34px 9px 34px',
+            fontSize: 13, color: '#1a1a18', outline: 'none', fontFamily: 'inherit',
+          }}
+        />
+        {query && (
+          <button onClick={() => setQuery('')} style={{
+            position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer', color: '#9b9890',
+            display: 'flex', alignItems: 'center', padding: 2,
+          }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        )}
+      </div>
 
-      <FilterPills options={statusOptions}   active={statusFilter}   onChange={setStatus} />
-      <FilterPills options={recencyOptions}  active={recencyFilter}  onChange={setRecency} />
+      <FilterPills options={statusOptions}    active={statusFilter}    onChange={setStatus} />
+      <FilterPills options={recencyOptions}   active={recencyFilter}   onChange={setRecency} />
       <FilterPills options={seniorityOptions} active={seniorityFilter} onChange={setSeniority} />
 
       {hasActiveFilter && (
-        <p style={{ margin: '0 0 12px', fontSize: 12, color: '#9b9890' }}>
+        <p style={{ margin: '0 0 10px', fontSize: 12, color: '#9b9890' }}>
           {filtered.length} {filtered.length === 1 ? 'contact' : 'contacts'}
           {query.trim() ? ` matching "${query}"` : ''}
         </p>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {filtered.map(c => (
-          <Link key={c.id} href={`/contacts/${c.id}`} style={{ textDecoration: 'none' }}>
-            <div
-              style={{
-                background: 'white', border: '0.5px solid rgba(0,0,0,0.07)',
-                borderRadius: 16, padding: '14px 16px',
-                display: 'flex', alignItems: 'center', gap: 12,
-                transition: 'box-shadow 0.15s ease',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.07)')}
-              onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
-            >
-              <div style={{
-                width: 38, height: 38, borderRadius: '50%', background: '#1a1a18',
-                color: 'white', fontSize: 12, fontWeight: 600, flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {c.full_name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', marginBottom: 2 }}>{c.full_name}</div>
-                <div style={{ fontSize: 12, color: '#9b9890', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {[c.role, getCompanyName(c.companies)].filter(Boolean).join(' · ')}
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                {c.seniority_level && (
-                  <span style={{ fontSize: 11, color: '#c8c5be' }}>
-                    {SENIORITY_LABELS[c.seniority_level] ?? c.seniority_level}
-                  </span>
-                )}
-                {c.status && c.status !== 'active' && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 500,
-                    background: STATUS_COLORS[c.status]?.bg ?? 'rgba(0,0,0,0.05)',
-                    color: STATUS_COLORS[c.status]?.color ?? '#6b6960',
-                    padding: '2px 7px', borderRadius: 5,
-                  }}>
-                    {STATUS_LABELS[c.status] ?? c.status}
-                  </span>
-                )}
-                {c.last_contacted_at && (
-                  <div style={{ fontSize: 11, color: '#9b9890' }}>{timeAgo(c.last_contacted_at)}</div>
-                )}
-              </div>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="#c8c5be" strokeWidth="1.4" strokeLinecap="round"/></svg>
-            </div>
-          </Link>
-        ))}
+      {/* Table */}
+      <div style={{ border: '1px solid rgba(0,0,0,0.07)', borderRadius: 12, overflow: 'hidden', background: 'white', overflowX: 'auto' }}>
+        {/* Header */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: COL,
+          padding: '0 16px', height: 36, alignItems: 'center',
+          background: '#faf9f7', borderBottom: '0.5px solid rgba(0,0,0,0.06)',
+          minWidth: 560,
+        }}>
+          {['Name', 'Company', 'Role', 'Status', 'Last contact', ''].map((h, i) => (
+            <span key={i} style={TH_STYLE}>{h}</span>
+          ))}
+        </div>
 
-        {filtered.length === 0 && (
-          <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 32, textAlign: 'center' }}>
-            <p style={{ margin: '0 0 8px', fontSize: 14, fontWeight: 500, color: '#1a1a18' }}>
+        {/* Rows */}
+        {filtered.length === 0 ? (
+          <div style={{ padding: '28px 16px', textAlign: 'center' }}>
+            <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>
               {hasActiveFilter ? 'No contacts match your filters' : 'No contacts yet'}
             </p>
-            <p style={{ margin: 0, fontSize: 13, color: '#9b9890' }}>
+            <p style={{ margin: 0, fontSize: 12, color: '#9b9890' }}>
               {hasActiveFilter ? 'Try clearing your search or filters' : 'Use Capture to add your first contact'}
             </p>
           </div>
+        ) : (
+          filtered.map((c, i) => {
+            const company = getCompanyName(c.companies)
+            const sc = c.status ? STATUS_COLORS[c.status] : null
+            return (
+              <Link
+                key={c.id}
+                href={`/contacts/${c.id}`}
+                className="data-table-row"
+                style={{
+                  gridTemplateColumns: COL,
+                  borderBottom: i < filtered.length - 1 ? '0.5px solid rgba(0,0,0,0.04)' : 'none',
+                  minWidth: 560,
+                }}
+              >
+                {/* Name */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%', background: '#1a1a18',
+                    color: 'white', fontSize: 10, fontWeight: 600, flexShrink: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {c.full_name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: '#1a1a18', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.full_name}
+                  </span>
+                </div>
+
+                {/* Company */}
+                <span style={{ fontSize: 12, color: '#6b6960', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {company ?? <span style={{ color: '#c8c5be' }}>—</span>}
+                </span>
+
+                {/* Role */}
+                <span style={{ fontSize: 12, color: '#6b6960', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {c.role ? (
+                    c.seniority_level ? `${SENIORITY_LABELS[c.seniority_level] ?? c.seniority_level} · ${c.role}` : c.role
+                  ) : (
+                    c.seniority_level ? SENIORITY_LABELS[c.seniority_level] ?? c.seniority_level : <span style={{ color: '#c8c5be' }}>—</span>
+                  )}
+                </span>
+
+                {/* Status */}
+                <div>
+                  {c.status && sc ? (
+                    <span style={{
+                      fontSize: 10, fontWeight: 500,
+                      background: sc.bg, color: sc.color,
+                      padding: '2px 7px', borderRadius: 5,
+                    }}>
+                      {STATUS_LABELS[c.status] ?? c.status}
+                    </span>
+                  ) : (
+                    <span style={{ color: '#c8c5be', fontSize: 12 }}>—</span>
+                  )}
+                </div>
+
+                {/* Last contacted */}
+                <span style={{ fontSize: 12, color: '#9b9890' }}>
+                  {c.last_contacted_at ? timeAgo(c.last_contacted_at) : <span style={{ color: '#c8c5be' }}>Never</span>}
+                </span>
+
+                {/* Action */}
+                <div className="row-action" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 4l4 4-4 4" stroke="#9b9890" strokeWidth="1.4" strokeLinecap="round"/>
+                  </svg>
+                </div>
+              </Link>
+            )
+          })
         )}
       </div>
     </>

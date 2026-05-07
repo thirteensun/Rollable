@@ -43,7 +43,7 @@ export default function SidebarNav({ userName, userInitials, userRole, userAvata
       <div style={{ padding: '0 10px', flex: 1 }}>
 
         {/* Workspace group */}
-        <div style={{ fontSize: 12, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 8px', marginBottom: 4 }}>Workspace</div>
+        <div style={{ fontSize: 10, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '0 8px', marginBottom: 4, fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace', fontWeight: 500 }}>Workspace</div>
 
         <NavItem href="/" active={pathname === '/'} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M1.5 6.5L7.5 1.5L13.5 6.5V13H9.5V9.5H5.5V13H1.5V6.5Z" strokeLinejoin="round" /></svg>}>Home</NavItem>
 
@@ -58,7 +58,7 @@ export default function SidebarNav({ userName, userInitials, userRole, userAvata
         <NavItem href="/ai-sandbox" active={isActive('/ai-sandbox')} pro isPro={['pro', 'business'].includes(userPlan)} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M7.5 1.5a6 6 0 100 12 6 6 0 000-12z" /><path d="M7.5 5v3.5l2 2" strokeLinecap="round" strokeLinejoin="round" /></svg>}>AI Sandbox</NavItem>
 
         {/* Records group */}
-        <div style={{ fontSize: 12, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 8px', margin: '16px 0 4px' }}>Records</div>
+        <div style={{ fontSize: 10, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.1em', padding: '0 8px', margin: '16px 0 4px', fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace', fontWeight: 500 }}>Records</div>
 
         <NavItem href="/deals" active={isActive('/deals') && !isActive('/deals/pipeline')} icon={<svg viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4"><path d="M1.5 7.5h12M7.5 1.5l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>}>Deals</NavItem>
 
