@@ -798,14 +798,14 @@ export default function AISandboxClient({ deals, contacts, tasks, companies }: P
           </div>
 
           {/* ── Right panel ── */}
-          <div style={{ width: 296, flexShrink: 0, display: 'flex', flexDirection: 'column', background: C.bg, overflow: 'hidden' }}>
-            <div style={{ height: 52, flexShrink: 0, background: C.card, borderBottom: `0.5px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 2 }}>
+          <div style={{ width: 296, flexShrink: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', overflow: 'hidden' }}>
+            <div style={{ height: 52, flexShrink: 0, background: 'var(--bg-card)', borderBottom: `0.5px solid ${C.border}`, display: 'flex', alignItems: 'center', padding: '0 10px', gap: 2 }}>
               {([
                 { key: 'signals' as const, label: 'Signals', badge: activeSignalCount },
                 { key: 'questions' as const, label: 'Questions', badge: 0 },
                 { key: 'history' as const, label: 'History', badge: 0 },
               ]).map(tab => (
-                <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ background: activeTab === tab.key ? C.bg : 'transparent', border: 'none', borderRadius: 8, padding: '5px 9px', fontSize: 11, fontWeight: activeTab === tab.key ? 500 : 400, color: activeTab === tab.key ? C.dark : C.faint, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ background: activeTab === tab.key ? 'rgba(0,0,0,0.06)' : 'transparent', border: 'none', borderRadius: 8, padding: '5px 9px', fontSize: 11, fontWeight: activeTab === tab.key ? 500 : 400, color: activeTab === tab.key ? C.dark : C.faint, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>
                   {tab.label}
                   {tab.badge > 0 && <span style={{ background: C.dark, color: 'white', fontSize: 9, fontWeight: 600, borderRadius: 8, padding: '1px 5px' }}>{tab.badge}</span>}
                 </button>

@@ -824,8 +824,7 @@ export default function AnalyticsClient({ deals, contacts, companies, tasks, sta
 
       {/* ── Header ── */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 500, color: C.dark, margin: 0, marginBottom: 2 }}>Analytics</h1>
-        <div style={{ fontSize: 12, color: C.faint }}>{today}{orgContext.industry ? ` · ${orgContext.industry}` : ''}</div>
+        <h1 style={{ fontSize: 22, fontWeight: 500, color: C.dark, margin: 0 }}>Analytics</h1>
       </motion.div>
 
       {/* ── Summary strip ── */}
