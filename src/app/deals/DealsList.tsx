@@ -74,6 +74,7 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
   const [query, setQuery]               = useState('')
   const [stageFilter, setStageFilter]   = useState('all')
   const [priorityFilter, setPriority]   = useState('all')
+  const [riskFilter, setRisk]           = useState('all')
 
   const stageOptions = useMemo<PillOption[]>(() => {
     const vals = Array.from(new Set(deals.map(d => d.stage)))
@@ -93,20 +94,39 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
     ]
   }, [deals])
 
+  // At-risk pills: deals with 14+ days no activity, not closed
+  const riskOptions = useMemo<PillOption[]>(() => {
+    const atRiskCount = deals.filter(d => {
+      if (d.stage === 'closed_won' || d.stage === 'closed_lost') return false
+      if (!d.last_activity_at) return false
+      return (Date.now() - new Date(d.last_activity_at).getTime()) / 86400000 >= 14
+    }).length
+    if (atRiskCount === 0) return [{ value: 'all', label: 'All activity' }]
+    return [
+      { value: 'all', label: 'All activity' },
+      { value: 'at_risk', label: `At risk · ${atRiskCount}`, colors: { bg: 'rgba(239,159,39,0.12)', color: '#b87a10' } },
+    ]
+  }, [deals])
+
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
     return deals.filter(d => {
+      const days = d.last_activity_at
+        ? Math.floor((Date.now() - new Date(d.last_activity_at).getTime()) / 86400000)
+        : null
+      const isAtRisk = days !== null && days >= 14 && d.stage !== 'closed_won' && d.stage !== 'closed_lost'
       const matchesQuery    = !q ||
         d.name.toLowerCase().includes(q) ||
         getCompanyName(d.companies)?.toLowerCase().includes(q) ||
         STAGE_LABELS[d.stage]?.toLowerCase().includes(q)
-      const matchesStage    = stageFilter   === 'all' || d.stage    === stageFilter
+      const matchesStage    = stageFilter    === 'all' || d.stage    === stageFilter
       const matchesPriority = priorityFilter === 'all' || d.priority === priorityFilter
-      return matchesQuery && matchesStage && matchesPriority
+      const matchesRisk     = riskFilter     === 'all' || (riskFilter === 'at_risk' && isAtRisk)
+      return matchesQuery && matchesStage && matchesPriority && matchesRisk
     })
-  }, [deals, query, stageFilter, priorityFilter])
+  }, [deals, query, stageFilter, priorityFilter, riskFilter])
 
-  const hasActiveFilter = query.trim() || stageFilter !== 'all' || priorityFilter !== 'all'
+  const hasActiveFilter = query.trim() || stageFilter !== 'all' || priorityFilter !== 'all' || riskFilter !== 'all'
 
   return (
     <>
@@ -139,9 +159,10 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
         )}
       </div>
 
-      {/* Stage + priority filter pills */}
+      {/* Stage + priority + risk filter pills */}
       <FilterPills options={stageOptions}    active={stageFilter}    onChange={setStageFilter} />
       <FilterPills options={priorityOptions} active={priorityFilter} onChange={setPriority} />
+      <FilterPills options={riskOptions}     active={riskFilter}     onChange={setRisk} />
 
       {/* Result count when filtering */}
       {hasActiveFilter && (

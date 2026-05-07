@@ -41,7 +41,7 @@ const TYPE_ORDER   = ['prospect', 'customer', 'partner', 'competitor', 'investor
 
 function timeAgo(dateStr: string) {
   const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
-  if (d < 0)  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  if (d < 0)   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   if (d === 0) return 'Today'
   if (d === 1) return 'Yesterday'
   return `${d}d ago`
@@ -84,10 +84,12 @@ function SearchInput({ value, onChange, placeholder }: { value: string; onChange
 }
 
 export default function CompaniesList({ companies }: { companies: Company[] }) {
-  const [query, setQuery]           = useState('')
-  const [statusFilter, setStatus]   = useState('all')
-  const [typeFilter, setType]       = useState('all')
+  const [query, setQuery]         = useState('')
+  const [statusFilter, setStatus] = useState('all')
+  const [typeFilter, setType]     = useState('all')
+  const [industryFilter, setIndustry] = useState('all')
 
+  // Status pills — data-driven
   const statusOptions = useMemo<PillOption[]>(() => {
     const vals = Array.from(new Set(companies.map(c => c.status).filter(Boolean) as string[]))
       .sort((a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b))
@@ -97,6 +99,7 @@ export default function CompaniesList({ companies }: { companies: Company[] }) {
     ]
   }, [companies])
 
+  // Type pills — data-driven
   const typeOptions = useMemo<PillOption[]>(() => {
     const vals = Array.from(new Set(companies.map(c => c.type).filter(Boolean) as string[]))
       .sort((a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b))
@@ -106,24 +109,43 @@ export default function CompaniesList({ companies }: { companies: Company[] }) {
     ]
   }, [companies])
 
+  // Industry pills — built from actual free-text values, capped at top 8 by frequency
+  const industryOptions = useMemo<PillOption[]>(() => {
+    const counts: Record<string, number> = {}
+    for (const c of companies) {
+      if (c.industry) counts[c.industry] = (counts[c.industry] ?? 0) + 1
+    }
+    const vals = Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([v]) => v)
+    if (vals.length < 2) return [{ value: 'all', label: 'All industries' }] // not enough variety
+    return [
+      { value: 'all', label: 'All industries' },
+      ...vals.map(v => ({ value: v, label: v })),
+    ]
+  }, [companies])
+
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
     return companies.filter(c => {
-      const matchesQuery  = !q || c.name.toLowerCase().includes(q) || c.industry?.toLowerCase().includes(q)
-      const matchesStatus = statusFilter === 'all' || c.status === statusFilter
-      const matchesType   = typeFilter   === 'all' || c.type   === typeFilter
-      return matchesQuery && matchesStatus && matchesType
+      const matchesQuery    = !q || c.name.toLowerCase().includes(q) || c.industry?.toLowerCase().includes(q)
+      const matchesStatus   = statusFilter   === 'all' || c.status   === statusFilter
+      const matchesType     = typeFilter     === 'all' || c.type     === typeFilter
+      const matchesIndustry = industryFilter === 'all' || c.industry === industryFilter
+      return matchesQuery && matchesStatus && matchesType && matchesIndustry
     })
-  }, [companies, query, statusFilter, typeFilter])
+  }, [companies, query, statusFilter, typeFilter, industryFilter])
 
-  const hasActiveFilter = query.trim() || statusFilter !== 'all' || typeFilter !== 'all'
+  const hasActiveFilter = query.trim() || statusFilter !== 'all' || typeFilter !== 'all' || industryFilter !== 'all'
 
   return (
     <>
       <SearchInput value={query} onChange={setQuery} placeholder={`Search ${companies.length} companies…`} />
 
-      <FilterPills options={statusOptions} active={statusFilter} onChange={setStatus} />
-      <FilterPills options={typeOptions}   active={typeFilter}   onChange={setType} />
+      <FilterPills options={statusOptions}   active={statusFilter}   onChange={setStatus} />
+      <FilterPills options={typeOptions}     active={typeFilter}     onChange={setType} />
+      <FilterPills options={industryOptions} active={industryFilter} onChange={setIndustry} />
 
       {hasActiveFilter && (
         <p style={{ margin: '0 0 12px', fontSize: 12, color: '#9b9890' }}>
@@ -157,9 +179,7 @@ export default function CompaniesList({ companies }: { companies: Company[] }) {
                 <div style={{ fontSize: 14, fontWeight: 500, color: '#1a1a18', marginBottom: 2 }}>{c.name}</div>
                 <div style={{ fontSize: 12, color: '#9b9890', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                   {c.industry && <span>{c.industry}</span>}
-                  {c.type && (
-                    <span style={{ color: '#c8c5be' }}>{TYPE_LABELS[c.type] ?? c.type}</span>
-                  )}
+                  {c.type && <span style={{ color: '#c8c5be' }}>{TYPE_LABELS[c.type] ?? c.type}</span>}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

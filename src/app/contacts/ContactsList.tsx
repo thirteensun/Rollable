@@ -42,6 +42,16 @@ const SENIORITY_LABELS: Record<string, string> = {
 const STATUS_ORDER    = ['active', 'inactive', 'churned', 'do_not_contact']
 const SENIORITY_ORDER = ['intern', 'junior', 'mid', 'senior', 'lead', 'exec', 'c_level']
 
+const DAY = 86400000
+
+function getLastContactedBucket(last_contacted_at: string | null): 'recent' | 'this_month' | 'older' | 'never' {
+  if (!last_contacted_at) return 'never'
+  const days = (Date.now() - new Date(last_contacted_at).getTime()) / DAY
+  if (days <= 7)  return 'recent'
+  if (days <= 30) return 'this_month'
+  return 'older'
+}
+
 function getCompanyName(companies: Contact['companies']): string | null {
   if (!companies) return null
   if (Array.isArray(companies)) return (companies as any[])[0]?.name ?? null
@@ -49,8 +59,8 @@ function getCompanyName(companies: Contact['companies']): string | null {
 }
 
 function timeAgo(dateStr: string) {
-  const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
-  if (d < 0)  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const d = Math.floor((Date.now() - new Date(dateStr).getTime()) / DAY)
+  if (d < 0)   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   if (d === 0) return 'Today'
   if (d === 1) return 'Yesterday'
   return `${d}d ago`
@@ -89,10 +99,12 @@ function SearchInput({ value, onChange, placeholder }: { value: string; onChange
 }
 
 export default function ContactsList({ contacts }: { contacts: Contact[] }) {
-  const [query, setQuery]                 = useState('')
-  const [statusFilter, setStatus]         = useState('all')
-  const [seniorityFilter, setSeniority]   = useState('all')
+  const [query, setQuery]               = useState('')
+  const [statusFilter, setStatus]       = useState('all')
+  const [seniorityFilter, setSeniority] = useState('all')
+  const [recencyFilter, setRecency]     = useState('all')
 
+  // Status pills — data-driven
   const statusOptions = useMemo<PillOption[]>(() => {
     const vals = Array.from(new Set(contacts.map(c => c.status).filter(Boolean) as string[]))
       .sort((a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b))
@@ -102,6 +114,7 @@ export default function ContactsList({ contacts }: { contacts: Contact[] }) {
     ]
   }, [contacts])
 
+  // Seniority pills — data-driven, hidden when nothing is set
   const seniorityOptions = useMemo<PillOption[]>(() => {
     const vals = Array.from(new Set(contacts.map(c => c.seniority_level).filter(Boolean) as string[]))
       .sort((a, b) => SENIORITY_ORDER.indexOf(a) - SENIORITY_ORDER.indexOf(b))
@@ -111,27 +124,41 @@ export default function ContactsList({ contacts }: { contacts: Contact[] }) {
     ]
   }, [contacts])
 
+  // Last-contacted time buckets — always derived from real timestamps
+  const recencyOptions = useMemo<PillOption[]>(() => {
+    const counts = { recent: 0, this_month: 0, older: 0, never: 0 }
+    for (const c of contacts) counts[getLastContactedBucket(c.last_contacted_at)]++
+    const opts: PillOption[] = [{ value: 'all', label: 'Any time' }]
+    if (counts.recent)     opts.push({ value: 'recent',     label: `Last 7 days · ${counts.recent}` })
+    if (counts.this_month) opts.push({ value: 'this_month', label: `Last 30 days · ${counts.this_month}` })
+    if (counts.older)      opts.push({ value: 'older',      label: `Older · ${counts.older}` })
+    if (counts.never)      opts.push({ value: 'never',      label: `Never contacted · ${counts.never}` })
+    return opts
+  }, [contacts])
+
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
     return contacts.filter(c => {
-      const matchesQuery    = !q ||
+      const matchesQuery     = !q ||
         c.full_name.toLowerCase().includes(q) ||
         c.role?.toLowerCase().includes(q) ||
         c.email?.toLowerCase().includes(q) ||
         getCompanyName(c.companies)?.toLowerCase().includes(q)
-      const matchesStatus   = statusFilter   === 'all' || c.status          === statusFilter
+      const matchesStatus    = statusFilter    === 'all' || c.status          === statusFilter
       const matchesSeniority = seniorityFilter === 'all' || c.seniority_level === seniorityFilter
-      return matchesQuery && matchesStatus && matchesSeniority
+      const matchesRecency   = recencyFilter   === 'all' || getLastContactedBucket(c.last_contacted_at) === recencyFilter
+      return matchesQuery && matchesStatus && matchesSeniority && matchesRecency
     })
-  }, [contacts, query, statusFilter, seniorityFilter])
+  }, [contacts, query, statusFilter, seniorityFilter, recencyFilter])
 
-  const hasActiveFilter = query.trim() || statusFilter !== 'all' || seniorityFilter !== 'all'
+  const hasActiveFilter = query.trim() || statusFilter !== 'all' || seniorityFilter !== 'all' || recencyFilter !== 'all'
 
   return (
     <>
       <SearchInput value={query} onChange={setQuery} placeholder={`Search ${contacts.length} contacts…`} />
 
       <FilterPills options={statusOptions}   active={statusFilter}   onChange={setStatus} />
+      <FilterPills options={recencyOptions}  active={recencyFilter}  onChange={setRecency} />
       <FilterPills options={seniorityOptions} active={seniorityFilter} onChange={setSeniority} />
 
       {hasActiveFilter && (
