@@ -300,7 +300,7 @@ function KanbanSection({
   return (
     <div style={{
       padding: '14px 16px',
-      background: '#f5f4f0',
+      background: 'var(--bg-card)',
       borderBottom: '0.5px solid rgba(0,0,0,0.06)',
       flexShrink: 0,
     }}>
@@ -1271,15 +1271,12 @@ export default function TaskSchedulerClient({ tasks, deals, contacts }: Props) {
           Today
         </button>
 
-        <Link href="/capture" style={{
-          background: '#1a1a18', color: 'white', borderRadius: 18,
-          padding: '7px 14px', fontSize: 12, fontWeight: 500, textDecoration: 'none',
-        }}>
+        <Link href="/capture" className="btn-chrome">
           + Add Task
         </Link>
       </div>
 
-      <div style={{ background: '#f5f4f0' }}>
+      <div>
         {view === 'week' ? (
           <WeekView tasks={localTasks} weekOffset={weekOffset} onMoveStatus={updateTaskStatus} onDayClick={handleDayClick} />
         ) : (

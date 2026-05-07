@@ -720,7 +720,7 @@ export default function AISandboxClient({ deals, contacts, tasks, companies }: P
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-        <div style={{ width: '100%', maxWidth: 1080, display: 'flex', minHeight: 'calc(100dvh - 170px)', maxHeight: 'calc(100dvh - 170px)', borderRadius: 14, overflow: 'hidden', border: `0.5px solid ${C.border}`, background: C.bg }}>
+        <div style={{ width: '100%', maxWidth: 1080, display: 'flex', minHeight: 'calc(100dvh - 170px)', maxHeight: 'calc(100dvh - 170px)', borderRadius: 14, overflow: 'hidden', border: `0.5px solid ${C.border}`, background: 'var(--bg-card)' }}>
 
           {/* ── Chat ── */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: C.card, minWidth: 0, borderRight: `0.5px solid ${C.border}` }}>

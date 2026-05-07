@@ -32,7 +32,7 @@ export default async function PipelinePage() {
       <div style={{ height: '100vh' }} />
       <div style={{
         position: 'fixed', top: 0, left: 210, right: 0, bottom: 0,
-        background: '#f5f4f0', display: 'flex', flexDirection: 'column', zIndex: 10,
+        background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', zIndex: 10,
       }}>
         <div style={{
           height: 52, background: 'var(--bg-card)',
