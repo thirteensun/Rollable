@@ -89,25 +89,17 @@ export default function CompaniesList({ companies }: { companies: Company[] }) {
   const [typeFilter, setType]     = useState('all')
   const [industryFilter, setIndustry] = useState('all')
 
-  // Status pills — data-driven
-  const statusOptions = useMemo<PillOption[]>(() => {
-    const vals = Array.from(new Set(companies.map(c => c.status).filter(Boolean) as string[]))
-      .sort((a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b))
-    return [
-      { value: 'all', label: `All · ${companies.length}` },
-      ...vals.map(v => ({ value: v, label: STATUS_LABELS[v] ?? v, colors: STATUS_COLORS[v] })),
-    ]
-  }, [companies])
+  // Status pills — always show all defined statuses
+  const statusOptions = useMemo<PillOption[]>(() => [
+    { value: 'all', label: `All · ${companies.length}` },
+    ...STATUS_ORDER.map(v => ({ value: v, label: STATUS_LABELS[v] ?? v, colors: STATUS_COLORS[v] })),
+  ], [companies])
 
-  // Type pills — data-driven
-  const typeOptions = useMemo<PillOption[]>(() => {
-    const vals = Array.from(new Set(companies.map(c => c.type).filter(Boolean) as string[]))
-      .sort((a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b))
-    return [
-      { value: 'all', label: 'All types' },
-      ...vals.map(v => ({ value: v, label: TYPE_LABELS[v] ?? v })),
-    ]
-  }, [companies])
+  // Type pills — always show all defined types
+  const typeOptions = useMemo<PillOption[]>(() => [
+    { value: 'all', label: 'All types' },
+    ...TYPE_ORDER.map(v => ({ value: v, label: TYPE_LABELS[v] ?? v })),
+  ], [])
 
   // Industry pills — built from actual free-text values, capped at top 8 by frequency
   const industryOptions = useMemo<PillOption[]>(() => {

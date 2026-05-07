@@ -13,7 +13,7 @@ interface FilterPillsProps {
 }
 
 export default function FilterPills({ options, active, onChange }: FilterPillsProps) {
-  if (options.length <= 2) return null // "all" + 1 real option — not worth showing
+  if (options.length <= 1) return null // nothing beyond "all" to filter on
 
   return (
     <div

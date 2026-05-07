@@ -85,12 +85,15 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
     ]
   }, [deals])
 
+  // Priority pills — always show standard levels; p0-p3 only if any deal uses them
   const priorityOptions = useMemo<PillOption[]>(() => {
-    const vals = Array.from(new Set(deals.map(d => d.priority).filter(Boolean) as string[]))
-      .sort((a, b) => PRIORITY_ORDER.indexOf(a) - PRIORITY_ORDER.indexOf(b))
+    const usedVals = new Set(deals.map(d => d.priority).filter(Boolean) as string[])
+    const pScale = usedVals.has('p0') || usedVals.has('p1') || usedVals.has('p2') || usedVals.has('p3')
+      ? ['p0','p1','p2','p3']
+      : ['critical','high','medium','low']
     return [
       { value: 'all', label: 'All priorities' },
-      ...vals.map(v => ({ value: v, label: PRIORITY_LABELS[v] ?? v, colors: PRIORITY_COLORS[v] })),
+      ...pScale.map(v => ({ value: v, label: PRIORITY_LABELS[v] ?? v, colors: PRIORITY_COLORS[v] })),
     ]
   }, [deals])
 

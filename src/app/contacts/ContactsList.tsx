@@ -104,25 +104,17 @@ export default function ContactsList({ contacts }: { contacts: Contact[] }) {
   const [seniorityFilter, setSeniority] = useState('all')
   const [recencyFilter, setRecency]     = useState('all')
 
-  // Status pills — data-driven
-  const statusOptions = useMemo<PillOption[]>(() => {
-    const vals = Array.from(new Set(contacts.map(c => c.status).filter(Boolean) as string[]))
-      .sort((a, b) => STATUS_ORDER.indexOf(a) - STATUS_ORDER.indexOf(b))
-    return [
-      { value: 'all', label: `All · ${contacts.length}` },
-      ...vals.map(v => ({ value: v, label: STATUS_LABELS[v] ?? v, colors: STATUS_COLORS[v] })),
-    ]
-  }, [contacts])
+  // Status pills — always show all defined statuses
+  const statusOptions = useMemo<PillOption[]>(() => [
+    { value: 'all', label: `All · ${contacts.length}` },
+    ...STATUS_ORDER.map(v => ({ value: v, label: STATUS_LABELS[v] ?? v, colors: STATUS_COLORS[v] })),
+  ], [contacts])
 
-  // Seniority pills — data-driven, hidden when nothing is set
-  const seniorityOptions = useMemo<PillOption[]>(() => {
-    const vals = Array.from(new Set(contacts.map(c => c.seniority_level).filter(Boolean) as string[]))
-      .sort((a, b) => SENIORITY_ORDER.indexOf(a) - SENIORITY_ORDER.indexOf(b))
-    return [
-      { value: 'all', label: 'All seniorities' },
-      ...vals.map(v => ({ value: v, label: SENIORITY_LABELS[v] ?? v })),
-    ]
-  }, [contacts])
+  // Seniority pills — always show all defined seniority levels
+  const seniorityOptions = useMemo<PillOption[]>(() => [
+    { value: 'all', label: 'All seniorities' },
+    ...SENIORITY_ORDER.map(v => ({ value: v, label: SENIORITY_LABELS[v] ?? v })),
+  ], [])
 
   // Last-contacted time buckets — always derived from real timestamps
   const recencyOptions = useMemo<PillOption[]>(() => {
