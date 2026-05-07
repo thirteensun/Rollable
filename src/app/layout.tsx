@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  width: 'device-width', initialScale: 1, maximumScale: 1, themeColor: '#f5f4f0',
+  width: 'device-width', initialScale: 1, maximumScale: 1, themeColor: '#ffffff',
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -94,6 +94,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           ::view-transition-new(card) {
             animation: 220ms cubic-bezier(0, 0, 0.2, 1) both Rollable-card-in;
           }
+          /* Transition backdrop = white so no grey bleeds through during crossfade */
+          ::view-transition { background: #ffffff; }
+
           @media (prefers-reduced-motion: reduce) {
             ::view-transition-old(root),
             ::view-transition-new(root),
