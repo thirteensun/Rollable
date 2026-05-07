@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import FilterPills, { PillOption } from '@/components/FilterPills'
+import FilterBar from '@/components/FilterBar'
+import type { FilterOption } from '@/components/FilterBar'
 
 interface Contact {
   id: string
@@ -82,20 +83,20 @@ export default function ContactsList({ contacts }: { contacts: Contact[] }) {
   const [seniorityFilter, setSeniority] = useState('all')
   const [recencyFilter, setRecency]     = useState('all')
 
-  const statusOptions = useMemo<PillOption[]>(() => [
-    { value: 'all', label: `All · ${contacts.length}` },
-    ...STATUS_ORDER.map(v => ({ value: v, label: STATUS_LABELS[v] ?? v, colors: STATUS_COLORS[v] })),
-  ], [contacts])
+  const statusOptions = useMemo<FilterOption[]>(() => [
+    { value: 'all', label: 'All statuses' },
+    ...STATUS_ORDER.map(v => ({ value: v, label: STATUS_LABELS[v] ?? v })),
+  ], [])
 
-  const seniorityOptions = useMemo<PillOption[]>(() => [
+  const seniorityOptions = useMemo<FilterOption[]>(() => [
     { value: 'all', label: 'All seniorities' },
     ...SENIORITY_ORDER.map(v => ({ value: v, label: SENIORITY_LABELS[v] ?? v })),
   ], [])
 
-  const recencyOptions = useMemo<PillOption[]>(() => {
+  const recencyOptions = useMemo<FilterOption[]>(() => {
     const counts = { recent: 0, this_month: 0, older: 0, never: 0 }
     for (const c of contacts) counts[getLastContactedBucket(c.last_contacted_at)]++
-    const opts: PillOption[] = [{ value: 'all', label: 'Any time' }]
+    const opts: FilterOption[] = [{ value: 'all', label: 'Any time' }]
     if (counts.recent)     opts.push({ value: 'recent',     label: `Last 7 days · ${counts.recent}` })
     if (counts.this_month) opts.push({ value: 'this_month', label: `Last 30 days · ${counts.this_month}` })
     if (counts.older)      opts.push({ value: 'older',      label: `Older · ${counts.older}` })
@@ -122,37 +123,16 @@ export default function ContactsList({ contacts }: { contacts: Contact[] }) {
 
   return (
     <>
-      {/* Search */}
-      <div style={{ position: 'relative', marginBottom: 12 }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9b9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder={`Search ${contacts.length} contacts…`}
-          style={{
-            width: '100%', boxSizing: 'border-box',
-            background: 'white', border: '0.5px solid rgba(0,0,0,0.09)',
-            borderRadius: 10, padding: '9px 34px 9px 34px',
-            fontSize: 13, color: '#1a1a18', outline: 'none', fontFamily: 'inherit',
-          }}
-        />
-        {query && (
-          <button onClick={() => setQuery('')} style={{
-            position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)',
-            background: 'none', border: 'none', cursor: 'pointer', color: '#9b9890',
-            display: 'flex', alignItems: 'center', padding: 2,
-          }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
-        )}
-      </div>
-
-      <FilterPills options={statusOptions}    active={statusFilter}    onChange={setStatus} />
-      <FilterPills options={recencyOptions}   active={recencyFilter}   onChange={setRecency} />
-      <FilterPills options={seniorityOptions} active={seniorityFilter} onChange={setSeniority} />
+      <FilterBar
+        query={query}
+        onQuery={setQuery}
+        placeholder={`Search ${contacts.length} contacts…`}
+        filters={[
+          { key: 'status',    options: statusOptions,    active: statusFilter,    onChange: setStatus },
+          { key: 'recency',   options: recencyOptions,   active: recencyFilter,   onChange: setRecency },
+          { key: 'seniority', options: seniorityOptions, active: seniorityFilter, onChange: setSeniority },
+        ]}
+      />
 
       {hasActiveFilter && (
         <p style={{ margin: '0 0 10px', fontSize: 12, color: '#9b9890' }}>

@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import FilterPills, { PillOption } from '@/components/FilterPills'
+import FilterBar from '@/components/FilterBar'
+import type { FilterOption } from '@/components/FilterBar'
 
 interface Company {
   id: string
@@ -76,17 +77,17 @@ export default function CompaniesList({ companies }: { companies: Company[] }) {
   const [typeFilter, setType]     = useState('all')
   const [industryFilter, setIndustry] = useState('all')
 
-  const statusOptions = useMemo<PillOption[]>(() => [
-    { value: 'all', label: `All · ${companies.length}` },
-    ...STATUS_ORDER.map(v => ({ value: v, label: STATUS_LABELS[v] ?? v, colors: STATUS_COLORS[v] })),
-  ], [companies])
+  const statusOptions = useMemo<FilterOption[]>(() => [
+    { value: 'all', label: 'All statuses' },
+    ...STATUS_ORDER.map(v => ({ value: v, label: STATUS_LABELS[v] ?? v })),
+  ], [])
 
-  const typeOptions = useMemo<PillOption[]>(() => [
+  const typeOptions = useMemo<FilterOption[]>(() => [
     { value: 'all', label: 'All types' },
     ...TYPE_ORDER.map(v => ({ value: v, label: TYPE_LABELS[v] ?? v })),
   ], [])
 
-  const industryOptions = useMemo<PillOption[]>(() => {
+  const industryOptions = useMemo<FilterOption[]>(() => {
     const counts: Record<string, number> = {}
     for (const c of companies) {
       if (c.industry) counts[c.industry] = (counts[c.industry] ?? 0) + 1
@@ -117,37 +118,16 @@ export default function CompaniesList({ companies }: { companies: Company[] }) {
 
   return (
     <>
-      {/* Search */}
-      <div style={{ position: 'relative', marginBottom: 12 }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9b9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder={`Search ${companies.length} companies…`}
-          style={{
-            width: '100%', boxSizing: 'border-box',
-            background: 'white', border: '0.5px solid rgba(0,0,0,0.09)',
-            borderRadius: 10, padding: '9px 34px 9px 34px',
-            fontSize: 13, color: '#1a1a18', outline: 'none', fontFamily: 'inherit',
-          }}
-        />
-        {query && (
-          <button onClick={() => setQuery('')} style={{
-            position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)',
-            background: 'none', border: 'none', cursor: 'pointer', color: '#9b9890',
-            display: 'flex', alignItems: 'center', padding: 2,
-          }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
-        )}
-      </div>
-
-      <FilterPills options={statusOptions}   active={statusFilter}   onChange={setStatus} />
-      <FilterPills options={typeOptions}     active={typeFilter}     onChange={setType} />
-      <FilterPills options={industryOptions} active={industryFilter} onChange={setIndustry} />
+      <FilterBar
+        query={query}
+        onQuery={setQuery}
+        placeholder={`Search ${companies.length} companies…`}
+        filters={[
+          { key: 'status',   options: statusOptions,   active: statusFilter,   onChange: setStatus },
+          { key: 'type',     options: typeOptions,     active: typeFilter,     onChange: setType },
+          { key: 'industry', options: industryOptions, active: industryFilter, onChange: setIndustry },
+        ]}
+      />
 
       {hasActiveFilter && (
         <p style={{ margin: '0 0 10px', fontSize: 12, color: '#9b9890' }}>

@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import FilterPills, { PillOption } from '@/components/FilterPills'
+import FilterBar from '@/components/FilterBar'
+import type { FilterOption } from '@/components/FilterBar'
 
 interface Deal {
   id: string
@@ -86,27 +87,27 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
   const [priorityFilter, setPriority] = useState('all')
   const [riskFilter, setRisk]         = useState('all')
 
-  const stageOptions = useMemo<PillOption[]>(() => {
+  const stageOptions = useMemo<FilterOption[]>(() => {
     const vals = Array.from(new Set(deals.map(d => d.stage)))
       .sort((a, b) => STAGE_ORDER.indexOf(a) - STAGE_ORDER.indexOf(b))
     return [
-      { value: 'all', label: `All · ${deals.length}` },
-      ...vals.map(v => ({ value: v, label: STAGE_LABELS[v] ?? v, colors: STAGE_COLORS[v] })),
+      { value: 'all', label: 'All stages' },
+      ...vals.map(v => ({ value: v, label: STAGE_LABELS[v] ?? v })),
     ]
   }, [deals])
 
-  const priorityOptions = useMemo<PillOption[]>(() => {
+  const priorityOptions = useMemo<FilterOption[]>(() => {
     const usedVals = new Set(deals.map(d => d.priority).filter(Boolean) as string[])
     const pScale = usedVals.has('p0') || usedVals.has('p1') || usedVals.has('p2') || usedVals.has('p3')
       ? ['p0','p1','p2','p3']
       : ['critical','high','medium','low']
     return [
       { value: 'all', label: 'All priorities' },
-      ...pScale.map(v => ({ value: v, label: PRIORITY_LABELS[v] ?? v, colors: PRIORITY_COLORS[v] })),
+      ...pScale.map(v => ({ value: v, label: PRIORITY_LABELS[v] ?? v })),
     ]
   }, [deals])
 
-  const riskOptions = useMemo<PillOption[]>(() => {
+  const riskOptions = useMemo<FilterOption[]>(() => {
     const atRiskCount = deals.filter(d => {
       if (d.stage === 'closed_won' || d.stage === 'closed_lost') return false
       if (!d.last_activity_at) return false
@@ -115,7 +116,7 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
     if (atRiskCount === 0) return [{ value: 'all', label: 'All activity' }]
     return [
       { value: 'all', label: 'All activity' },
-      { value: 'at_risk', label: `At risk · ${atRiskCount}`, colors: { bg: 'rgba(239,159,39,0.12)', color: '#b87a10' } },
+      { value: 'at_risk', label: `At risk · ${atRiskCount}` },
     ]
   }, [deals])
 
@@ -141,37 +142,16 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
 
   return (
     <>
-      {/* Search */}
-      <div style={{ position: 'relative', marginBottom: 12 }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9b9890" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-          style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder={`Search ${deals.length} deals…`}
-          style={{
-            width: '100%', boxSizing: 'border-box',
-            background: 'white', border: '0.5px solid rgba(0,0,0,0.09)',
-            borderRadius: 10, padding: '9px 34px 9px 34px',
-            fontSize: 13, color: '#1a1a18', outline: 'none', fontFamily: 'inherit',
-          }}
-        />
-        {query && (
-          <button onClick={() => setQuery('')} style={{
-            position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)',
-            background: 'none', border: 'none', cursor: 'pointer', color: '#9b9890',
-            display: 'flex', alignItems: 'center', padding: 2,
-          }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
-        )}
-      </div>
-
-      <FilterPills options={stageOptions}    active={stageFilter}    onChange={setStageFilter} />
-      <FilterPills options={priorityOptions} active={priorityFilter} onChange={setPriority} />
-      <FilterPills options={riskOptions}     active={riskFilter}     onChange={setRisk} />
+      <FilterBar
+        query={query}
+        onQuery={setQuery}
+        placeholder={`Search ${deals.length} deals…`}
+        filters={[
+          { key: 'stage',    options: stageOptions,    active: stageFilter,    onChange: setStageFilter },
+          { key: 'priority', options: priorityOptions, active: priorityFilter, onChange: setPriority },
+          { key: 'risk',     options: riskOptions,     active: riskFilter,     onChange: setRisk },
+        ]}
+      />
 
       {hasActiveFilter && (
         <p style={{ margin: '0 0 10px', fontSize: 12, color: '#9b9890' }}>
