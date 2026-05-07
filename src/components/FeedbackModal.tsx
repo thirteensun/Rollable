@@ -56,8 +56,8 @@ export default function FeedbackModal({ open, onClose }: Props) {
       <div style={{
         position: 'fixed', top: '50%', left: '50%',
         transform: 'translate(-50%, -50%)',
-        background: 'white', borderRadius: 18,
-        border: '0.5px solid rgba(0,0,0,0.07)',
+        background: 'var(--bg-card)', borderRadius: 'var(--radius-3xl)',
+        border: '0.5px solid var(--border)',
         padding: 28, width: 360,
         zIndex: 201, boxSizing: 'border-box',
       }}>
@@ -140,7 +140,7 @@ const pill = (active: boolean): React.CSSProperties => ({
 })
 
 const closeBtn: React.CSSProperties = {
-  background: 'transparent', border: '0.5px solid rgba(0,0,0,0.07)',
-  borderRadius: '50%', width: 28, height: 28, cursor: 'pointer',
+  background: 'transparent', border: '0.5px solid var(--border)',
+  borderRadius: 'var(--radius-md)', width: 28, height: 28, cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 }

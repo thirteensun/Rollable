@@ -110,10 +110,9 @@ export default function AppHeader({ breadcrumbs, notificationCount = 0, onFeedba
 
   return (
     <header style={{
-      height: 52, flexShrink: 0, background: 'white',
-      borderBottom: '0.5px solid rgba(0,0,0,0.07)',
+      height: 52, flexShrink: 0, background: 'var(--bg-card)',
+      borderBottom: '0.5px solid var(--border-subtle)',
       display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12,
-      position: 'sticky', top: 0, zIndex: 30,
     }}>
       {/* Breadcrumbs */}
       <nav aria-label="Breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, overflow: 'hidden' }}>
@@ -191,9 +190,8 @@ export default function AppHeader({ breadcrumbs, notificationCount = 0, onFeedba
             <div style={{
               position: 'absolute', top: 'calc(100% + 8px)', right: 0,
               width: 340, maxHeight: 480,
-              background: 'white', borderRadius: 16,
-              border: '0.5px solid rgba(0,0,0,0.08)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+              background: 'var(--bg-card)', borderRadius: 'var(--radius-xl)',
+              border: '0.5px solid var(--border)',
               zIndex: 50, overflow: 'hidden', display: 'flex', flexDirection: 'column',
             }}>
               <div style={{ padding: '14px 16px 10px', borderBottom: '0.5px solid rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center' }}>
@@ -256,16 +254,16 @@ export default function AppHeader({ breadcrumbs, notificationCount = 0, onFeedba
 }
 
 const pillButtonStyle: React.CSSProperties = {
-  background: 'transparent', border: '0.5px solid rgba(0,0,0,0.07)',
-  borderRadius: 16, padding: '5px 12px', fontSize: 12, color: '#6b6960',
+  background: 'transparent', border: '0.5px solid var(--border)',
+  borderRadius: 'var(--radius-md)', padding: '5px 12px', fontSize: 12, color: 'var(--fg-muted)',
   cursor: 'pointer', fontFamily: 'inherit',
   transition: 'background 0.15s, color 0.15s',
   display: 'inline-flex', alignItems: 'center',
 }
 
 const iconButtonStyle: React.CSSProperties = {
-  background: 'transparent', border: '0.5px solid rgba(0,0,0,0.07)',
-  borderRadius: '50%', width: 28, height: 28, cursor: 'pointer',
+  background: 'transparent', border: '0.5px solid var(--border)',
+  borderRadius: 'var(--radius-md)', width: 28, height: 28, cursor: 'pointer',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
   transition: 'background 0.15s',
 }

@@ -22,8 +22,7 @@ export default function SidebarNav({ userName, userInitials, userRole, userAvata
 
   return (
     <aside style={{
-      width: 210, minHeight: '100dvh', background: 'white',
-      borderRight: '0.5px solid rgba(0,0,0,0.07)',
+      width: 210, minHeight: '100dvh', background: 'var(--bg)',
       display: 'flex', flexDirection: 'column',
       padding: '20px 0 16px', flexShrink: 0,
       position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 40,
@@ -72,7 +71,7 @@ export default function SidebarNav({ userName, userInitials, userRole, userAvata
       </div>
 
       {/* User row */}
-      <div style={{ padding: '12px 10px 0', borderTop: '0.5px solid rgba(0,0,0,0.07)' }}>
+      <div style={{ padding: '12px 10px 0', borderTop: '0.5px solid var(--border-subtle)' }}>
         <Link href="/settings" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 9, textDecoration: 'none' }} className="sidebar-user-row">
           <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, overflow: 'hidden', background: '#1a1a18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {userAvatar ? (
@@ -89,8 +88,8 @@ export default function SidebarNav({ userName, userInitials, userRole, userAvata
       </div>
 
       <style>{`
-        .sidebar-user-row:hover { background: #f5f4f0; }
-        .sidebar-nav-item:hover { background: #f5f4f0 !important; color: #1a1a18 !important; }
+        .sidebar-user-row:hover { background: rgba(0,0,0,0.05); }
+        .sidebar-nav-item:hover { background: rgba(0,0,0,0.05) !important; color: var(--fg) !important; }
       `}</style>
     </aside>
   )
@@ -106,9 +105,9 @@ function NavItem({ href, active, icon, badge, badgeColor, pro, isPro, children }
     <Link href={href} style={{
       display: 'flex', alignItems: 'center', gap: 9,
       padding: '7px 8px', borderRadius: 9, fontSize: 13,
-      color: active ? '#1a1a18' : '#6b6960',
+      color: active ? 'var(--fg)' : 'var(--fg-muted)',
       fontWeight: active ? 500 : 400,
-      background: active ? '#f5f4f0' : 'transparent',
+      background: active ? 'rgba(0,0,0,0.06)' : 'transparent',
       textDecoration: 'none', marginBottom: 1,
       transition: 'background 0.15s, color 0.15s',
     }} className="sidebar-nav-item">

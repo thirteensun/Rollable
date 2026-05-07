@@ -2,19 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens ────────────────────────────────────────────────────────── */
+:root {
+  /* Colours */
+  --bg:        #f5f4f0;
+  --bg-card:   #ffffff;
+  --fg:        #1a1a18;
+  --fg-muted:  #6b6960;
+  --fg-subtle: #9b9890;
+  --fg-faint:  #c8c5be;
+  --accent:    #f5f4f0;
+
+  /* Borders */
+  --border:        rgba(0, 0, 0, 0.08);
+  --border-subtle: rgba(0, 0, 0, 0.05);
+
+  /* Radius scale */
+  --radius-sm:  6px;   /* tags, tiny badges       */
+  --radius-md:  8px;   /* buttons, controls        */
+  --radius-lg:  12px;  /* cards, list rows         */
+  --radius-xl:  16px;  /* dropdowns, panels        */
+  --radius-2xl: 20px;  /* large cards              */
+  --radius-3xl: 24px;  /* modals                   */
+}
+
 * { box-sizing: border-box; padding: 0; margin: 0; }
 
 html, body {
   max-width: 100vw;
   overflow-x: hidden;
-  background: #f5f4f0;
+  background: var(--bg);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── App shell ────────────────────────────────────────────────────────────── */
 .app-shell {
   height: 100dvh;
-  background: #f5f4f0;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -25,6 +50,19 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+}
+
+/* ── Inset content card (desktop) ─────────────────────────────────────────── */
+/* Gives the main area the "floating card" look from the design reference.    */
+/* Only active at md+ so mobile keeps the full-bleed layout.                  */
+@media (min-width: 768px) {
+  .content-card {
+    margin: 8px;
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border);
+    background: var(--bg-card);
+    overflow: hidden;   /* clips children to rounded corners */
+  }
 }
 
 @keyframes pulse-ring {

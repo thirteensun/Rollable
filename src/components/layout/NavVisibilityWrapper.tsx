@@ -39,34 +39,46 @@ export default function NavVisibilityWrapper({
     <>
       <SearchModal />
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
+
+      {/* Sidebar — desktop only */}
       <div className="hidden md:block">
         <SidebarNav userName={userName} userInitials={userInitials} userRole={userRole} userAvatar={userAvatar} userPlan={userPlan} />
       </div>
-      <div
-        className="app-shell md:ml-[210px]"
-        style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', overflow: 'hidden' }}
-      >
-        <div className="hidden md:block">
+
+      <div className="app-shell md:ml-[210px]">
+
+        {/* ── Desktop: inset card ──────────────────────────────────────────── */}
+        {/* content-card in globals.css adds m-2 / rounded-xl / 0.5px border  */}
+        <div className="hidden md:flex flex-col flex-1 content-card" style={{ minHeight: 0 }}>
           <AppHeader
             notificationCount={notificationCount}
             onFeedback={() => setFeedbackOpen(true)}
           />
+          <main
+            className="page-content"
+            style={{ flex: 1, overflowY: 'auto', viewTransitionName: 'page-content' }}
+          >
+            <div className="px-8 py-6 pb-8 max-w-[1200px] mx-auto">
+              {children}
+            </div>
+          </main>
         </div>
-        <main
-          className="page-content"
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            viewTransitionName: 'page-content',
-          }}
-        >
-          <div className="px-4 py-4 pb-[90px] md:px-10 md:py-8 md:pb-8 md:max-w-[1240px] md:mx-auto">
-            {children}
+
+        {/* ── Mobile: full-bleed layout ────────────────────────────────────── */}
+        <div className="flex flex-col flex-1 overflow-hidden md:hidden">
+          <main
+            className="page-content"
+            style={{ flex: 1, overflowY: 'auto', viewTransitionName: 'page-content' }}
+          >
+            <div className="px-4 py-4 pb-[90px]">
+              {children}
+            </div>
+          </main>
+          <div className="flex-shrink-0">
+            <BottomNav />
           </div>
-        </main>
-        <div className="block md:hidden flex-shrink-0">
-          <BottomNav />
         </div>
+
       </div>
     </>
   )
