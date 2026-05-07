@@ -169,22 +169,8 @@ export default function SettingsClient({
   }
 
   return (
-    <main style={{ background: '#f5f4f0', paddingBottom: 0 }}>
-
-      {/* Header */}
-      <div style={{ padding: '56px 24px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button
-          onClick={() => router.back()}
-          style={{ width: 32, height: 32, borderRadius: 'var(--radius-md)', background: 'rgba(0,0,0,0.07)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M10 4L6 8l4 4" stroke="#1a1a18" strokeWidth="1.3" strokeLinecap="round"/>
-          </svg>
-        </button>
-        <p style={{ margin: 0, fontSize: 20, fontWeight: 500, color: '#1a1a18' }}>Settings</p>
-      </div>
-
-      <div style={{ padding: '0 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* ── Profile card ── */}
         <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', padding: 20 }}>
@@ -506,7 +492,7 @@ export default function SettingsClient({
           rollable app
         </p>
       </div>
-    </main>
+    </div>
   )
 }
 

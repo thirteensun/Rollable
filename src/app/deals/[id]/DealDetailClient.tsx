@@ -140,19 +140,11 @@ export default function DealDetailClient({ deal, events, tasks, visibleFields, f
   }
 
   return (
-    <div style={{ background: '#f5f4f0', minHeight: '100dvh', paddingBottom: 100 }}>
-
-      <div style={{ padding: '56px 20px 12px' }}>
-        <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#9b9890', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-          Back
-        </button>
-      </div>
-
-      <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Header (always shown — identity) */}
-        <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
             <h1 style={{ fontSize: 20, fontWeight: 600, color: '#1a1a18', margin: 0, flex: 1, paddingRight: 12 }}>{deal.name}</h1>
             {showPaymentChip && (
@@ -198,7 +190,7 @@ export default function DealDetailClient({ deal, events, tasks, visibleFields, f
         </div>
 
         {/* Stage rail (always shown — core navigation) */}
-        <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', padding: 16 }}>
           <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Stage</p>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {STAGES.filter(s => s !== 'closed_lost').map((s, i) => {
@@ -227,7 +219,7 @@ export default function DealDetailClient({ deal, events, tasks, visibleFields, f
 
         {/* Field grid (replaces Invoice & PO block) */}
         {gridVisibleFields.length > 0 && (
-          <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', padding: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
               <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
                 Deal info
@@ -260,7 +252,7 @@ export default function DealDetailClient({ deal, events, tasks, visibleFields, f
 
         {/* Contacts */}
         {contacts.length > 0 && (
-          <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', padding: 16 }}>
             <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Contacts</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {contacts.map((c: any) => (
@@ -283,7 +275,7 @@ export default function DealDetailClient({ deal, events, tasks, visibleFields, f
         )}
 
         {/* Merged timeline */}
-        <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', padding: 16 }}>
           <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Activity & Tasks</p>
           {timeline.length === 0 ? (
             <p style={{ fontSize: 14, color: '#9b9890', textAlign: 'center', padding: '12px 0' }}>No activity yet</p>

@@ -132,18 +132,11 @@ export default function CompanyDetailClient({
   }
 
   return (
-    <div style={{ background: '#f5f4f0', minHeight: '100dvh', paddingBottom: 100 }}>
-      <div style={{ padding: '56px 20px 12px' }}>
-        <button onClick={() => router.back()} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#9b9890', fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-          Back
-        </button>
-      </div>
-
-      <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
         {/* Header (always shown — identity, not configurable) */}
-        <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: totalValue > 0 ? 16 : 0 }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, background: '#1a1a18', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 600, color: 'white', flexShrink: 0 }}>
               {getInitials(company.name ?? '?')}
@@ -173,7 +166,7 @@ export default function CompanyDetailClient({
         </div>
 
         {/* Field grid (replaces hardcoded Details block) */}
-        <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>
               Company info
@@ -205,7 +198,7 @@ export default function CompanyDetailClient({
 
         {/* People */}
         {contacts.length > 0 && (
-          <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', padding: 16 }}>
             <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>People · {contacts.length}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {contacts.map((c, i) => {
@@ -234,7 +227,7 @@ export default function CompanyDetailClient({
 
         {/* Deals */}
         {deals.length > 0 && (
-          <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', padding: 16 }}>
             <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Deals</p>
             {deals.map((d: any) => {
               const sc = STAGE_COLORS[d.stage] ?? STAGE_COLORS.lead
@@ -257,7 +250,7 @@ export default function CompanyDetailClient({
         )}
 
         {/* Merged timeline */}
-        <div style={{ background: 'white', borderRadius: 16, border: '0.5px solid rgba(0,0,0,0.07)', padding: 16 }}>
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', padding: 16 }}>
           <p style={{ fontSize: 11, color: '#9b9890', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>Activity & Tasks</p>
           {timeline.length === 0 ? (
             <p style={{ fontSize: 14, color: '#9b9890', textAlign: 'center', padding: '12px 0' }}>No activity yet</p>

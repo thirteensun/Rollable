@@ -847,14 +847,14 @@ export default function CapturePage() {
   }
 }
   return (
-    <main style={{ background: '#f5f4f0', paddingBottom: '90px', display: 'flex', flexDirection: 'column' }}>
+    <main style={{ display: 'flex', flexDirection: 'column' }}>
       <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }}
         onChange={e => { if (e.target.files?.[0]) handleImageSelect(e.target.files[0]) }} />
       <input ref={sheetInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }}
         onChange={e => { if (e.target.files?.[0]) handleSheetSelect(e.target.files[0]); e.currentTarget.value = '' }} />
 
       {/* Header */}
-      <div style={{ padding: '56px 24px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+      <div style={{ padding: '0 0 16px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         {mode !== 'choose' && (
           <button onClick={() => { setMode('choose'); setMessages([]); setTranscript(''); setPendingAction(null); setSheetResult(null); transcriptRef.current = ''; recognitionRef.current?.stop() }} style={{
             width: '32px', height: '32px', borderRadius: 'var(--radius-md)', background: 'rgba(0,0,0,0.07)',
@@ -876,7 +876,7 @@ export default function CapturePage() {
 
       {/* Choose */}
       {mode === 'choose' && (
-        <div style={{ padding: '0 24px', flex: 1 }} className="animate-fade-in-up">
+        <div style={{ flex: 1 }} className="animate-fade-in-up">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
             <button onClick={() => fileInputRef.current?.click()} style={{
               background: '#1a1a18', borderRadius: '18px', padding: '20px',
@@ -1005,7 +1005,7 @@ export default function CapturePage() {
 
       {/* Image confirm */}
       {mode === 'image_confirm' && aiResult && (
-        <div style={{ padding: '0 24px', flex: 1 }} className="animate-slide-up">
+        <div style={{ flex: 1 }} className="animate-slide-up">
           <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', padding: '16px 18px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1D9E75' }} />
@@ -1121,7 +1121,7 @@ export default function CapturePage() {
 
       {/* Sheet confirm */}
       {mode === 'sheet_confirm' && sheetResult && (
-        <div style={{ padding: '0 24px', flex: 1, overflowY: 'auto' }} className="animate-slide-up no-scrollbar">
+        <div style={{ flex: 1, overflowY: 'auto' }} className="animate-slide-up no-scrollbar">
           {/* Single card containing all rows */}
           <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-2xl)', border: '0.5px solid var(--border)', overflow: 'hidden', marginBottom: '16px' }}>
 
