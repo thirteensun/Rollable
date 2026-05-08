@@ -1,3 +1,6 @@
+# local scripts
+push_to_typefully.js
+
 # dependencies
 /node_modules
 /.pnp
