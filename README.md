@@ -6,7 +6,7 @@ An AI-powered CRM for SMB sales teams. Capture contacts, deals, and tasks from p
 
 Live demo: [rollable.app](https://rollable.app)
 
-![Rollable demo](public/rollable-demo.gif)
+![Rollable app](public/social.png)
 
 ---
 
