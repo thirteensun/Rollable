@@ -2,7 +2,11 @@
 
 > Liberate sales and marketing through effortless AI.
 
-An AI-powered CRM for SMB sales teams. Capture contacts, deals, and tasks from photos, voice memos, and conversations — Claude extracts and organises everything automatically.
+A self-hosted AI CRM powered by three Claude agents working in the background:
+
+- **Capture agent** — snap a photo, speak a note, paste a message. Extracts contacts, companies, deals, and tasks in seconds.
+- **Analysis agent** — continuously monitors your pipeline for stale deals, missing invoices, and overdue follow-ups. Surfaces signals before they become problems.
+- **Action agent** — update deals, add contacts, schedule tasks, and search your CRM by voice or text. No forms, no clicking.
 
 Live demo: [rollable.app](https://rollable.app)
 
