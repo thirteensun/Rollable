@@ -33,6 +33,8 @@ Fill in `.env.local` with your credentials (see `.env.local.example` for all req
 - **Supabase** — create a project at [supabase.com](https://supabase.com), grab the URL, anon key, and service role key from Project Settings → API
 - **Anthropic** — get an API key at [console.anthropic.com](https://console.anthropic.com)
 
+Set up the database — in your Supabase project go to **SQL Editor**, paste the contents of [`schema.sql`](schema.sql) and run it.
+
 ```bash
 npm run dev
 # → http://localhost:3000
