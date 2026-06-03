@@ -51,7 +51,7 @@ Get an API key at [console.anthropic.com](https://console.anthropic.com). The ap
 ### 3. Run locally
 
 ```bash
-git clone https://github.com/thirteensun/rollable
+git clone https://github.com/thirteensun/Rollable
 cd rollable
 npm install
 cp .env.local.example .env.local
