@@ -1,7 +1,10 @@
-# rollable app
-### Liberate sales and marketing through effortless AI.
+# Rollable
 
-A mobile-first AI CRM for SMB sales teams. Snap a photo, record a voice memo, or screenshot a conversation — AI extracts contacts, deals, and tasks automatically.
+> Liberate sales and marketing through effortless AI.
+
+An AI-powered CRM for SMB sales teams. Capture contacts, deals, and tasks from photos, voice memos, and conversations — AI extracts and organises everything automatically.
+
+Live demo: [rollable.app](https://rollable.app)
 
 ---
 
@@ -10,28 +13,25 @@ A mobile-first AI CRM for SMB sales teams. Snap a photo, record a voice memo, or
 - **Framework:** Next.js 14 (App Router)
 - **Database:** Supabase (Postgres + RLS)
 - **Auth:** Supabase Auth
+- **AI:** Anthropic Claude (Sonnet / Haiku)
 - **Styling:** Tailwind CSS
 - **Hosting:** Vercel
-- **AI (dev):** Google Gemini 2.0 Flash
-- **AI (prod):** Anthropic Claude Sonnet
 
 ---
 
 ## Getting started
 
 ```bash
-git clone https://github.com/thirteensun/Rollable-prototype
-cd Rollable-prototype
+git clone https://github.com/thirteensun/rollable
+cd rollable
 npm install
 cp .env.local.example .env.local
 ```
 
-Fill in `.env.local`:
-```
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-GEMINI_API_KEY=your-gemini-key
-```
+Fill in `.env.local` with your credentials (see `.env.local.example` for all required keys):
+
+- **Supabase** — create a project at [supabase.com](https://supabase.com), grab the URL, anon key, and service role key from Project Settings → API
+- **Anthropic** — get an API key at [console.anthropic.com](https://console.anthropic.com)
 
 ```bash
 npm run dev
@@ -45,35 +45,33 @@ npm run dev
 ```
 src/
   app/
-    page.tsx          # Home (today's focus + activity)
-    planning/         # Planning tab
-    tracking/         # Tracking tab (pipeline)
-    capture/          # Capture flow (image → AI → confirm)
-  components/
-    layout/
-      BottomNav.tsx   # Bottom tab bar with breathing Capture button
-  lib/
-    supabase.ts       # Supabase client
+    page.tsx          # Dashboard home
+    contacts/         # Contact list and detail
+    companies/        # Company list and detail
+    deals/            # Pipeline view
+    tasks/            # Task management
+    capture/          # AI capture flow (image → extract → confirm)
+    ai-sandbox/       # Freeform AI assistant
+    analytics/        # Usage analytics
+    settings/         # User and org settings
+    admin/            # Admin panel (restricted by ADMIN_EMAILS)
+    api/              # API routes (AI, Supabase, org management)
+  components/         # Shared UI components
+  lib/                # Supabase clients, org context, utilities
 ```
 
 ---
 
-## Three core screens
+## Key features
 
-| Screen | Purpose |
-|--------|---------|
-| **Home** | Today's focus, color-coded by urgency, recent AI-logged activity |
-| **Planning** | Overdue, today, this week — task list powered by AI |
-| **Tracking** | Pipeline deals with progress bars, value, risk flags |
-| **Capture** | Snap/voice → AI reads → plain English confirmation → save |
-
----
-
-## Database
-
-Run `schema.sql` in Supabase SQL Editor before first use.
-
-Tables: `users`, `companies`, `contacts`, `deals`, `deal_contacts`, `events`, `tasks`
+| Feature | Description |
+|---------|-------------|
+| **AI Capture** | Snap a photo or paste text — Claude extracts contacts, deals, and tasks |
+| **Pipeline** | Kanban-style deal tracking with stages and values |
+| **Tasks** | AI-generated and manual tasks linked to contacts and deals |
+| **AI Sandbox** | Freeform assistant with full CRM context |
+| **Analytics** | Token usage and AI activity tracking per org |
+| **Multi-org** | Organisation-scoped data with Supabase RLS |
 
 ---
 
@@ -81,4 +79,10 @@ Tables: `users`, `companies`, `contacts`, `deals`, `deal_contacts`, `events`, `t
 
 Push to `main` → Vercel auto-deploys.
 
-Add env vars in Vercel dashboard → Settings → Environment Variables.
+Add all env vars from `.env.local.example` in Vercel dashboard → Settings → Environment Variables.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).

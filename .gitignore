@@ -1,5 +1,7 @@
 # local scripts
 push_to_typefully.js
+typefully_drafts.json
+marketing/screenshots/
 
 # dependencies
 /node_modules
