@@ -1,3 +1,6 @@
+# claude code
+.claude/
+
 # local scripts
 push_to_typefully.js
 typefully_drafts.json
