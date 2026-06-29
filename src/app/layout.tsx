@@ -30,6 +30,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   let userAvatar = ''
   let userPlan = 'free'
   let nudgeCount = 0
+  let appMode = 'fire'
 
   try {
     const supabase = await createServerSupabaseClient()
@@ -53,12 +54,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       userAvatar = user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? ''
 
       if (membership?.org_id) {
-        const { data: sub } = await admin
-          .from('subscriptions')
-          .select('plan')
-          .eq('org_id', membership.org_id)
-          .maybeSingle()
+        const [{ data: sub }, { data: org }] = await Promise.all([
+          admin.from('subscriptions').select('plan').eq('org_id', membership.org_id).maybeSingle(),
+          admin.from('organisations').select('context').eq('id', membership.org_id).single(),
+        ])
         userPlan = sub?.plan || 'free'
+        appMode = org?.context?.app_mode || 'fire'
       }
     }
   } catch {}
@@ -115,6 +116,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           userRole={userRole}
           userAvatar={userAvatar}
           userPlan={userPlan}
+          appMode={appMode}
           notificationCount={nudgeCount}
         >
           {children}

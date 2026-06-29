@@ -17,6 +17,7 @@ export interface OrgContext {
   // User overrides
   home_priority?: string
   analytics_layout?: any
+  app_mode?: string   // 'fire' | 'wood' | 'water' | 'earth' | 'gold'
 }
 
 export async function getOrgContext(orgId: string): Promise<OrgContext> {

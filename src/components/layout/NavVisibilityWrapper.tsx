@@ -18,12 +18,13 @@ interface Props {
   userRole: string
   userAvatar: string
   userPlan: string
+  appMode?: string
   /** Shown on the header bell; wire feedback from this wrapper (layout is a server component). */
   notificationCount?: number
 }
 
 export default function NavVisibilityWrapper({
-  children, userName, userInitials, userRole, userAvatar, userPlan, notificationCount = 0,
+  children, userName, userInitials, userRole, userAvatar, userPlan, appMode, notificationCount = 0,
 }: Props) {
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const pathname = usePathname()
@@ -42,10 +43,10 @@ export default function NavVisibilityWrapper({
 
       {/* Sidebar — desktop only */}
       <div className="hidden md:block">
-        <SidebarNav userName={userName} userInitials={userInitials} userRole={userRole} userAvatar={userAvatar} userPlan={userPlan} />
+        <SidebarNav userName={userName} userInitials={userInitials} userRole={userRole} userAvatar={userAvatar} userPlan={userPlan} appMode={appMode as any} />
       </div>
 
-      <div className="app-shell md:ml-[210px]">
+      <div className="app-shell md:ml-[210px]" data-mode={appMode || 'fire'}>
 
         {/* ── Desktop: inset card ──────────────────────────────────────────── */}
         {/* content-card in globals.css adds m-2 / rounded-xl / 0.5px border  */}

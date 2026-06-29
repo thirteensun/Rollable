@@ -26,6 +26,63 @@
   --radius-3xl: 24px;  /* modals                   */
 }
 
+/* ── Per-mode theme overrides (applied via data-mode on .app-shell) ───────── */
+[data-mode="fire"] {
+  --mode-bg:             #f5f4f0;
+  --mode-card:           #ffffff;
+  --mode-border:         rgba(0,0,0,0.08);
+  --mode-accent:         #C44B2E;
+  --mode-accent-muted:   rgba(196,75,46,0.10);
+  --mode-sidebar-bg:     #1a1a18;
+  --mode-sidebar-accent: rgba(196,75,46,0.18);
+  --mode-sidebar-text:   #f5f4f0;
+  --mode-sidebar-muted:  #9b9890;
+}
+[data-mode="wood"] {
+  --mode-bg:             #EFF5F1;
+  --mode-card:           #FAFCFB;
+  --mode-border:         rgba(45,106,79,0.10);
+  --mode-accent:         #2D8653;
+  --mode-accent-muted:   rgba(45,134,83,0.10);
+  --mode-sidebar-bg:     #1C3D2E;
+  --mode-sidebar-accent: rgba(82,183,136,0.20);
+  --mode-sidebar-text:   #E8F5EE;
+  --mode-sidebar-muted:  #7AAF8E;
+}
+[data-mode="water"] {
+  --mode-bg:             #EFF4F9;
+  --mode-card:           #F8FBFE;
+  --mode-border:         rgba(0,58,113,0.08);
+  --mode-accent:         #0077B6;
+  --mode-accent-muted:   rgba(0,119,182,0.10);
+  --mode-sidebar-bg:     #0A2540;
+  --mode-sidebar-accent: rgba(0,119,182,0.25);
+  --mode-sidebar-text:   #E0EEF8;
+  --mode-sidebar-muted:  #6A9BBF;
+}
+[data-mode="earth"] {
+  --mode-bg:             #F5EFE6;
+  --mode-card:           #FDFAF6;
+  --mode-border:         rgba(101,60,20,0.09);
+  --mode-accent:         #C27C4E;
+  --mode-accent-muted:   rgba(194,124,78,0.12);
+  --mode-sidebar-bg:     #2D1E12;
+  --mode-sidebar-accent: rgba(194,124,78,0.22);
+  --mode-sidebar-text:   #F5EDE2;
+  --mode-sidebar-muted:  #A07856;
+}
+[data-mode="gold"] {
+  --mode-bg:             #FDFAF0;
+  --mode-card:           #FFFEF8;
+  --mode-border:         rgba(120,96,10,0.09);
+  --mode-accent:         #C9A227;
+  --mode-accent-muted:   rgba(201,162,39,0.12);
+  --mode-sidebar-bg:     #1C1507;
+  --mode-sidebar-accent: rgba(201,162,39,0.22);
+  --mode-sidebar-text:   #FDF7E3;
+  --mode-sidebar-muted:  #A08840;
+}
+
 * { box-sizing: border-box; padding: 0; margin: 0; }
 
 html, body {
