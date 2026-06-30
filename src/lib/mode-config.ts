@@ -1,5 +1,22 @@
 export type AppMode = 'fire' | 'wood' | 'water' | 'earth' | 'gold'
 
+// Keys into the shared icon registry (see components/layout/NavIcons.tsx)
+export type NavIconName =
+  | 'home' | 'capture' | 'tasks' | 'analytics' | 'sandbox' | 'settings'
+  | 'pipeline' | 'board' | 'flow' | 'portfolio' | 'ledger'
+  | 'deals' | 'projects' | 'orders' | 'assets' | 'positions'
+  | 'contacts' | 'team' | 'suppliers' | 'operators' | 'stakeholders'
+  | 'companies' | 'clients' | 'vendors' | 'organizations' | 'entities'
+
+export interface NavSection {
+  key: string
+  label: string
+  href: string
+  icon: NavIconName
+  group: 'workspace' | 'records'
+  pro?: boolean
+}
+
 export interface ModeConfig {
   key: AppMode
   // Element identity
@@ -7,220 +24,143 @@ export interface ModeConfig {
   elementName: string    // English element name
   symbol: string         // emoji glyph
   // Display
-  name: string           // mode name shown in switcher
+  name: string           // mode name shown in the rail / switcher
   description: string    // one-line pitch
-  // Nav labels
-  nav: {
-    pipeline: string     // board/pipeline/flow/portfolio/ledger
-    deals: string        // deals/projects/orders/assets/positions
-    contacts: string     // contacts/team/suppliers/operators/stakeholders
-    companies: string    // companies/clients/vendors/organizations/entities
-  }
-  // Entity terminology (used in page titles, empty states, AI prompts)
+  // Subtle accent (no bold chrome — see plan)
+  accent: string         // solid accent for active rail icon + small affordances
+  accentMuted: string    // tint for active sidebar item background
+  // Terminology — drives page titles, list headers, breadcrumbs, AI prompts
   terms: {
-    deal: string         // singular
-    deals: string        // plural
-    contact: string
-    contacts: string
-    company: string
-    companies: string
-    pipeline: string     // "pipeline", "board", "flow", etc.
-    value: string        // "Deal value", "Budget", "Order value", etc.
-    stage: string        // "Stage", "Status", "Phase"
-    closedWon: string    // "Won", "Delivered", "Acquired"
-    closedLost: string   // "Lost", "Cancelled", "Rejected"
+    deal: string;  deals: string
+    contact: string; contacts: string
+    company: string; companies: string
+    pipeline: string
+    value: string        // list "Value" column header
+    stage: string
+    closedWon: string; closedLost: string
   }
-  // Stage template to use (maps to stage-templates.ts keys)
+  // Level-2 navigation — sections differ per module in label + icon, shared routes
+  sections: NavSection[]
+  // Stage template (maps to stage-templates.ts keys)
   stageTemplate: string
-  // Theme
-  theme: {
-    sidebarBg: string        // sidebar background
-    sidebarAccent: string    // active item highlight
-    sidebarText: string      // nav text color
-    sidebarMuted: string     // muted nav text
-    accent: string           // primary accent (buttons, badges, active states)
-    accentMuted: string      // light accent tint (badge bg, hover)
-    pageBg: string           // app shell background
-    cardBg: string           // content card background
-    border: string           // card border
-  }
+}
+
+// Sections share these routes across every module — only label + icon change.
+function buildSections(opts: {
+  pipeline: { label: string; icon: NavIconName }
+  deals:    { label: string; icon: NavIconName }
+  contacts: { label: string; icon: NavIconName }
+  companies:{ label: string; icon: NavIconName }
+}): NavSection[] {
+  return [
+    { key: 'home',      label: 'Home',       href: '/',               icon: 'home',      group: 'workspace' },
+    { key: 'capture',   label: 'Capture',    href: '/capture',        icon: 'capture',   group: 'workspace' },
+    { key: 'pipeline',  label: opts.pipeline.label, href: '/deals/pipeline', icon: opts.pipeline.icon, group: 'workspace' },
+    { key: 'tasks',     label: 'Tasks',      href: '/tasks',          icon: 'tasks',     group: 'workspace' },
+    { key: 'analytics', label: 'Analytics',  href: '/analytics',      icon: 'analytics', group: 'workspace' },
+    { key: 'sandbox',   label: 'AI Sandbox', href: '/ai-sandbox',     icon: 'sandbox',   group: 'workspace', pro: true },
+    { key: 'deals',     label: opts.deals.label,     href: '/deals',     icon: opts.deals.icon,     group: 'records' },
+    { key: 'contacts',  label: opts.contacts.label,  href: '/contacts',  icon: opts.contacts.icon,  group: 'records' },
+    { key: 'companies', label: opts.companies.label, href: '/companies', icon: opts.companies.icon, group: 'records' },
+    { key: 'settings',  label: 'Settings',   href: '/settings',       icon: 'settings',  group: 'records' },
+  ]
 }
 
 export const MODE_CONFIGS: ModeConfig[] = [
   {
     key: 'fire',
-    element: '火',
-    elementName: 'Fire',
-    symbol: '🔥',
+    element: '火', elementName: 'Fire', symbol: '🔥',
     name: 'CRM',
-    description: 'Contacts, deals, and pipeline. Close with heat.',
-    nav: {
-      pipeline: 'Pipeline',
-      deals:    'Deals',
-      contacts: 'Contacts',
-      companies:'Companies',
-    },
+    description: 'Contacts, deals, and pipeline.',
+    accent: '#C44B2E', accentMuted: 'rgba(196,75,46,0.10)',
     terms: {
-      deal: 'deal', deals: 'deals',
-      contact: 'contact', contacts: 'contacts',
-      company: 'company', companies: 'companies',
-      pipeline: 'pipeline',
-      value: 'Deal value',
-      stage: 'Stage',
-      closedWon: 'Won', closedLost: 'Lost',
+      deal: 'deal', deals: 'deals', contact: 'contact', contacts: 'contacts',
+      company: 'company', companies: 'companies', pipeline: 'pipeline',
+      value: 'Value', stage: 'Stage', closedWon: 'Won', closedLost: 'Lost',
     },
+    sections: buildSections({
+      pipeline:  { label: 'Pipeline',  icon: 'pipeline' },
+      deals:     { label: 'Deals',     icon: 'deals' },
+      contacts:  { label: 'Contacts',  icon: 'contacts' },
+      companies: { label: 'Companies', icon: 'companies' },
+    }),
     stageTemplate: 'saas',
-    theme: {
-      sidebarBg:     '#1a1a18',
-      sidebarAccent: 'rgba(196,75,46,0.18)',
-      sidebarText:   '#f5f4f0',
-      sidebarMuted:  '#9b9890',
-      accent:        '#C44B2E',
-      accentMuted:   'rgba(196,75,46,0.10)',
-      pageBg:        '#f5f4f0',
-      cardBg:        '#ffffff',
-      border:        'rgba(0,0,0,0.08)',
-    },
   },
   {
     key: 'wood',
-    element: '木',
-    elementName: 'Wood',
-    symbol: '🪵',
+    element: '木', elementName: 'Wood', symbol: '🪵',
     name: 'Projects',
-    description: 'Tasks, milestones, and team. Grow with structure.',
-    nav: {
-      pipeline: 'Board',
-      deals:    'Projects',
-      contacts: 'Team',
-      companies:'Clients',
-    },
+    description: 'Tasks, milestones, and team.',
+    accent: '#2D8653', accentMuted: 'rgba(45,134,83,0.10)',
     terms: {
-      deal: 'project', deals: 'projects',
-      contact: 'member', contacts: 'team',
-      company: 'client', companies: 'clients',
-      pipeline: 'board',
-      value: 'Budget',
-      stage: 'Phase',
-      closedWon: 'Delivered', closedLost: 'Cancelled',
+      deal: 'project', deals: 'projects', contact: 'member', contacts: 'team',
+      company: 'client', companies: 'clients', pipeline: 'board',
+      value: 'Budget', stage: 'Phase', closedWon: 'Delivered', closedLost: 'Cancelled',
     },
+    sections: buildSections({
+      pipeline:  { label: 'Board',    icon: 'board' },
+      deals:     { label: 'Projects', icon: 'projects' },
+      contacts:  { label: 'Team',     icon: 'team' },
+      companies: { label: 'Clients',  icon: 'clients' },
+    }),
     stageTemplate: 'construction',
-    theme: {
-      sidebarBg:     '#1C3D2E',
-      sidebarAccent: 'rgba(82,183,136,0.20)',
-      sidebarText:   '#E8F5EE',
-      sidebarMuted:  '#7AAF8E',
-      accent:        '#2D8653',
-      accentMuted:   'rgba(45,134,83,0.10)',
-      pageBg:        '#EFF5F1',
-      cardBg:        '#FAFCFB',
-      border:        'rgba(45,106,79,0.10)',
-    },
   },
   {
     key: 'water',
-    element: '水',
-    elementName: 'Water',
-    symbol: '💧',
+    element: '水', elementName: 'Water', symbol: '💧',
     name: 'Supply Chain',
-    description: 'Orders, vendors, and flow. Move with precision.',
-    nav: {
-      pipeline: 'Flow',
-      deals:    'Orders',
-      contacts: 'Suppliers',
-      companies:'Vendors',
-    },
+    description: 'Orders, vendors, and flow.',
+    accent: '#0077B6', accentMuted: 'rgba(0,119,182,0.10)',
     terms: {
-      deal: 'order', deals: 'orders',
-      contact: 'supplier', contacts: 'suppliers',
-      company: 'vendor', companies: 'vendors',
-      pipeline: 'flow',
-      value: 'Order value',
-      stage: 'Status',
-      closedWon: 'Fulfilled', closedLost: 'Rejected',
+      deal: 'order', deals: 'orders', contact: 'supplier', contacts: 'suppliers',
+      company: 'vendor', companies: 'vendors', pipeline: 'flow',
+      value: 'Order value', stage: 'Status', closedWon: 'Fulfilled', closedLost: 'Rejected',
     },
+    sections: buildSections({
+      pipeline:  { label: 'Flow',      icon: 'flow' },
+      deals:     { label: 'Orders',    icon: 'orders' },
+      contacts:  { label: 'Suppliers', icon: 'suppliers' },
+      companies: { label: 'Vendors',   icon: 'vendors' },
+    }),
     stageTemplate: 'retail',
-    theme: {
-      sidebarBg:     '#0A2540',
-      sidebarAccent: 'rgba(0,119,182,0.25)',
-      sidebarText:   '#E0EEF8',
-      sidebarMuted:  '#6A9BBF',
-      accent:        '#0077B6',
-      accentMuted:   'rgba(0,119,182,0.10)',
-      pageBg:        '#EFF4F9',
-      cardBg:        '#F8FBFE',
-      border:        'rgba(0,58,113,0.08)',
-    },
   },
   {
     key: 'earth',
-    element: '土',
-    elementName: 'Earth',
-    symbol: '🪨',
+    element: '土', elementName: 'Earth', symbol: '🪨',
     name: 'Assets',
-    description: 'Properties, portfolios, and operators. Hold what matters.',
-    nav: {
-      pipeline: 'Portfolio',
-      deals:    'Assets',
-      contacts: 'Operators',
-      companies:'Organizations',
-    },
+    description: 'Properties, portfolios, and operators.',
+    accent: '#C27C4E', accentMuted: 'rgba(194,124,78,0.12)',
     terms: {
-      deal: 'asset', deals: 'assets',
-      contact: 'operator', contacts: 'operators',
-      company: 'organization', companies: 'organizations',
-      pipeline: 'portfolio',
-      value: 'Asset value',
-      stage: 'Status',
-      closedWon: 'Acquired', closedLost: 'Disposed',
+      deal: 'asset', deals: 'assets', contact: 'operator', contacts: 'operators',
+      company: 'organization', companies: 'organizations', pipeline: 'portfolio',
+      value: 'Asset value', stage: 'Status', closedWon: 'Acquired', closedLost: 'Disposed',
     },
+    sections: buildSections({
+      pipeline:  { label: 'Portfolio',     icon: 'portfolio' },
+      deals:     { label: 'Assets',        icon: 'assets' },
+      contacts:  { label: 'Operators',     icon: 'operators' },
+      companies: { label: 'Organizations', icon: 'organizations' },
+    }),
     stageTemplate: 'real_estate',
-    theme: {
-      sidebarBg:     '#2D1E12',
-      sidebarAccent: 'rgba(194,124,78,0.22)',
-      sidebarText:   '#F5EDE2',
-      sidebarMuted:  '#A07856',
-      accent:        '#C27C4E',
-      accentMuted:   'rgba(194,124,78,0.12)',
-      pageBg:        '#F5EFE6',
-      cardBg:        '#FDFAF6',
-      border:        'rgba(101,60,20,0.09)',
-    },
   },
   {
     key: 'gold',
-    element: '金',
-    elementName: 'Gold',
-    symbol: '🥇',
+    element: '金', elementName: 'Gold', symbol: '🥇',
     name: 'Finance',
-    description: 'Revenue, positions, and stakeholders. Compound with clarity.',
-    nav: {
-      pipeline: 'Ledger',
-      deals:    'Positions',
-      contacts: 'Stakeholders',
-      companies:'Entities',
-    },
+    description: 'Revenue, positions, and stakeholders.',
+    accent: '#C9A227', accentMuted: 'rgba(201,162,39,0.12)',
     terms: {
-      deal: 'position', deals: 'positions',
-      contact: 'stakeholder', contacts: 'stakeholders',
-      company: 'entity', companies: 'entities',
-      pipeline: 'ledger',
-      value: 'Position value',
-      stage: 'Status',
-      closedWon: 'Closed', closedLost: 'Written off',
+      deal: 'position', deals: 'positions', contact: 'stakeholder', contacts: 'stakeholders',
+      company: 'entity', companies: 'entities', pipeline: 'ledger',
+      value: 'Position value', stage: 'Status', closedWon: 'Closed', closedLost: 'Written off',
     },
+    sections: buildSections({
+      pipeline:  { label: 'Ledger',       icon: 'ledger' },
+      deals:     { label: 'Positions',    icon: 'positions' },
+      contacts:  { label: 'Stakeholders', icon: 'stakeholders' },
+      companies: { label: 'Entities',     icon: 'entities' },
+    }),
     stageTemplate: 'services',
-    theme: {
-      sidebarBg:     '#1C1507',
-      sidebarAccent: 'rgba(201,162,39,0.22)',
-      sidebarText:   '#FDF7E3',
-      sidebarMuted:  '#A08840',
-      accent:        '#C9A227',
-      accentMuted:   'rgba(201,162,39,0.12)',
-      pageBg:        '#FDFAF0',
-      cardBg:        '#FFFEF8',
-      border:        'rgba(120,96,10,0.09)',
-    },
   },
 ]
 
@@ -228,4 +168,21 @@ export const DEFAULT_MODE: AppMode = 'fire'
 
 export function getModeConfig(mode?: string | null): ModeConfig {
   return MODE_CONFIGS.find(m => m.key === mode) ?? MODE_CONFIGS[0]
+}
+
+export function getModeSections(mode?: string | null): NavSection[] {
+  return getModeConfig(mode).sections
+}
+
+// Resolve a route path → its label in the active mode (for breadcrumbs).
+export function getModeRouteLabel(mode: string | null | undefined, segment: string): string | null {
+  const cfg = getModeConfig(mode)
+  const map: Record<string, string> = {
+    deals: cfg.terms.deals,
+    contacts: cfg.terms.contacts,
+    companies: cfg.terms.companies,
+    pipeline: cfg.terms.pipeline,
+  }
+  const label = map[segment]
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : null
 }

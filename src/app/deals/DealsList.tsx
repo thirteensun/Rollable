@@ -81,7 +81,14 @@ const TH_STYLE: React.CSSProperties = {
   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
 }
 
-export default function DealsList({ deals }: { deals: Deal[] }) {
+export default function DealsList({ deals, labels }: {
+  deals: Deal[]
+  labels?: { company?: string; value?: string; singular?: string; plural?: string }
+}) {
+  const companyHeader = labels?.company ?? 'Company'
+  const valueHeader = labels?.value ?? 'Value'
+  const one = labels?.singular ?? 'deal'
+  const many = labels?.plural ?? 'deals'
   const [query, setQuery]             = useState('')
   const [stageFilter, setStageFilter] = useState('all')
   const [priorityFilter, setPriority] = useState('all')
@@ -145,7 +152,7 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
       <FilterBar
         query={query}
         onQuery={setQuery}
-        placeholder={`Search ${deals.length} deals…`}
+        placeholder={`Search ${deals.length} ${many}…`}
         filters={[
           { key: 'stage',    options: stageOptions,    active: stageFilter,    onChange: setStageFilter },
           { key: 'priority', options: priorityOptions, active: priorityFilter, onChange: setPriority },
@@ -155,7 +162,7 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
 
       {hasActiveFilter && (
         <p style={{ margin: '0 0 10px', fontSize: 12, color: '#9b9890' }}>
-          {filtered.length} deal{filtered.length !== 1 ? 's' : ''}
+          {filtered.length} {filtered.length !== 1 ? many : one}
           {query.trim() ? ` matching "${query}"` : ''}
         </p>
       )}
@@ -169,7 +176,7 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
           background: '#faf9f7', borderBottom: '0.5px solid rgba(0,0,0,0.06)',
           minWidth: 620,
         }}>
-          {['Name', 'Company', 'Value', 'Stage', 'Priority', 'Activity', ''].map((h, i) => (
+          {['Name', companyHeader, valueHeader, 'Stage', 'Priority', 'Activity', ''].map((h, i) => (
             <span key={i} style={TH_STYLE}>{h}</span>
           ))}
         </div>
@@ -178,10 +185,10 @@ export default function DealsList({ deals }: { deals: Deal[] }) {
         {filtered.length === 0 ? (
           <div style={{ padding: '28px 16px', textAlign: 'center' }}>
             <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>
-              {hasActiveFilter ? 'No deals match your filters' : 'No deals yet'}
+              {hasActiveFilter ? `No ${many} match your filters` : `No ${many} yet`}
             </p>
             <p style={{ margin: 0, fontSize: 12, color: '#9b9890' }}>
-              {hasActiveFilter ? 'Try clearing your search or filters' : 'Use Capture to add your first deal'}
+              {hasActiveFilter ? 'Try clearing your search or filters' : `Use Capture to add your first ${one}`}
             </p>
           </div>
         ) : (

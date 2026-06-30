@@ -28,13 +28,21 @@ export default async function DealsPage() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 500, color: '#1a1a18', margin: 0, textTransform: 'capitalize' }}>
-          {mode.nav.deals}
+          {mode.terms.deals}
         </h1>
         <Link href="/capture" className="btn-chrome">
           + Capture
         </Link>
       </div>
-      <DealsList deals={deals ?? []} />
+      <DealsList
+        deals={deals ?? []}
+        labels={{
+          company: mode.terms.company.charAt(0).toUpperCase() + mode.terms.company.slice(1),
+          value: mode.terms.value,
+          singular: mode.terms.deal,
+          plural: mode.terms.deals,
+        }}
+      />
     </div>
   )
 }

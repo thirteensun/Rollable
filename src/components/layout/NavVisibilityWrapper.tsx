@@ -4,8 +4,10 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import BottomNav from '@/components/layout/BottomNav'
 import SidebarNav from '@/components/layout/SidebarNav'
+import PrimaryRail from '@/components/layout/PrimaryRail'
 import AppHeader from '@/components/layout/AppHeader'
 import FeedbackModal from '@/components/FeedbackModal'
+import type { AppMode } from '@/lib/mode-config'
 
 import SearchModal from '@/components/layout/SearchModal'
 
@@ -41,17 +43,19 @@ export default function NavVisibilityWrapper({
       <SearchModal />
       <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
 
-      {/* Sidebar — desktop only */}
-      <div className="hidden md:block">
-        <SidebarNav userName={userName} userInitials={userInitials} userRole={userRole} userAvatar={userAvatar} userPlan={userPlan} appMode={appMode as any} />
+      {/* Two-level navigator — desktop only */}
+      <div className="hidden md:block" data-mode={appMode || 'fire'}>
+        <PrimaryRail appMode={appMode as AppMode} userName={userName} userInitials={userInitials} userAvatar={userAvatar} />
+        <SidebarNav userPlan={userPlan} appMode={appMode as AppMode} />
       </div>
 
-      <div className="app-shell md:ml-[210px]" data-mode={appMode || 'fire'}>
+      <div className="app-shell md:ml-[246px]" data-mode={appMode || 'fire'}>
 
         {/* ── Desktop: inset card ──────────────────────────────────────────── */}
         {/* content-card in globals.css adds m-2 / rounded-xl / 0.5px border  */}
         <div className="hidden md:flex flex-col flex-1 content-card" style={{ minHeight: 0 }}>
           <AppHeader
+            appMode={appMode}
             notificationCount={notificationCount}
             onFeedback={() => setFeedbackOpen(true)}
           />
@@ -76,7 +80,7 @@ export default function NavVisibilityWrapper({
             </div>
           </main>
           <div className="flex-shrink-0">
-            <BottomNav />
+            <BottomNav appMode={appMode} />
           </div>
         </div>
 

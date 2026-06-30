@@ -2,12 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { getModeConfig } from '@/lib/mode-config'
 
-export default function BottomNav() {
+export default function BottomNav({ appMode }: { appMode?: string }) {
   const pathname = usePathname()
   const isHome     = pathname === '/' || pathname === '/planning'
   const isDeals    = pathname === '/deals' || pathname.startsWith('/deals/')
   const hideNav    = pathname === '/login' || pathname === '/onboarding' || pathname.startsWith('/auth')
+
+  const mode = getModeConfig(appMode)
+  const dealsLabel = mode.terms.deals.charAt(0).toUpperCase() + mode.terms.deals.slice(1)
 
   if (hideNav) return null
 
@@ -72,7 +76,7 @@ export default function BottomNav() {
             <path d="M2 17l10 5 10-5" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M2 12l10 5 10-5" stroke="#1a1a18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <span style={{ fontSize: '10px', color: '#1a1a18', fontWeight: isDeals ? 500 : 400 }}>Deals</span>
+          <span style={{ fontSize: '10px', color: '#1a1a18', fontWeight: isDeals ? 500 : 400 }}>{dealsLabel}</span>
         </div>
       </Link>
     </nav>
