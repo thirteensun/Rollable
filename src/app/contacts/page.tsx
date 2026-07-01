@@ -28,20 +28,13 @@ export default async function ContactsPage() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 500, color: '#1a1a18', margin: 0, textTransform: 'capitalize' }}>
-          {mode.terms.contacts}
+          {mode.nav.contacts}
         </h1>
         <Link href="/capture" className="btn-chrome">
           + Capture
         </Link>
       </div>
-      <ContactsList
-        contacts={contacts ?? []}
-        labels={{
-          company: mode.terms.company.charAt(0).toUpperCase() + mode.terms.company.slice(1),
-          singular: mode.terms.contact,
-          plural: mode.terms.contacts,
-        }}
-      />
+      <ContactsList contacts={contacts ?? []} />
     </div>
   )
 }

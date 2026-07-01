@@ -71,12 +71,7 @@ const TH_STYLE: React.CSSProperties = {
   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
 }
 
-export default function CompaniesList({ companies, labels }: {
-  companies: Company[]
-  labels?: { singular?: string; plural?: string }
-}) {
-  const one = labels?.singular ?? 'company'
-  const many = labels?.plural ?? 'companies'
+export default function CompaniesList({ companies }: { companies: Company[] }) {
   const [query, setQuery]         = useState('')
   const [statusFilter, setStatus] = useState('all')
   const [typeFilter, setType]     = useState('all')
@@ -126,7 +121,7 @@ export default function CompaniesList({ companies, labels }: {
       <FilterBar
         query={query}
         onQuery={setQuery}
-        placeholder={`Search ${companies.length} ${many}…`}
+        placeholder={`Search ${companies.length} companies…`}
         filters={[
           { key: 'status',   options: statusOptions,   active: statusFilter,   onChange: setStatus },
           { key: 'type',     options: typeOptions,     active: typeFilter,     onChange: setType },
@@ -136,7 +131,7 @@ export default function CompaniesList({ companies, labels }: {
 
       {hasActiveFilter && (
         <p style={{ margin: '0 0 10px', fontSize: 12, color: '#9b9890' }}>
-          {filtered.length} {filtered.length === 1 ? one : many}
+          {filtered.length} {filtered.length === 1 ? 'company' : 'companies'}
           {query.trim() ? ` matching "${query}"` : ''}
         </p>
       )}
@@ -159,10 +154,10 @@ export default function CompaniesList({ companies, labels }: {
         {filtered.length === 0 ? (
           <div style={{ padding: '28px 16px', textAlign: 'center' }}>
             <p style={{ margin: '0 0 6px', fontSize: 13, fontWeight: 500, color: '#1a1a18' }}>
-              {hasActiveFilter ? `No ${many} match your filters` : `No ${many} yet`}
+              {hasActiveFilter ? 'No companies match your filters' : 'No companies yet'}
             </p>
             <p style={{ margin: 0, fontSize: 12, color: '#9b9890' }}>
-              {hasActiveFilter ? 'Try clearing your search or filters' : `Use Capture to add your first ${one}`}
+              {hasActiveFilter ? 'Try clearing your search or filters' : 'Use Capture to add your first company'}
             </p>
           </div>
         ) : (

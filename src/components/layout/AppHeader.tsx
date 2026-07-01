@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useMemo, useState, useEffect, useRef } from 'react'
-import { getModeRouteLabel } from '@/lib/mode-config'
 
 interface BreadcrumbSegment {
   label: string
@@ -23,7 +22,6 @@ interface AppHeaderProps {
   breadcrumbs?: BreadcrumbSegment[]
   notificationCount?: number
   onFeedback?: () => void
-  appMode?: string
 }
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -41,7 +39,7 @@ const ROUTE_LABELS: Record<string, string> = {
   upgrade: 'Upgrade',
 }
 
-function inferBreadcrumbs(pathname: string, appMode?: string): BreadcrumbSegment[] {
+function inferBreadcrumbs(pathname: string): BreadcrumbSegment[] {
   if (pathname === '/' || pathname === '') return [{ label: 'Home' }]
   const segments = pathname.split('/').filter(Boolean)
   const crumbs: BreadcrumbSegment[] = [{ label: 'Workspace', href: '/' }]
@@ -51,8 +49,7 @@ function inferBreadcrumbs(pathname: string, appMode?: string): BreadcrumbSegment
     const isLast = i === segments.length - 1
     const looksLikeId = /^[0-9a-f-]{8,}$/i.test(seg) || /^\d+$/.test(seg)
     if (looksLikeId) { crumbs.push({ label: 'Detail' }); return }
-    // Mode-aware label wins (e.g. deals → "Orders" in Supply Chain), else fall back.
-    const label = getModeRouteLabel(appMode, seg) || ROUTE_LABELS[seg] || seg.charAt(0).toUpperCase() + seg.slice(1)
+    const label = ROUTE_LABELS[seg] || seg.charAt(0).toUpperCase() + seg.slice(1)
     crumbs.push(isLast ? { label } : { label, href: pathSoFar })
   })
   return crumbs
@@ -69,9 +66,9 @@ function relativeTime(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
-export default function AppHeader({ breadcrumbs, notificationCount = 0, onFeedback, appMode }: AppHeaderProps) {
+export default function AppHeader({ breadcrumbs, notificationCount = 0, onFeedback }: AppHeaderProps) {
   const pathname = usePathname()
-  const crumbs = useMemo(() => breadcrumbs ?? inferBreadcrumbs(pathname, appMode), [breadcrumbs, pathname, appMode])
+  const crumbs = useMemo(() => breadcrumbs ?? inferBreadcrumbs(pathname), [breadcrumbs, pathname])
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [readIds, setReadIds] = useState<Set<string>>(new Set())

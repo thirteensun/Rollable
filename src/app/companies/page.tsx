@@ -28,16 +28,13 @@ export default async function CompaniesPage() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 500, color: '#1a1a18', margin: 0, textTransform: 'capitalize' }}>
-          {mode.terms.companies}
+          {mode.nav.companies}
         </h1>
         <Link href="/capture" className="btn-chrome">
           + Capture
         </Link>
       </div>
-      <CompaniesList
-        companies={companies ?? []}
-        labels={{ singular: mode.terms.company, plural: mode.terms.companies }}
-      />
+      <CompaniesList companies={companies ?? []} />
     </div>
   )
 }
